@@ -1,0 +1,42 @@
+{
+    "common": {
+        "title": "सोशल-कोड",
+        "home": "होम",
+        "dashboard": "डैशबोर्ड",
+        "submit_problem": "समस्या सबमिट करें",
+        "volunteer_profile": "स्वयंसेवक प्रोफाइल",
+        "login": "लॉगिन",
+        "logout": "लॉगआउट",
+        "loading": "लोड हो रहा है...",
+        "language": "भाषा",
+        "en": "अंग्रेजी",
+        "hi": "हिंदी"
+    },
+    "home": {
+        "hero_title": "स्वयंसेवकों को गांव की जरूरतों से जोड़ना",
+        "hero_subtitle": "ग्रामीण समुदायों को सशक्त बनाने के लिए सहायएआई (SahayAI) द्वारा संचालित एक बुद्धिमान, मल्टी-मॉडल प्लेटफॉर्म।",
+        "get_started": "शुरू करें",
+        "how_it_works": "यह कैसे काम करता है"
+    },
+    "dashboard": {
+        "coordinator_dashboard": "कोऑर्डिनेटर डैशबोर्ड",
+        "total_problems": "कुल समस्याएं",
+        "pending": "लंबित",
+        "in_progress": "प्रगति पर",
+        "completed": "पूरा हुआ",
+        "search_placeholder": "समस्याएं खोजें...",
+        "assign_team": "टीम नियुक्त करें",
+        "find_teams": "टीमें खोजें"
+    },
+    "submit": {
+        "submit_heading": "नई समस्या सबमिट करें",
+        "village_name": "गांव का नाम",
+        "village_address": "गांव का पता",
+        "problem_title": "समस्या का शीर्षक",
+        "category": "श्रेणी",
+        "description": "विवरण",
+        "upload_photo": "फोटो अपलोड करें",
+        "record_audio": "ऑडियो रिकॉर्ड करें (आवाज रिपोर्ट)",
+        "submit_button": "समस्या सबमिट करें"
+    }
+}

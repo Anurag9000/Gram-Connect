@@ -5,3 +5,10 @@ scipy
 pandas
 fastapi
 uvicorn
+openai-whisper
+torch
+torchvision
+pillow
+ftfy
+regex
+tqdm

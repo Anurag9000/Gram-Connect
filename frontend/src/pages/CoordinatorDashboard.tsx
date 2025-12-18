@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../config';
-import {
-  Filter, Search, CheckCircle, Clock, AlertCircle, Users,
-  X, Cpu, UserCheck
-} from 'lucide-react';
+import { Search, CheckCircle, Clock, AlertCircle, Users, X, Cpu, UserCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { useTranslation } from 'react-i18next';
+import ProblemMap from '../components/ProblemMap';
+import LanguageToggle from '../components/LanguageToggle';
 import type { Database } from '../lib/database.types';
 
 type Problem = Database['public']['Tables']['problems']['Row'];
@@ -23,13 +22,24 @@ interface ProblemWithDetails extends Problem {
 }
 
 // --- NEW TYPE for Mock AI Teams ---
-interface AITeam {`n  id: string;`n  name: string;`n  members: any[];`n  goodness: number;`n  coverage: number;`n  kRobustness: number;`n  willingnessAvg: number;`n}
+interface AITeam {
+  id: string;
+  name: string;
+  members: any[];
+  goodness: number;
+  coverage: number;
+  kRobustness: number;
+  willingnessAvg: number;
+  mockScore?: number;
+  combinedSkills: string[];
+}
 
 interface CoordinatorDashboardProps {
   onNavigate: (page: string) => void;
 }
 
 export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboardProps) {
+  const { t } = useTranslation();
   const { profile } = useAuth();
   const [problems, setProblems] = useState<ProblemWithDetails[]>([]);
   const [filteredProblems, setFilteredProblems] = useState<ProblemWithDetails[]>([]);
@@ -40,7 +50,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProblem, setSelectedProblem] = useState<ProblemWithDetails | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  
+
   const [teamSize, setTeamSize] = useState(1);
   const [severityOverride, setSeverityOverride] = useState<'AUTO' | 'LOW' | 'NORMAL' | 'HIGH'>('AUTO');
   const [taskStart, setTaskStart] = useState(() => new Date().toISOString().slice(0, 16));
@@ -77,6 +87,8 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
         category: 'infrastructure',
         village_name: 'Test Village',
         status: 'pending',
+        lat: 21.1458,
+        lng: 79.0882,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         profiles: { id: 'villager-1', full_name: 'Submitted by Coordinator', email: 'anon@test.com', role: 'villager', created_at: new Date().toISOString(), phone: null }
@@ -89,6 +101,8 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
         category: 'digital',
         village_name: 'Other Village',
         status: 'in_progress',
+        lat: 21.1610,
+        lng: 79.0720,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         profiles: { id: 'villager-2', full_name: 'Submitted by Coordinator', email: 'jane@test.com', role: 'villager', created_at: new Date().toISOString(), phone: null }
@@ -185,7 +199,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
   const getFilteredAndSortedVolunteers = () => {
     let individuals = [...allVolunteers];
     if (individualSearch) {
-      individuals = individuals.filter(v => 
+      individuals = individuals.filter(v =>
         v.profile?.full_name.toLowerCase().includes(individualSearch.toLowerCase()) ||
         v.skills.join(' ').toLowerCase().includes(individualSearch.toLowerCase())
       );
@@ -249,6 +263,8 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
         kRobustness: team.k_robustness,
         willingnessAvg: team.willingness_avg,
         members: team.members || [],
+        mockScore: Math.round(team.goodness * 100),
+        combinedSkills: Array.from(new Set(team.members?.flatMap((m: any) => m.skills || []) || []))
       }));
       setAiTeams(teams);
     } catch (error) {
@@ -316,20 +332,31 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
     inProgress: problems.filter((p) => p.status === 'in_progress').length,
     completed: problems.filter((p) => p.status === 'completed').length,
   };
-  
+
   const displayedVolunteers = getFilteredAndSortedVolunteers();
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-green-700 mb-8">Coordinator Dashboard</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-green-700">{t('dashboard.coordinator_dashboard')}</h1>
+          <div className="flex items-center gap-4">
+            <button onClick={() => onNavigate('home')} className="text-green-700 font-semibold">{t('common.home')}</button>
+            <LanguageToggle />
+          </div>
+        </div>
+
+        {/* --- Interactive Map --- */}
+        <div className="mb-8 h-[400px]">
+          <ProblemMap problems={filteredProblems} center={[21.1458, 79.0882]} zoom={12} />
+        </div>
 
         {/* --- RESTORED: Stats Cards --- */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Total Problems</p>
+                <p className="text-gray-600 text-sm">{t('dashboard.total_problems')}</p>
                 <p className="text-3xl font-bold text-gray-800">{stats.total}</p>
               </div>
               <AlertCircle className="text-gray-400" size={32} />
@@ -338,7 +365,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Pending</p>
+                <p className="text-gray-600 text-sm">{t('dashboard.pending')}</p>
                 <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
               </div>
               <Clock className="text-yellow-400" size={32} />
@@ -347,7 +374,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">In Progress</p>
+                <p className="text-gray-600 text-sm">{t('dashboard.in_progress')}</p>
                 <p className="text-3xl font-bold text-blue-600">{stats.inProgress}</p>
               </div>
               <Users className="text-blue-400" size={32} />
@@ -356,7 +383,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">Completed</p>
+                <p className="text-gray-600 text-sm">{t('dashboard.completed')}</p>
                 <p className="text-3xl font-bold text-green-600">{stats.completed}</p>
               </div>
               <CheckCircle className="text-green-400" size={32} />
@@ -372,7 +399,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Search problems by title, village, or description..."
+                placeholder={t('dashboard.search_placeholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -426,13 +453,12 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-semibold text-gray-800">{problem.title}</h3>
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            problem.status === 'pending'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : problem.status === 'in_progress'
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${problem.status === 'pending'
+                            ? 'bg-yellow-100 text-yellow-700'
+                            : problem.status === 'in_progress'
                               ? 'bg-blue-100 text-blue-700'
                               : 'bg-green-100 text-green-700'
-                          }`}
+                            }`}
                         >
                           {problem.status.replace('_', ' ').toUpperCase()}
                         </span>
@@ -474,7 +500,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
                           }}
                           className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition whitespace-nowrap"
                         >
-                          Assign Team
+                          {t('dashboard.assign_team')}
                         </button>
                       )}
                       {problem.status === 'in_progress' && (
@@ -513,32 +539,30 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
               </button>
             </div>
             <p className="text-gray-600 mb-4">Problem: {selectedProblem.title}</p>
-            
+
             <div className="flex border-b border-gray-200 mb-4">
               <button
                 onClick={() => setModalTab('manual')}
-                className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium ${
-                  modalTab === 'manual' 
-                    ? 'border-b-2 border-green-600 text-green-600' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium ${modalTab === 'manual'
+                  ? 'border-b-2 border-green-600 text-green-600'
+                  : 'text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 <UserCheck size={18} />
                 <span>Manual Assignment</span>
               </button>
               <button
                 onClick={() => setModalTab('ai')}
-                className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium ${
-                  modalTab === 'ai' 
-                    ? 'border-b-2 border-green-600 text-green-600' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium ${modalTab === 'ai'
+                  ? 'border-b-2 border-green-600 text-green-600'
+                  : 'text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 <Cpu size={18} />
                 <span>AI Team Recommender</span>
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto pr-2">
               {modalTab === 'manual' && (
                 <div>
@@ -595,7 +619,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
                   )}
                 </div>
               )}
-              
+
               {modalTab === 'ai' && (
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800 mb-3">Find Best Teams</h3>
@@ -648,7 +672,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
                   )}
 
                   {aiLoading && aiTeams.length === 0 ? (
-                     <p className="text-gray-600 text-center py-8">Running AI algorithm...</p>
+                    <p className="text-gray-600 text-center py-8">Running AI algorithm...</p>
                   ) : aiTeams.length === 0 ? (
                     <p className="text-gray-600 text-center py-8">Click "Find Teams" to see AI recommendations.</p>
                   ) : (

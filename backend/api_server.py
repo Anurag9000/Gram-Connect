@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 from m3_trainer import TrainingConfig, train_model
 from m3_recommend import RecommendationConfig
 from recommender_service import generate_recommendations
+from multimodal_service import transcribe_audio, analyze_image
+from notification_service import notify_team_assignment
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,6 +72,9 @@ class RecommendRequest(BaseModel):
     distance_scale: float = 50.0
     distance_decay: float = 30.0
     tau: float = 0.35
+    # Hybrid Multimodal extensions
+    transcription: Optional[str] = None
+    visual_tags: Optional[List[str]] = None
 
 
 class RecommendResponse(BaseModel):
@@ -112,6 +117,9 @@ async def recommend_endpoint(request: RecommendRequest):
         people=request.people_csv or DEFAULT_PEOPLE_CSV,
         proposal_text=request.proposal_text,
         proposal_location_override=request.village_name,
+        # Fuse multimodal inputs if present
+        transcription=request.transcription,
+        visual_tags=request.visual_tags,
         auto_extract=request.auto_extract,
         threshold=request.threshold,
         required_skills=request.required_skills,
@@ -138,8 +146,36 @@ async def recommend_endpoint(request: RecommendRequest):
         out=None,
     )
     try:
-        payload = generate_recommendations(config, write_output=False)
-        return RecommendResponse(**payload)
+        results = generate_recommendations(config)
+        
+        # Notify teams if recommendations were generated
+        if results and results.get("teams"):
+            logger.info("Triggering notifications for assigned teams...")
+            notify_team_assignment(
+                results["teams"], 
+                request.proposal_text or "Village Issue", 
+                request.village_name or "Village"
+            )
+
+        return RecommendResponse(**results)
     except Exception as exc:
         logger.exception("Recommendation failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@app.post("/transcribe")
+async def transcribe_endpoint(file_path: str):
+    try:
+        text = transcribe_audio(file_path)
+        return {"text": text}
+    except Exception as exc:
+        logger.exception("Transcription failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@app.post("/analyze-image")
+async def analyze_image_endpoint(file_path: str, labels: Optional[List[str]] = None):
+    try:
+        result = analyze_image(file_path, labels)
+        return result
+    except Exception as exc:
+        logger.exception("Image analysis failed")
         raise HTTPException(status_code=500, detail=str(exc))

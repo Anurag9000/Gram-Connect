@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   GraduationCap, Heart, Building, Laptop, MoreHorizontal,
-  CheckCircle, Upload, MapPin 
+  CheckCircle, Upload, MapPin, Loader2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
+import { useTranslation } from 'react-i18next';
+import AudioRecorder from '../components/AudioRecorder';
+import LanguageToggle from '../components/LanguageToggle';
 
 interface SubmitProblemProps {
   onNavigate: (page: string) => void;
@@ -19,22 +21,34 @@ const categories = [
 ];
 
 export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
+  const { t } = useTranslation();
   const { profile } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string>('');
   const [villageName, setVillageName] = useState('');
-  const [villageAddress, setVillageAddress] = useState(''); // Updated state name
+  const [villageAddress, setVillageAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [visualTags, setVisualTags] = useState<string[]>([]);
+  const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFileName(e.target.files[0].name);
+      const file = e.target.files[0];
+      setFileName(file.name);
+
+      // Simulate Visual Analysis (CLIP)
+      setIsAnalyzingImage(true);
+      await new Promise(res => setTimeout(res, 1500));
+      setVisualTags(["Infrastructure", "Water Issue"]);
+      setCategory("infrastructure");
+      setIsAnalyzingImage(false);
     } else {
       setFileName(null);
+      setVisualTags([]);
     }
   };
 
@@ -44,7 +58,6 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
     setLoading(true);
 
     try {
-      // Re-add validation for a Coordinator
       if (!profile || profile.role !== 'coordinator') {
         throw new Error('You must be a coordinator to submit a problem.');
       }
@@ -54,12 +67,11 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
       if (!category) {
         throw new Error('Please select a category.');
       }
-      // --- UPDATED VALIDATION ---
       if (!villageAddress) {
         throw new Error('Please enter the village address/specific location for the problem.');
       }
 
-      const submitterId = profile.id; // Submitted by the coordinator
+      const submitterId = profile.id;
 
       console.log('Mock Problem Submission:', {
         coordinator_id: submitterId,
@@ -67,8 +79,10 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
         description,
         category,
         village_name: villageName,
-        village_address: villageAddress, // Updated log key
+        village_address: villageAddress,
         fileName,
+        visual_tags: visualTags,
+        transcription_fused: !!description.includes("[Transcribed Audio]")
       });
 
       await new Promise(res => setTimeout(res, 1000));
@@ -77,8 +91,9 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
       setDescription('');
       setCategory('');
       setVillageName('');
-      setVillageAddress(''); // Reset address on success
+      setVillageAddress('');
       setFileName(null);
+      setVisualTags([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit problem');
     } finally {
@@ -86,7 +101,6 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
     }
   };
 
-  // --- NEW AUTH GUARD ---
   if (!profile || profile.role !== 'coordinator') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -139,10 +153,14 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-3xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <button onClick={() => onNavigate('home')} className="text-green-700 font-semibold">&larr; {t('common.home')}</button>
+          <LanguageToggle />
+        </div>
         <div className="bg-white rounded-xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-green-700 mb-2">Submit a New Problem</h1>
+          <h1 className="text-3xl font-bold text-green-700 mb-2">{t('submit.submit_heading')}</h1>
           <p className="text-gray-600 mb-8">
-            As a coordinator, you can enter new problems into the system here.
+            {profile?.full_name}, help us understand the problem. You can type, speak, or upload photos.
           </p>
 
           {error && (
@@ -161,16 +179,15 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
                 required
                 value={villageName}
                 onChange={(e) => setVillageName(e.target.value)}
-                placeholder="Enter the village name"
+                placeholder={t('submit.village_name')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
-            
-            {/* --- VILLAGE ADDRESS INPUT FIELD --- */}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 <div className="flex items-center gap-1">
-                    <MapPin size={16} className="text-green-600"/> Village Address / Specific Location <span className="text-red-500">*</span>
+                  <MapPin size={16} className="text-green-600" /> {t('submit.village_address')} <span className="text-red-500">*</span>
                 </div>
               </label>
               <input
@@ -178,22 +195,21 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
                 required
                 value={villageAddress}
                 onChange={(e) => setVillageAddress(e.target.value)}
-                placeholder="E.g., 45, Gandhi Road, near Panchayat Office"
+                placeholder="E.g., 45, Gandhi Road"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
-            {/* --- END VILLAGE ADDRESS INPUT FIELD --- */}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Problem Title <span className="text-red-500">*</span>
+                {t('submit.problem_title')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Brief title of the problem"
+                placeholder={t('submit.problem_title')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
@@ -208,11 +224,10 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
                     key={cat.id}
                     type="button"
                     onClick={() => setCategory(cat.id)}
-                    className={`p-4 rounded-lg border-2 transition ${
-                      category === cat.id
+                    className={`p-4 rounded-lg border-2 transition ${category === cat.id
                         ? 'border-green-600 bg-green-50'
                         : 'border-gray-200 hover:border-green-300'
-                    }`}
+                      }`}
                   >
                     <div className={`w-12 h-12 ${cat.color} rounded-full flex items-center justify-center mx-auto mb-2`}>
                       <cat.icon size={24} />
@@ -225,32 +240,35 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
               </div>
             </div>
 
-            {/* --- Description field remains unchanged --- */}
             <div>
               <div className="flex justify-between items-center mb-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  Problem Description <span className="text-red-500">*</span>
+                  {t('submit.description')} <span className="text-red-500">*</span>
                 </label>
               </div>
+
+              <div className="mb-4">
+                <AudioRecorder onTranscription={(text) => setDescription(prev => prev + "\n" + `[Transcribed Audio]: ${text}`)} />
+              </div>
+
               <textarea
                 required
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the problem in detail..."
+                placeholder={t('submit.description')}
                 rows={6}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
               />
             </div>
-            {/* --- END Description field --- */}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Upload Photo (Optional)
+                {t('submit.upload_photo')}
               </label>
               <label className="w-full flex items-center justify-center px-4 py-3 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer hover:border-green-500 hover:bg-green-50 transition">
                 <Upload size={20} className="text-gray-500 mr-2" />
                 <span className="text-sm text-gray-600">
-                  {fileName || 'Click to upload a photo'}
+                  {fileName || t('submit.upload_photo')}
                 </span>
                 <input
                   type="file"
@@ -259,6 +277,20 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
                   onChange={handleFileChange}
                 />
               </label>
+              {isAnalyzingImage && (
+                <div className="mt-2 flex items-center gap-2 text-blue-600 text-sm italic">
+                  <Loader2 size={16} className="animate-spin" />
+                  <span>AI is analyzing image contents...</span>
+                </div>
+              )}
+              {visualTags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="text-xs font-semibold text-gray-500">AI Detected:</span>
+                  {visualTags.map(tag => (
+                    <span key={tag} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">#{tag}</span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button

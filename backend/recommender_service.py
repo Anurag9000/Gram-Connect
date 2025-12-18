@@ -129,8 +129,19 @@ def generate_recommendations(config: RecommendationConfig, write_output: bool = 
     if config.proposal_file:
         with open(config.proposal_file, "r", encoding="utf-8") as f:
             text = f.read()
+
+    # Fusion of Multimodal Information
+    if config.transcription:
+        logger.info("Fusing transcribed audio into proposal...")
+        text = f"{text or ''}\n\n[Transcribed Audio]: {config.transcription}".strip()
+    
+    if config.visual_tags:
+        logger.info("Fusing visual tags into proposal...")
+        tags_str = ", ".join(config.visual_tags)
+        text = f"{text or ''}\n\n[Visual Tags]: {tags_str}".strip()
+
     if not text:
-        raise SystemExit("proposal_text or proposal_file is required")
+        raise SystemExit("proposal_text, proposal_file, or multimodal input is required")
 
     village_names = load_village_names(config.village_locations)
     distance_lookup = load_distance_lookup(config.distance_csv)

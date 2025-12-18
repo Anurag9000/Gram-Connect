@@ -35,8 +35,8 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
 
       window.googleTranslateElementInit = () => {
         new window.google.translate.TranslateElement(
-          { 
-            pageLanguage: 'en', 
+          {
+            pageLanguage: 'en',
             layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
             includedLanguages: 'en,hi,bn,ta,te,mr,pa,gu,kn'
           },
@@ -57,20 +57,20 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
         banner.style.display = 'none';
         if (body.style.top !== '0px') {
           body.style.top = '0px';
-          body.style.position = 'relative'; 
+          body.style.position = 'relative';
         }
       } else {
-         if (body.style.top !== '' && body.style.top !== '0px') {
-            body.style.top = '0px';
-            body.style.position = 'relative';
-         }
+        if (body.style.top !== '' && body.style.top !== '0px') {
+          body.style.top = '0px';
+          body.style.position = 'relative';
+        }
       }
-    }, 100); 
+    }, 100);
 
     return () => {
       clearInterval(intervalId);
     };
-  }, []); 
+  }, []);
 
   return (
     <nav className="bg-green-600 text-white shadow-lg">
@@ -78,17 +78,16 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-2">
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <span className="text-green-600 font-bold text-xl">G</span>
+              <span className="text-green-600 font-bold text-xl">S</span>
             </div>
-            <h1 className="text-xl font-bold">Gram-Connect</h1>
+            <h1 className="text-xl font-bold">SocialCode</h1>
           </div>
 
           <div className="flex space-x-1 md:space-x-2 items-center">
             <button
               onClick={() => onNavigate('home')}
-              className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${
-                currentPage === 'home' ? 'bg-green-700' : 'hover:bg-green-700'
-              }`}
+              className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${currentPage === 'home' ? 'bg-green-700' : 'hover:bg-green-700'
+                }`}
             >
               <Home size={20} />
               <span className="hidden sm:inline">Home</span>
@@ -97,9 +96,8 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
             {profile?.role === 'coordinator' && (
               <button
                 onClick={() => onNavigate('submit')}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${
-                  currentPage === 'submit' ? 'bg-green-700' : 'hover:bg-green-700'
-                }`}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${currentPage === 'submit' ? 'bg-green-700' : 'hover:bg-green-700'
+                  }`}
               >
                 <FileText size={20} />
                 <span className="hidden sm:inline">New Problem</span>
@@ -107,23 +105,31 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
             )}
 
             {profile?.role === 'volunteer' && (
-              <button
-                onClick={() => onNavigate('profile')}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${
-                  currentPage === 'profile' ? 'bg-green-700' : 'hover:bg-green-700'
-                }`}
-              >
-                <UserPlus size={20} />
-                <span className="hidden sm:inline">Profile</span>
-              </button>
+              <>
+                <button
+                  onClick={() => onNavigate('volunteer-dashboard')}
+                  className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${currentPage === 'volunteer-dashboard' ? 'bg-green-700' : 'hover:bg-green-700'
+                    }`}
+                >
+                  <LayoutDashboard size={20} />
+                  <span className="hidden sm:inline">My Tasks</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('profile')}
+                  className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${currentPage === 'profile' ? 'bg-green-700' : 'hover:bg-green-700'
+                    }`}
+                >
+                  <UserPlus size={20} />
+                  <span className="hidden sm:inline">Profile</span>
+                </button>
+              </>
             )}
 
             {profile?.role === 'coordinator' && (
               <button
                 onClick={() => onNavigate('dashboard')}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${
-                  currentPage === 'dashboard' ? 'bg-green-700' : 'hover:bg-green-700'
-                }`}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${currentPage === 'dashboard' ? 'bg-green-700' : 'hover:bg-green-700'
+                  }`}
               >
                 <LayoutDashboard size={20} />
                 <span className="hidden sm:inline">Dashboard</span>
@@ -145,7 +151,7 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
                 className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${
                   // It's "active" if we are on the home page (where the panels are)
                   currentPage === 'home' ? 'bg-green-700' : 'hover:bg-green-700'
-                }`}
+                  }`}
               >
                 <LogIn size={20} />
                 <span className="hidden sm:inline">Login</span>

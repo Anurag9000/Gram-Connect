@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from m3_trainer import TrainingConfig, train_model
@@ -27,6 +28,14 @@ DEFAULT_VILLAGE_LOCATIONS = os.path.join(DATASET_ROOT, "village_locations.csv")
 DEFAULT_DISTANCE_CSV = os.path.join(DATASET_ROOT, "village_distances.csv")
 
 app = FastAPI(title="SocialCode Backend Service")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # For development; refine for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class TrainRequest(BaseModel):
@@ -179,3 +188,6 @@ async def analyze_image_endpoint(file_path: str, labels: Optional[List[str]] = N
     except Exception as exc:
         logger.exception("Image analysis failed")
         raise HTTPException(status_code=500, detail=str(exc))
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

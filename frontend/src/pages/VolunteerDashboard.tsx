@@ -1,13 +1,19 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     CheckCircle, Clock, Camera, MapPin,
     ChevronRight, ArrowLeft, Loader2
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '../components/LanguageToggle';
 
 interface VolunteerDashboardProps {
+    onNavigate: (page: string) => void;
 }
 
-export default function VolunteerDashboard() {
+export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardProps) {
+    const { profile } = useAuth();
+    const { t } = useTranslation();
     const [selectedTask, setSelectedTask] = useState<any | null>(null);
     const [beforeImage, setBeforeImage] = useState<string | null>(null);
     const [afterImage, setAfterImage] = useState<string | null>(null);
@@ -115,9 +121,13 @@ export default function VolunteerDashboard() {
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h1 className="text-3xl font-extrabold text-gray-900">Volunteer Assignment Dashboard</h1>
-                        <p className="text-gray-600">Making a difference, one village at a time.</p>
+                        <p className="text-gray-600">{t('volunteer.dashboard_subtitle')}</p>
                     </div>
-                    <LanguageToggle />
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => onNavigate('home')} className="text-green-700 font-semibold">{t('common.home')}</button>
+                        <LanguageToggle />
+                        {profile && <span className="text-xs text-gray-400">ID: {profile.id.slice(0, 8)}</span>}
+                    </div>
                 </div>
 
                 <div className="grid gap-6">

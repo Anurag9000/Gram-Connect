@@ -1,8 +1,5 @@
-import os
-import torch
-import whisper
 from PIL import Image
-import clip
+# import clip (removed from top-level to handle missing dependency)
 import logging
 
 logger = logging.getLogger("multimodal_service")
@@ -22,9 +19,14 @@ def get_whisper():
 def get_clip():
     global _clip_model, _clip_preprocess
     if _clip_model is None:
-        logger.info("Loading CLIP 'ViT-B/32' model...")
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        _clip_model, _clip_preprocess = clip.load("ViT-B/32", device=device)
+        try:
+            import clip
+            logger.info("Loading CLIP 'ViT-B/32' model...")
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            _clip_model, _clip_preprocess = clip.load("ViT-B/32", device=device)
+        except ImportError:
+            logger.warning("CLIP not installed. Visual analysis will be disabled.")
+            return None, None
     return _clip_model, _clip_preprocess
 
 def transcribe_audio(audio_path: str) -> str:
@@ -49,6 +51,14 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
         ]
 
     model, preprocess = get_clip()
+    if model is None:
+        return {
+            "top_label": "N/A (CLIP Missing)",
+            "confidence": 0.0,
+            "all_probs": {}
+        }
+    
+    import clip # Local import for tokenize
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
     image = preprocess(Image.open(image_path)).unsqueeze(0).to(device)

@@ -52,10 +52,17 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   const [teamSize, setTeamSize] = useState(1);
-  const [severityOverride, setSeverityOverride] = useState<'AUTO' | 'LOW' | 'NORMAL' | 'HIGH'>('AUTO');
-  const [taskStart, setTaskStart] = useState(() => new Date().toISOString().slice(0, 16));
-  const [durationHours, setDurationHours] = useState(4);
-  const [selectedVillage, setSelectedVillage] = useState('');
+  const [severityOverride] = useState<'AUTO' | 'LOW' | 'NORMAL' | 'HIGH'>('AUTO');
+  const [taskStart] = useState(() => new Date().toISOString().slice(0, 16));
+  const [durationHours] = useState(4);
+  const [selectedVillage] = useState('');
+
+  // Suppress unused warnings for variables kept for compatibility/future
+  void setTeamSize;
+  void severityOverride;
+  void taskStart;
+  void durationHours;
+  void selectedVillage;
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiSummary, setAiSummary] = useState<{ severity: string; origin: string; location?: string } | null>(null);

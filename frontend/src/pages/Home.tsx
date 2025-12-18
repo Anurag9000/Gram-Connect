@@ -1,7 +1,7 @@
 import { ArrowRight, Zap, Globe, MessageSquare, Map, Users } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../components/LanguageToggle';
 import { useAuth } from '../contexts/AuthContext';
+import { useTranslation } from 'react-i18next';
 
 interface HomeProps {
   onNavigate: (page: string) => void;
@@ -9,6 +9,7 @@ interface HomeProps {
 
 export default function Home({ onNavigate }: HomeProps) {
   const { profile } = useAuth();
+  const { t } = useTranslation();
 
   // Show this view if a user (Volunteer or Coordinator) is logged in
   if (profile) {
@@ -29,21 +30,21 @@ export default function Home({ onNavigate }: HomeProps) {
                   <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
                     <Zap className="text-green-600" size={24} />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Coordinator Dashboard</h2>
-                  <p className="text-gray-600 mb-6">Manage village problems, view the map, and assign volunteer teams using AI optimizations.</p>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.dashboard_title')}</h2>
+                  <p className="text-gray-600 mb-6">{t('home.dashboard_desc')}</p>
                   <div className="flex items-center text-green-600 font-semibold">
-                    Go to Dashboard <ArrowRight className="ml-2" size={20} />
+                    {t('common.go_to_dashboard')} <ArrowRight className="ml-2" size={20} />
                   </div>
                 </div>
 
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => onNavigate('submit-problem')}>
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => onNavigate('submit')}>
                   <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
                     <MessageSquare className="text-blue-600" size={24} />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Submit New Problem</h2>
-                  <p className="text-gray-600 mb-6">Record a new issue from a village. Use audio transcription or image analysis for quick entry.</p>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.submit_title')}</h2>
+                  <p className="text-gray-600 mb-6">{t('home.submit_desc')}</p>
                   <div className="flex items-center text-blue-600 font-semibold">
-                    Submit Problem <ArrowRight className="ml-2" size={20} />
+                    {t('common.submit_problem')} <ArrowRight className="ml-2" size={20} />
                   </div>
                 </div>
               </>
@@ -67,7 +68,7 @@ export default function Home({ onNavigate }: HomeProps) {
 
   // Hero section for non-logged in users
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white pt-16">
       {/* Navigation */}
       <nav className="fixed w-full bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -81,7 +82,7 @@ export default function Home({ onNavigate }: HomeProps) {
               <a href="#how-it-works" className="text-gray-600 hover:text-green-600 transition">How it Works</a>
               <LanguageToggle />
               <button
-                onClick={() => onNavigate('login')}
+                onClick={() => onNavigate('volunteer-login')}
                 className="bg-green-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-green-700 transition shadow-lg shadow-green-200"
               >
                 Sign In
@@ -110,7 +111,7 @@ export default function Home({ onNavigate }: HomeProps) {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <button
-              onClick={() => onNavigate('login')}
+              onClick={() => onNavigate('volunteer-login')}
               className="bg-gray-900 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-800 transition flex items-center group"
             >
               Start Volunteering

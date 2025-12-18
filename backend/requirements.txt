@@ -12,3 +12,7 @@ pillow
 ftfy
 regex
 tqdm
+httpx
+# Note: clip usually installed via: pip install git+https://github.com/openai/CLIP.git
+# We will add it as a placeholder here if it's already installed or if we handle it separately.
+git+https://github.com/openai/CLIP.git

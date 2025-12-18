@@ -8,7 +8,7 @@ import CoordinatorDashboard from './pages/CoordinatorDashboard';
 // --- ADD THESE NEW IMPORTS ---
 import VolunteerLogin from './pages/VolunteerLogin';
 import CoordinatorLogin from './pages/CoordinatorLogin';
-import VolunteerDashboard from './pages/VolunteerDashboard';
+import VolunteerDashboard from './pages/VolunteerDashboard'; // Ensure this matches the export
 
 function AppContent() {
   const { loading } = useAuth();

@@ -55,14 +55,13 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
 
       if (banner) {
         banner.style.display = 'none';
-        if (body.style.top !== '0px') {
-          body.style.top = '0px';
-          body.style.position = 'relative';
-        }
+        banner.style.visibility = 'hidden';
+      }
+      if (body.style.top !== '0px') {
+        body.style.top = '0px';
       } else {
-        if (body.style.top !== '' && body.style.top !== '0px') {
+        if (body.style.top && body.style.top !== '0px') {
           body.style.top = '0px';
-          body.style.position = 'relative';
         }
       }
     }, 100);
@@ -139,27 +138,31 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
             {profile ? (
               <button
                 onClick={handleSignOut}
-                className="flex items-center space-x-1 px-3 py-2 rounded-lg hover:bg-green-700 transition"
+                className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 transition"
               >
                 <LogOut size={20} />
                 <span className="hidden sm:inline">Logout</span>
               </button>
             ) : (
-              // --- UPDATED: This button now navigates to 'home' ---
-              <button
-                onClick={() => onNavigate('home')}
-                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${
-                  // It's "active" if we are on the home page (where the panels are)
-                  currentPage === 'home' ? 'bg-green-700' : 'hover:bg-green-700'
-                  }`}
-              >
-                <LogIn size={20} />
-                <span className="hidden sm:inline">Login</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => onNavigate('volunteer-login')}
+                  className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition border border-white/20"
+                >
+                  <LogIn size={20} />
+                  <span className="hidden sm:inline">Volunteer</span>
+                </button>
+                <button
+                  onClick={() => onNavigate('coordinator-login')}
+                  className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-green-700 hover:bg-green-800 transition shadow-sm"
+                >
+                  <LogIn size={20} />
+                  <span className="hidden sm:inline">Coordinator</span>
+                </button>
+              </div>
             )}
 
             <div id="google_translate_element" className="ml-2"></div>
-
           </div>
         </div>
       </div>

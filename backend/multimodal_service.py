@@ -1,3 +1,6 @@
+import os
+import whisper
+import torch
 from PIL import Image
 # import clip (removed from top-level to handle missing dependency)
 import logging

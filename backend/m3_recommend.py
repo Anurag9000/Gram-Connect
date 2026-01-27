@@ -30,29 +30,33 @@ from embeddings import embed_with
 from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 
+from utils import (
+    AVAILABILITY_LEVELS,
+    SEVERITY_LABELS,
+    SEVERITY_KEYWORDS,
+    SEVERITY_AVAILABILITY_PENALTIES,
+    VILLAGE_FALLBACK_SKILLS,
+    robust_sigmoid,
+    normalize_phrase,
+    read_csv_norm,
+    get_any,
+    load_village_names,
+    load_distance_lookup,
+    extract_location,
+    estimate_severity,
+    severity_penalty,
+    lookup_distance_km,
+    parse_datetime,
+    split_hours_by_week,
+    intervals_overlap,
+    parse_schedule_csv,
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
 )
 logger = logging.getLogger("m3_recommend")
-
-AVAILABILITY_LEVELS = {
-    "rarely available": 0,
-    "generally available": 1,
-    "immediately available": 2,
-}
-
-SEVERITY_LABELS = {0: "LOW", 1: "NORMAL", 2: "HIGH"}
-SEVERITY_KEYWORDS = {
-    2: ["urgent", "immediate", "critical", "outbreak", "epidemic", "collapse", "broken", "flood", "drought", "disease", "contamination", "crisis", "emergency"],
-    1: ["audit", "survey", "assessment", "monitoring", "planning", "inspection", "review", "repair", "maintenance"],
-}
-
-SEVERITY_AVAILABILITY_PENALTIES = {
-    2: {"generally available": 0.2, "rarely available": 0.4},
-    1: {"rarely available": 0.2},
-    0: {},
-}
 
 @dataclass
 class RecommendationConfig:
@@ -89,142 +93,6 @@ class RecommendationConfig:
     # Hybrid Multimodal extensions
     transcription: Optional[str] = None
     visual_tags: Optional[List[str]] = None
-# ---------------- utils ----------------
-
-def sigmoid(x: float) -> float:
-    return 1.0 / (1.0 + math.exp(-x))
-
-def read_csv_norm(fp: str) -> List[Dict[str, Any]]:
-    rows = []
-    with open(fp, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        if reader.fieldnames is None:
-            raise SystemExit(f"{fp}: missing header row")
-        reader.fieldnames = [h.strip().lower() for h in reader.fieldnames]
-        for r in reader:
-            rows.append({(k.strip().lower() if k else k): (v.strip() if isinstance(v, str) else v)
-                         for k, v in r.items()})
-    return rows
-
-def get_any(d: Dict[str, Any], keys, default=None):
-    for k in keys:
-        if k in d and d[k] not in ("", None):
-            return d[k]
-    return default
-
-def normalize_phrase(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
-
-def load_village_names(path: str) -> List[str]:
-    if not path or not os.path.exists(path):
-        return []
-    rows = read_csv_norm(path)
-    names = [get_any(r, ["village_name", "village", "name"], "") for r in rows]
-    names = [n for n in names if n]
-    return sorted(names, key=lambda n: len(n), reverse=True)
-
-def load_distance_lookup(path: str) -> Dict[Tuple[str, str], Dict[str, float]]:
-    lookup: Dict[Tuple[str, str], Dict[str, float]] = {}
-    if not path or not os.path.exists(path):
-        return lookup
-    rows = read_csv_norm(path)
-    for r in rows:
-        a = get_any(r, ["village_a", "from", "source"])
-        b = get_any(r, ["village_b", "to", "destination"])
-        if not a or not b:
-            continue
-        dist = float(get_any(r, ["distance_km", "distance"], 0.0) or 0.0)
-        travel = float(get_any(r, ["travel_time_min", "travel_min"], 0.0) or 0.0)
-        lookup[(a.lower(), b.lower())] = {"distance": dist, "travel": travel}
-        lookup[(b.lower(), a.lower())] = {"distance": dist, "travel": travel}
-    return lookup
-
-def extract_location(text: str, village_names: List[str]) -> str:
-    norm_text = normalize_phrase(text or "")
-    for name in village_names:
-        if normalize_phrase(name) in norm_text:
-            return name
-    return ""
-
-def estimate_severity(text: str) -> int:
-    text_norm = (text or "").lower()
-    for kw in SEVERITY_KEYWORDS[2]:
-        if kw in text_norm:
-            return 2
-    for kw in SEVERITY_KEYWORDS[1]:
-        if kw in text_norm:
-            return 1
-    return 0
-
-def severity_penalty(availability_label: str, severity_level: int) -> float:
-    label = (availability_label or "").lower()
-    penalties = SEVERITY_AVAILABILITY_PENALTIES.get(severity_level, {})
-    return penalties.get(label, 0.0)
-
-def lookup_distance_km(origin: str, target: str, distance_lookup: Dict[Tuple[str, str], Dict[str, float]]) -> float:
-    if not origin or not target:
-        return 0.0
-    rec = distance_lookup.get((origin.lower(), target.lower()))
-    if rec:
-        return float(rec.get("distance", 0.0))
-    return 0.0
-
-# ------------- expanded fallback skills -------------
-# Canonical, skill-like phrases (not just keywords) for village projects
-VILLAGE_FALLBACK_SKILLS = [
-    # WASH
-    "water quality assessment",
-    "drainage design and de-silting",
-    "handpump repair and maintenance",
-    "borewell installation and rehabilitation",
-    "rainwater harvesting",
-    "fecal sludge management",
-    "toilet construction and retrofitting",
-    "solid waste segregation and composting",
-    "hygiene behavior change communication",
-    # Rivers / irrigation / groundwater
-    "river restoration",
-    "watershed management",
-    "groundwater assessment and monitoring",
-    "check dam and nala bund construction",
-    "farm pond design and maintenance",
-    # Agriculture & livelihoods
-    "soil testing and fertility management",
-    "integrated pest management",
-    "drip and sprinkler irrigation setup",
-    "dairy and livestock management",
-    "fisheries pond management",
-    # Energy & infrastructure
-    "solar microgrid design and maintenance",
-    "solar pumping systems",
-    "rural road maintenance and culvert repair",
-    "culvert and causeway design",
-    "low-cost housing construction and PMAY support",
-    # Governance & community
-    "panchayat planning and budgeting",
-    "gram sabha facilitation",
-    "self-help group formation and strengthening",
-    "mgnrega works planning and measurement",
-    "beneficiary identification and targeting",
-    # Health, education
-    "public health outreach",
-    "school wq testing and wash in schools",
-    "anganwadi strengthening",
-    "education and digital literacy",
-    # Environment & climate
-    "tree plantation and survival monitoring",
-    "erosion control and gully plugging",
-    "biodiversity and habitat restoration",
-    "disaster preparedness and response",
-    # Data & ops
-    "gis and remote sensing",
-    "household survey and enumeration",
-    "data analysis and reporting",
-    "mobile data collection and dashboards",
-    "sensor deployment and iot",
-    "project management",
-    "safety and risk management",
-]
 
 # -------- reading people / roster (robust) --------
 
@@ -239,10 +107,8 @@ def read_people(people_csv: str) -> List[Dict]:
         name = get_any(r, ["name","person_name","full_name"], pid)
         text = get_any(r, ["text","skills"], "")
         # turn either "text" or "skills" into a list of phrases; accept both sentencey or ; separated
-        if "skills" in r and r["skills"]:
-            raw = r["skills"]
-        else:
-            raw = text
+        raw = get_any(r, ["skills", "text"], "")
+        
         # split on semicolons if present; otherwise keep sentences/phrases by splitting on commas as a fallback
         if ";" in raw:
             skills = [s.strip() for s in raw.split(";") if s.strip()]
@@ -257,7 +123,7 @@ def read_people(people_csv: str) -> List[Dict]:
             bias = float(get_any(r, ["willingness_bias","bias","w_bias"], 0.5))
         except Exception:
             bias = 0.5
-        W = sigmoid(eff + bias)
+        W = robust_sigmoid(eff + bias)
         out.append({
             "person_id": pid,
             "name": name,
@@ -313,7 +179,12 @@ def similarity_coverage(required: List[str], team_members: List[Dict], backend: 
         if s < tau:
             adj.append(0.0)
         else:
-            adj.append((s - tau) / (1.0 - tau))
+            # Handle tau=1.0 edge case or very high tau
+            denom = (1.0 - tau)
+            if denom <= 1e-6: # Case where tau is close to 1.0
+                adj.append(1.0 if s >= tau else 0.0)
+            else:
+                adj.append(min(1.0, (s - tau) / denom))
     coverage = float(np.mean(adj)) if len(adj) else 0.0
     return coverage, {required[i]: float(per_req_best[i]) for i in range(len(required))}, covered_counts
 
@@ -329,7 +200,9 @@ def k_robustness(required: List[str], team_members: List[Dict], backend: str, mo
     if not all(v >= tau for v in per_req_best.values()):
         return 0.0
     n = len(team_members)
-    k = max(1, min(k, n))
+    if n == 0:
+        return 0.0
+    k = max(1, min(k, n - 1 if n > 1 else 1)) # Can't remove all members if n=1
     import itertools, random
     subsets = []
     for r in range(1, k + 1):
@@ -381,11 +254,6 @@ def goodness(metrics: Dict[str, float], lambda_red: float = 1.0, lambda_size: fl
 DEFAULT_SIZE_BUCKETS = "small:2-10:10,medium:11-50:10,large:51-200:10"
 
 def parse_size_buckets(spec: str):
-    """
-    Parse a size bucket specification like:
-      "small:2-3:20,medium:4-6:100,high:7-999:500"
-    meaning label:min-max:limit, min/max inclusive, max can be 'inf'.
-    """
     buckets = []
     if not spec:
         return buckets
@@ -394,7 +262,7 @@ def parse_size_buckets(spec: str):
         try:
             label, size_range, limit = [x.strip() for x in part.split(":")]
         except ValueError:
-            raise SystemExit(f"Invalid --size_buckets entry '{part}'. Expected label:min-max:limit.")
+            raise ValueError(f"Invalid --size_buckets entry '{part}'. Expected label:min-max:limit.")
         if "-" in size_range:
             min_s, max_s = [x.strip() for x in size_range.split("-", 1)]
         else:
@@ -402,20 +270,20 @@ def parse_size_buckets(spec: str):
         try:
             min_size = int(min_s)
         except ValueError:
-            raise SystemExit(f"Invalid min size '{min_s}' in size bucket '{part}'.")
+            raise ValueError(f"Invalid min size '{min_s}' in size bucket '{part}'.")
         if max_s.lower() in ("inf", "infinity", "*", "max"):
             max_size = math.inf
         else:
             try:
                 max_size = int(max_s)
             except ValueError:
-                raise SystemExit(f"Invalid max size '{max_s}' in size bucket '{part}'.")
+                raise ValueError(f"Invalid max size '{max_s}' in size bucket '{part}'.")
         try:
             limit_int = int(limit)
         except ValueError:
-            raise SystemExit(f"Invalid limit '{limit}' in size bucket '{part}'.")
+            raise ValueError(f"Invalid limit '{limit}' in size bucket '{part}'.")
         if limit_int < 0:
-            raise SystemExit(f"Limit must be >= 0 in size bucket '{part}'.")
+            raise ValueError(f"Limit must be >= 0 in size bucket '{part}'.")
         buckets.append({
             "label": label,
             "min": min_size,
@@ -443,79 +311,10 @@ def select_top_teams_by_size(teams: List[Dict], buckets):
                 grouped[label].append(team)
             assigned = True
             break
-        if not assigned:
-            # Unbucketed teams are ignored for now.
-            pass
     ordered = []
     for bucket in buckets:
         ordered.extend(grouped[bucket["label"]])
     return ordered
-
-# ------------- scheduling & workload helpers -------------
-
-def parse_datetime(value: str, label: str) -> datetime:
-    if not value:
-        raise SystemExit(f"{label} is required.")
-    value = value.strip()
-    try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        raise SystemExit(f"{label} '{value}' is not a valid ISO-8601 timestamp.")
-    if dt.tzinfo:
-        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
-    return dt
-
-def split_hours_by_week(start: datetime, end: datetime) -> Dict[Tuple[int, int], float]:
-    if end <= start:
-        return {}
-    hours_by_week: Dict[Tuple[int, int], float] = defaultdict(float)
-    cursor = start
-    while cursor < end:
-        iso_year, iso_week, _ = cursor.isocalendar()
-        week_key = (iso_year, iso_week)
-        week_start = cursor - timedelta(days=cursor.weekday())
-        week_end = week_start + timedelta(days=7)
-        segment_end = min(end, week_end)
-        hours = (segment_end - cursor).total_seconds() / 3600.0
-        hours_by_week[week_key] += hours
-        cursor = segment_end
-    return dict(hours_by_week)
-
-def intervals_overlap(intervals: List[Tuple[datetime, datetime]], new_interval: Tuple[datetime, datetime]) -> bool:
-    ns, ne = new_interval
-    for s, e in intervals:
-        if s < ne and ns < e:
-            return True
-    return False
-
-def parse_schedule_csv(path: str) -> Dict[str, Dict[str, Any]]:
-    rows = read_csv_norm(path)
-    schedule: Dict[str, Dict[str, Any]] = {}
-    for row in rows:
-        pid = get_any(row, ["person_id", "student_id", "volunteer_id", "id"])
-        if not pid:
-            continue
-        start_raw = get_any(row, ["start", "start_time", "begin", "start_datetime"])
-        end_raw = get_any(row, ["end", "end_time", "finish", "finish_time", "end_datetime"])
-        if not start_raw or not end_raw:
-            continue
-        try:
-            start_dt = parse_datetime(start_raw, f"schedule start for {pid}")
-            end_dt = parse_datetime(end_raw, f"schedule end for {pid}")
-        except SystemExit as exc:
-            raise
-        if end_dt <= start_dt:
-            continue
-        info = schedule.setdefault(pid, {"intervals": [], "week_hours": defaultdict(float)})
-        info["intervals"].append((start_dt, end_dt))
-        week_hours = split_hours_by_week(start_dt, end_dt)
-        for wk, hrs in week_hours.items():
-            info["week_hours"][wk] += hrs
-    # normalize defaultdicts to dicts
-    for info in schedule.values():
-        if isinstance(info.get("week_hours"), defaultdict):
-            info["week_hours"] = dict(info["week_hours"])
-    return schedule
 
 # ------------- skill acquisition logic -------------
 
@@ -526,26 +325,18 @@ def _load_skills_json(path: str) -> List[str]:
         return [str(x) for x in blob]
     if isinstance(blob, dict) and "skills" in blob and isinstance(blob["skills"], list):
         return [str(x) for x in blob["skills"]]
-    raise SystemExit(f"--skills_json must be a JSON array or an object with a 'skills' array.")
+    raise ValueError(f"--skills_json must be a JSON array or an object with a 'skills' array.")
 
 def _auto_extract_skills(text: str, threshold: float) -> List[str]:
-    """
-    Try to import your expanded extractor. If not present, return a compact
-    set from VILLAGE_FALLBACK_SKILLS filtered by simple keyword heuristics.
-    """
     try:
-        # Attempt to use your expanded extractor file in the same directory
         import embed_skills_extractor as ex
-        # ex.extract_skills_embed(text, topk_per_sentence=7, threshold=threshold)
         return ex.extract_skills_embed(text, topk_per_sentence=7, threshold=threshold)
     except Exception:
-        # Heuristic fallback: pick subset of village skills based on text keywords
         t = (text or "").lower()
         keys = ["village","gram","panchayat","ward","toilet","drain","waste","river","water",
                 "anganwadi","school","handpump","borewell","harvesting","mgnrega","shg",
                 "pmay","health","nutrition","road","culvert","solar","gis","survey","iot"]
         if any(k in t for k in keys):
-            # return a reasonable, diverse subset
             base = [
                 "drainage design and de-silting",
                 "handpump repair and maintenance",
@@ -564,352 +355,326 @@ def _auto_extract_skills(text: str, threshold: float) -> List[str]:
                 "project management",
             ]
             return base
-        # absolute fallback
         return VILLAGE_FALLBACK_SKILLS[:12]
 
 # ------------------------ main ---------------------
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--model", required=True)
-    ap.add_argument("--proposal_text", help="Raw project/proposal text (use --proposal_file to read from file)")
-    ap.add_argument("--proposal_file", help="Path to a text file containing the proposal")
-    ap.add_argument("--people", required=True)
-    ap.add_argument("--required_skills", nargs="+", help="Explicit required skills (overrides auto/JSON)")
-    ap.add_argument("--skills_json", help="Path to JSON with ['skill', ...] or {'skills':[...]} to use as required")
-    ap.add_argument("--auto_extract", action="store_true", help="Auto extract skills from proposal_text using extractor or fallback")
-    ap.add_argument("--threshold", type=float, default=0.25, help="cosine threshold for extraction")
-    ap.add_argument("--out", default="teams_m3.csv")
-    ap.add_argument("--tau", type=float, default=0.35)
-    ap.add_argument("--task_start", required=True, help="ISO timestamp for when the task/team work begins")
-    ap.add_argument("--task_end", required=True, help="ISO timestamp for when the task/team work ends")
-    backend_dir = os.path.dirname(os.path.abspath(__file__))
-    default_dataset_root = os.path.join(backend_dir, "..", "data")
-    ap.add_argument("--village_locations", default=os.path.join(default_dataset_root, "village_locations.csv"))
-    ap.add_argument("--distance_csv", default=os.path.join(default_dataset_root, "village_distances.csv"))
-    ap.add_argument("--distance_scale", type=float, default=50.0, help="Distance in km mapped to 1.0 in features")
-    ap.add_argument("--distance_decay", type=float, default=30.0, help="Decay constant (km) for distance penalty exp(-d/decay)")
-    ap.add_argument("--severity", choices=["LOW", "NORMAL", "HIGH"], help="Override detected severity (default inferred from text)")
-    ap.add_argument("--schedule_csv", help="Existing volunteer schedule CSV with columns person_id,start,end[,hours]")
-    ap.add_argument("--weekly_quota", type=float, default=5.0, help="Weekly hour quota before overwork penalties")
-    ap.add_argument("--overwork_penalty", type=float, default=0.1, help="Penalty multiplier per overwork hour")
-    ap.add_argument("--soft_cap", type=int, default=6)
-    ap.add_argument("--topk_swap", type=int, default=10, help="How many top alternatives to consider for 1-swap variants")
-    ap.add_argument("--k_robust", type=int, default=1, help="Robustness level k (removals) to preserve coverage")
-    ap.add_argument("--lambda_red", type=float, default=1.0, help="Weight for redundancy penalty")
-    ap.add_argument("--lambda_size", type=float, default=1.0, help="Weight for set-size penalty")
-    ap.add_argument("--lambda_will", type=float, default=0.5, help="Weight for willingness encouragement")
-    ap.add_argument("--size_buckets", default=DEFAULT_SIZE_BUCKETS,
-                    help="Comma separated label:min-max:limit groups for size-based top-K selection "
-                         "(default 'small:2-10:10,medium:11-50:10,large:51-200:10')")
-    args = ap.parse_args()
+def run_recommender(config: RecommendationConfig) -> List[Dict[str, Any]]:
+    # 1. Validation & Setup
+    if not config.proposal_text and not (config.proposal_file and os.path.exists(config.proposal_file)):
+        raise ValueError("Provide proposal_text or a valid proposal_file")
 
-    if not args.proposal_text and not args.proposal_file:
-        raise SystemExit("Provide --proposal_text or --proposal_file")
+    text = config.proposal_text
+    if config.proposal_file and os.path.exists(config.proposal_file):
+        with open(config.proposal_file, "r", encoding="utf-8") as f:
+            file_text = f.read()
+            text = (text + "\n" + file_text) if text else file_text
 
-    if args.proposal_file and not os.path.exists(args.proposal_file):
-        raise SystemExit(f"Not found: {args.proposal_file}")
+    # Multimodal Fusion
+    if config.transcription:
+        text = f"{text}\n\n[Transcribed Audio Context]: {config.transcription}"
+    if config.visual_tags:
+        text = f"{text}\n\n[Visual Content Tags]: {', '.join(config.visual_tags)}"
 
-    if not os.path.exists(args.model):
-        raise SystemExit(f"Not found: {args.model}")
-    if not os.path.exists(args.people):
-        raise SystemExit(f"Not found: {args.people}")
-    if args.schedule_csv and not os.path.exists(args.schedule_csv):
-        raise SystemExit(f"Not found: {args.schedule_csv}")
-    if args.village_locations and not os.path.exists(args.village_locations):
-        raise SystemExit(f"Not found: {args.village_locations}")
-    if args.distance_csv and not os.path.exists(args.distance_csv):
-        raise SystemExit(f"Not found: {args.distance_csv}")
-
-    text = args.proposal_text
-    if args.proposal_file:
-        with open(args.proposal_file, "r", encoding="utf-8") as f:
-            text = f.read()
-
-    village_names = load_village_names(args.village_locations)
-    distance_lookup = load_distance_lookup(args.distance_csv)
-    proposal_location = extract_location(text, village_names)
-    if proposal_location:
-        print(f"Detected proposal location: {proposal_location}")
-    elif village_names:
-        print("[recommender] Warning: proposal text did not match a known village name; distance penalties will be zero.")
-    if args.severity:
-        severity_level = {"LOW": 0, "NORMAL": 1, "HIGH": 2}[args.severity]
+    village_names = load_village_names(config.village_locations)
+    distance_lookup = load_distance_lookup(config.distance_csv)
+    
+    proposal_location = config.proposal_location_override or extract_location(text, village_names)
+    
+    if config.severity_override:
+        severity_level = {"LOW": 0, "NORMAL": 1, "HIGH": 2}.get(config.severity_override, 1)
     else:
         severity_level = estimate_severity(text)
-    severity_label = SEVERITY_LABELS.get(severity_level, "NORMAL")
-    print(f"Detected severity: {severity_label}")
-
-    task_start = parse_datetime(args.task_start, "--task_start")
-    task_end = parse_datetime(args.task_end, "--task_end")
+    
+    task_start = parse_datetime(config.task_start, "task_start")
+    task_end = parse_datetime(config.task_end, "task_end")
     if task_end <= task_start:
-        raise SystemExit("--task_end must be after --task_start")
+        raise ValueError("task_end must be after task_start")
+    
     task_interval = (task_start, task_end)
     task_week_hours = split_hours_by_week(task_start, task_end)
-    if not task_week_hours:
-        raise SystemExit("Task duration must be positive.")
-    schedule_map = parse_schedule_csv(args.schedule_csv) if args.schedule_csv else {}
+    schedule_map = parse_schedule_csv(config.schedule_csv) if config.schedule_csv else {}
 
-    # Load model bundle
-    with open(args.model, "rb") as f:
+    # 2. Load model bundle
+    if not os.path.exists(config.model):
+        raise FileNotFoundError(f"Model file not found: {config.model}")
+    with open(config.model, "rb") as f:
         bundle = pickle.load(f)
     clf = bundle["model"]
     backend = bundle["backend"]
     prop_model = bundle["prop_model"]
     people_model = bundle["people_model"]
-    distance_scale = bundle.get("distance_scale", args.distance_scale)
-    distance_decay = bundle.get("distance_decay", args.distance_decay)
+    distance_scale = bundle.get("distance_scale", config.distance_scale)
+    distance_decay = bundle.get("distance_decay", config.distance_decay)
 
-    # People / roster
-    people = read_people(args.people)
-    if not people:
-        raise SystemExit("No valid rows found in people CSV.")
+    # 3. Process Volunteers (People)
+    all_people = read_people(config.people)
+    if not all_people:
+        raise ValueError("No valid volunteers found in people data.")
+    
     filtered_people: List[Dict[str, Any]] = []
-    conflicts = 0
-    for person in people:
-        sched_info = schedule_map.get(person["person_id"])
-        intervals = sched_info.get("intervals", []) if sched_info else []
+    for person in all_people:
+        sched_info = schedule_map.get(person["person_id"], {})
+        intervals = sched_info.get("intervals", [])
         if intervals and intervals_overlap(intervals, task_interval):
-            conflicts += 1
             continue
-        week_hours_map = sched_info.get("week_hours", {}) if sched_info else {}
+            
+        week_hours_map = sched_info.get("week_hours", {})
         overwork_total = 0.0
         for week_key, hrs in task_week_hours.items():
             existing = float(week_hours_map.get(week_key, 0.0))
-            total_hours = existing + hrs
-            overwork_total += max(0.0, total_hours - args.weekly_quota)
+            overwork_total += max(0.0, (existing + hrs) - config.weekly_quota)
+            
         adjusted = dict(person)
         base_W = person["W"]
-        penalty_overwork = args.overwork_penalty * overwork_total
+        penalty_overwork = config.overwork_penalty * overwork_total
         adjusted_W = max(0.0, min(1.0, base_W - penalty_overwork))
-        adjusted["W_original"] = base_W
-        adjusted["W_base"] = adjusted_W
-        adjusted["W"] = adjusted_W
-        adjusted["overwork_hours"] = overwork_total
-        adjusted["availability"] = (adjusted.get("availability") or "").lower()
+        
+        adjusted.update({
+            "W_original": base_W,
+            "W_base": adjusted_W,
+            "W": adjusted_W,
+            "overwork_hours": overwork_total
+        })
         filtered_people.append(adjusted)
-    if conflicts:
-        print(f"Excluded {conflicts} volunteers due to overlapping assignments.")
-    people = filtered_people
-    if not people:
-        raise SystemExit("No available volunteers after applying schedule and workload constraints.")
+        
+    if not filtered_people:
+        raise ValueError("No available volunteers after applying constraints.")
 
-    # Acquire required skills
-    if args.required_skills:
-        required = [s for s in args.required_skills if s.strip()]
-    elif args.skills_json:
-        required = _load_skills_json(args.skills_json)
-    elif args.auto_extract:
-        required = _auto_extract_skills(text, args.threshold)
+    # 4. Acquire required skills
+    if config.required_skills:
+        required = [s for s in config.required_skills if s.strip()]
+    elif config.skills_json:
+        required = _load_skills_json(config.skills_json)
+    elif config.auto_extract:
+        required = _auto_extract_skills(text, config.threshold)
     else:
         required = VILLAGE_FALLBACK_SKILLS
-
     if not required:
         required = VILLAGE_FALLBACK_SKILLS
 
-    # Candidate probabilities (model learned W via training features)
-    # Embed proposal (1,d) and roster texts (n,d)
+    # 5. Ranking & Feature Matrix
     P = embed_with(prop_model, [text], backend)
-    S = embed_with(people_model, [p["text"] for p in people], backend)
+    S = embed_with(people_model, [p["text"] for p in filtered_people], backend)
     sims = cosine_similarity(P, S).ravel()
+    
     features = []
-    for idx, person in enumerate(people):
-        avail_label = (person.get("availability") or "").lower()
-        availability_level = AVAILABILITY_LEVELS.get(avail_label, 1)
-        base_W = person.get("W_base", person["W"])
+    for idx, p in enumerate(filtered_people):
+        avail_label = (p.get("availability") or "").lower()
+        avail_level = AVAILABILITY_LEVELS.get(avail_label, 1)
+        base_W = p["W_base"]
         sev_pen = severity_penalty(avail_label, severity_level)
-        W_after_severity = max(0.0, min(1.0, base_W - sev_pen))
-        distance_km = lookup_distance_km(person.get("home_location"), proposal_location, distance_lookup)
-        distance_norm = min(distance_km / distance_scale, 1.0) if distance_scale > 0 else 0.0
-        distance_penalty = math.exp(-distance_km / distance_decay) if distance_decay > 0 else 1.0
-        W_adjusted = max(0.0, min(1.0, W_after_severity * distance_penalty))
-        person["W"] = W_adjusted
-        person["distance_km"] = distance_km
-        person["distance_penalty"] = distance_penalty
-        person["availability_level"] = availability_level
-        person["severity_level"] = severity_level
-        person["severity_penalty"] = sev_pen
+        W_sev = max(0.0, min(1.0, base_W - sev_pen))
+        
+        dist_km = lookup_distance_km(p.get("home_location"), proposal_location, distance_lookup)
+        dist_norm = min(dist_km / distance_scale, 1.0) if distance_scale > 0 else 0.0
+        dist_pen = math.exp(-dist_km / distance_decay) if distance_decay > 0 else 1.0
+        
+        W_final = max(0.0, min(1.0, W_sev * dist_pen))
+        p.update({
+            "W": W_final,
+            "distance_km": dist_km,
+            "distance_penalty": dist_pen,
+            "availability_level": avail_level,
+            "severity_level": severity_level,
+            "severity_penalty": sev_pen
+        })
         features.append([
             sims[idx],
-            sims[idx] * W_adjusted,
-            W_adjusted,
-            distance_norm,
-            distance_penalty,
-            availability_level / 2.0,
-            severity_level / 2.0,
+            sims[idx] * W_final,
+            W_final,
+            dist_norm,
+            dist_pen,
+            avail_level / 2.0,
+            severity_level / 2.0
         ])
-    X = np.asarray(features)
-    probs = clf.predict_proba(X)[:, 1]
-    ranked = sorted(zip(people, probs), key=lambda x: x[1], reverse=True)
+        
+    probs = clf.predict_proba(np.asarray(features))[:, 1]
+    ranked = sorted(zip(filtered_people, probs), key=lambda x: x[1], reverse=True)
 
-    def compute_metrics(team_list: List[Dict]) -> Dict[str, float]:
-        return team_metrics(required, team_list, backend, people_model, tau=args.tau, k=args.k_robust)
+    # 6. Team Building logic
+    def evaluate(tlist):
+        mets = team_metrics(required, tlist, backend, people_model, tau=config.tau, k=config.k_robust)
+        score = goodness(mets, lambda_red=config.lambda_red, lambda_size=config.lambda_size, lambda_will=config.lambda_will)
+        return score, mets
 
-    def evaluate(team_list: List[Dict]) -> Tuple[float, Dict[str, float]]:
-        mets = compute_metrics(team_list)
-        return goodness(
-            mets,
-            lambda_red=args.lambda_red,
-            lambda_size=args.lambda_size,
-            lambda_will=args.lambda_will,
-        ), mets
-
-    # Greedy build with robustness-aware marginal gain
     team: List[Dict] = []
     team_ids = set()
-    team_score, best_m = evaluate(team)
+    best_score, _ = evaluate(team)
+    soft_cap = config.team_size or config.soft_cap
 
-    while len(team) < args.soft_cap:
-        best_candidate = None
-        best_candidate_score = None
-        best_candidate_metrics = None
-        best_candidate_prob = -1.0
+    while len(team) < soft_cap:
+        best_cand, best_cand_score, best_cand_mets, best_cand_prob = None, -1.0, None, -1.0
         best_delta = 0.0
-        for person, prob in ranked:
-            if person["person_id"] in team_ids:
-                continue
-            candidate_team = team + [person]
-            cand_score, cand_metrics = evaluate(candidate_team)
-            delta = cand_score - team_score
-            if delta > best_delta + 1e-9 or (
-                abs(delta - best_delta) <= 1e-9 and (
-                    cand_metrics["coverage"] > (best_candidate_metrics["coverage"] if best_candidate_metrics else -1.0) or
-                    (
-                        abs(cand_metrics["coverage"] - (best_candidate_metrics["coverage"] if best_candidate_metrics else -1.0)) <= 1e-9
-                        and prob > best_candidate_prob
-                    )
-                )
-            ):
-                best_candidate = person
-                best_candidate_score = cand_score
-                best_candidate_metrics = cand_metrics
-                best_candidate_prob = prob
-                best_delta = delta
-        if best_candidate is None or best_delta <= 1e-9:
-            break
-        team.append(best_candidate)
-        team_ids.add(best_candidate["person_id"])
-        team_score = best_candidate_score
-        best_m = best_candidate_metrics
-        if best_m["coverage"] >= 0.999 and best_m["k_robustness"] >= 0.999:
-            break
+        for p, prob in ranked:
+            if p["person_id"] in team_ids: continue
+            cand_score, cand_mets = evaluate(team + [p])
+            delta = cand_score - best_score
+            if delta > best_delta + 1e-9 or (abs(delta - best_delta) <= 1e-9 and prob > best_cand_prob):
+                best_cand, best_cand_score, best_cand_mets, best_cand_prob, best_delta = p, cand_score, cand_mets, prob, delta
+        if not best_cand or best_delta <= 1e-9: break
+        team.append(best_cand)
+        team_ids.add(best_cand["person_id"])
+        best_score = best_cand_score
+        if best_cand_mets["coverage"] >= 0.999 and best_cand_mets["k_robustness"] >= 0.999: break
 
-    # Export greedy + 1-swap neighborhood variants
-    def score_team(tlist: List[Dict]):
-        return evaluate(tlist)
-
-    def enforce_unique_volunteers(recs_list: List[Dict]) -> List[Dict]:
-        assigned: Dict[str, bool] = {}
-        resolved: List[Dict] = []
-        for rec in recs_list:
-            members = list(rec.get("members", []))
-            keep_members = []
-            removed_any = False
-            for member in members:
-                pid = member["person_id"]
-                if pid in assigned:
-                    removed_any = True
-                    continue
-                keep_members.append(member)
-            if not keep_members:
-                continue
-            if removed_any:
-                g, m = score_team(keep_members)
-                rec = dict(rec)
-                rec["members"] = keep_members
-                rec["team_ids"] = ";".join([mbr["person_id"] for mbr in keep_members])
-                rec["team_names"] = "; ".join([mbr["name"] for mbr in keep_members])
-                rec["team_size"] = len(keep_members)
-                rec["goodness"] = round(g, 4)
-                rec["coverage"] = round(m["coverage"], 3)
-                rec["k_robustness"] = round(m["k_robustness"], 3)
-                rec["redundancy"] = round(m["redundancy"], 3)
-                rec["set_size"] = round(m["set_size"], 3)
-                rec["willingness_avg"] = round(m["willingness_avg"], 3)
-                rec["willingness_min"] = round(m["willingness_min"], 3)
-            else:
-                rec = dict(rec)
-                rec["members"] = keep_members
-            for member in keep_members:
-                assigned[member["person_id"]] = True
-            resolved.append(rec)
-        return resolved
-
+    # 7. Variants & Consolidation
     recs = []
-    base_good, base_m = score_team(team)
-    base_size = len(team)
-    recs.append({
-        "team_ids": ";".join([m["person_id"] for m in team]),
-        "team_names": "; ".join([m["name"] for m in team]),
-        "team_size": base_size,
-        "goodness": round(base_good, 4),
-        "coverage": round(base_m["coverage"], 3),
-        "k_robustness": round(base_m["k_robustness"], 3),
-        "redundancy": round(base_m["redundancy"], 3),
-        "set_size": round(base_m["set_size"], 3),
-        "willingness_avg": round(base_m["willingness_avg"], 3),
-        "willingness_min": round(base_m["willingness_min"], 3),
-        "members": list(team),
-    })
+    def add_rec(tlist):
+        g, m = evaluate(tlist)
+        recs.append({
+            "team_ids": ";".join([mm["person_id"] for mm in tlist]),
+            "team_names": "; ".join([mm["name"] for mm in tlist]),
+            "team_size": len(tlist),
+            "goodness": round(g, 4),
+            "coverage": round(m["coverage"], 3),
+            "k_robustness": round(m["k_robustness"], 3),
+            "redundancy": round(m["redundancy"], 3),
+            "set_size": round(m["set_size"], 3),
+            "willingness_avg": round(m["willingness_avg"], 3),
+            "willingness_min": round(m["willingness_min"], 3),
+            "members": list(tlist)
+        })
 
-    team_ids = {m["person_id"] for m in team}
-    for person, _p in ranked[:max(1, args.topk_swap)]:
-        if person["person_id"] in team_ids:
-            continue
+    add_rec(team)
+    tids_set = {m["person_id"] for m in team}
+    for p, _ in ranked[:max(1, config.topk_swap)]:
+        if p["person_id"] in tids_set: continue
         for i in range(len(team)):
-            variant = team.copy()
-            variant[i] = person
-            g, m = score_team(variant)
-            recs.append({
-                "team_ids": ";".join([mm["person_id"] for mm in variant]),
-                "team_names": "; ".join([mm["name"] for mm in variant]),
-                "team_size": len(variant),
+            variant = list(team)
+            variant[i] = p
+            add_rec(variant)
+
+    dedup = {(r['team_ids'], r['team_names']): r for r in recs}.values()
+    sorted_recs = sorted(dedup, key=lambda r: (r["goodness"], r["coverage"]), reverse=True)
+    buckets = parse_size_buckets(config.size_buckets)
+    final = select_top_teams_by_size(sorted_recs, buckets) or sorted_recs[:10]
+
+    # Enforce unique volunteers across recommendations
+    assigned_global = set()
+    resolved = []
+    for r in final:
+        keep = [m for m in r["members"] if m["person_id"] not in assigned_global]
+        if not keep: 
+            continue
+            
+        # If we removed members, we MUST recalculate the goodness score
+        if len(keep) < len(r["members"]):
+            g, m = evaluate(keep)
+            r = dict(r)
+            r.update({
+                "members": keep,
+                "team_ids": ";".join([mm["person_id"] for mm in keep]),
+                "team_names": "; ".join([mm.get("name", "Volunteer") for mm in keep]),
+                "team_size": len(keep),
                 "goodness": round(g, 4),
                 "coverage": round(m["coverage"], 3),
                 "k_robustness": round(m["k_robustness"], 3),
                 "redundancy": round(m["redundancy"], 3),
                 "set_size": round(m["set_size"], 3),
                 "willingness_avg": round(m["willingness_avg"], 3),
-                "willingness_min": round(m["willingness_min"], 3),
-                "members": list(variant),
+                "willingness_min": round(m["willingness_min"], 3)
             })
+        
+        # Check if the team is still "good enough" after removals
+        if len(resolved) > 0 and r["goodness"] < 0.2: # Example threshold
+             continue
 
-    # dedupe + sort
-    dedup = {(r['team_ids'], r['team_names']): r for r in recs}.values()
-    sorted_recs = sorted(dedup, key=lambda r: (r["goodness"], r["coverage"]), reverse=True)
-    buckets = parse_size_buckets(args.size_buckets)
-    final = select_top_teams_by_size(sorted_recs, buckets)
-    if not final:
-        final = sorted_recs[:10]
-    final = enforce_unique_volunteers(final)
+        for m in keep: 
+            assigned_global.add(m["person_id"])
+        resolved.append(r)
+    
+    # Add rank
+    for i, r in enumerate(resolved, start=1):
+        r["rank"] = i
 
-    # write CSV
+    return {
+        "severity_detected": SEVERITY_LABELS.get(severity_level, "NORMAL"),
+        "severity_source": "override" if config.severity_override else "auto",
+        "proposal_location": proposal_location,
+        "teams": resolved
+    }
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", required=True)
+    ap.add_argument("--proposal_text", help="Raw project/proposal text")
+    ap.add_argument("--proposal_file", help="Path to proposal text file")
+    ap.add_argument("--people", required=True)
+    ap.add_argument("--required_skills", nargs="+", help="Explicit required skills")
+    ap.add_argument("--skills_json", help="Path to JSON skills")
+    ap.add_argument("--auto_extract", action="store_true")
+    ap.add_argument("--threshold", type=float, default=0.25)
+    ap.add_argument("--out", default="teams_m3.csv")
+    ap.add_argument("--tau", type=float, default=0.35)
+    ap.add_argument("--task_start", required=True)
+    ap.add_argument("--task_end", required=True)
+    
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    default_root = os.path.join(backend_dir, "..", "data")
+    ap.add_argument("--village_locations", default=os.path.join(default_root, "village_locations.csv"))
+    ap.add_argument("--distance_csv", default=os.path.join(default_root, "village_distances.csv"))
+    ap.add_argument("--distance_scale", type=float, default=50.0)
+    ap.add_argument("--distance_decay", type=float, default=30.0)
+    ap.add_argument("--severity", choices=["LOW", "NORMAL", "HIGH"])
+    ap.add_argument("--schedule_csv")
+    ap.add_argument("--weekly_quota", type=float, default=5.0)
+    ap.add_argument("--overwork_penalty", type=float, default=0.1)
+    ap.add_argument("--soft_cap", type=int, default=6)
+    ap.add_argument("--topk_swap", type=int, default=10)
+    ap.add_argument("--k_robust", type=int, default=1)
+    ap.add_argument("--lambda_red", type=float, default=1.0)
+    ap.add_argument("--lambda_size", type=float, default=1.0)
+    ap.add_argument("--lambda_will", type=float, default=0.5)
+    ap.add_argument("--size_buckets", default=DEFAULT_SIZE_BUCKETS)
+    
+    args = ap.parse_args()
+    
+    cfg = RecommendationConfig(
+        model=args.model,
+        people=args.people,
+        proposal_text=args.proposal_text,
+        proposal_file=args.proposal_file,
+        required_skills=args.required_skills,
+        skills_json=args.skills_json,
+        auto_extract=args.auto_extract,
+        threshold=args.threshold,
+        out=args.out,
+        tau=args.tau,
+        task_start=args.task_start,
+        task_end=args.task_end,
+        schedule_csv=args.schedule_csv,
+        weekly_quota=args.weekly_quota,
+        overwork_penalty=args.overwork_penalty,
+        soft_cap=args.soft_cap,
+        topk_swap=args.topk_swap,
+        k_robust=args.k_robust,
+        lambda_red=args.lambda_red,
+        lambda_size=args.lambda_size,
+        lambda_will=args.lambda_will,
+        size_buckets=args.size_buckets,
+        severity_override=args.severity,
+        village_locations=args.village_locations,
+        distance_csv=args.distance_csv,
+        distance_scale=args.distance_scale,
+        distance_decay=args.distance_decay
+    )
+    
+    results = run_recommender(cfg)
+    
     with open(args.out, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(
-            f,
-            fieldnames=[
-                "rank",
-                "team_ids",
-                "team_names",
-                "team_size",
-                "goodness",
-                "coverage",
-                "k_robustness",
-                "redundancy",
-                "set_size",
-                "willingness_avg",
-                "willingness_min",
-            ],
-        )
+        w = csv.DictWriter(f, fieldnames=[
+            "rank", "team_ids", "team_names", "team_size", "goodness", 
+            "coverage", "k_robustness", "redundancy", "set_size", 
+            "willingness_avg", "willingness_min"
+        ])
         w.writeheader()
-        for i, r in enumerate(final, start=1):
-            row = dict(r)
-            row.pop("members", None)
+        for i, r in enumerate(results, start=1):
+            row = {k: v for k, v in r.items() if k != "members"}
             row["rank"] = i
             w.writerow(row)
-
-    print(f"Wrote {len(final)} teams to {args.out}")
-    print(f"Required skills used ({len(required)}): {', '.join(required)}")
+            
+    print(f"Wrote {len(results)} teams to {args.out}")
 
 if __name__ == "__main__":
     main()

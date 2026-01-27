@@ -8,6 +8,8 @@ import { useTranslation } from 'react-i18next';
 import AudioRecorder from '../components/AudioRecorder';
 import LanguageToggle from '../components/LanguageToggle';
 
+import { api } from '../services/api';
+
 interface SubmitProblemProps {
   onNavigate: (page: string) => void;
 }
@@ -40,12 +42,28 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
       const file = e.target.files[0];
       setFileName(file.name);
 
-      // Simulate Visual Analysis (CLIP)
+      // Real Visual Analysis (CLIP)
       setIsAnalyzingImage(true);
-      await new Promise(res => setTimeout(res, 1500));
-      setVisualTags(["Infrastructure", "Water Issue"]);
-      setCategory("infrastructure");
-      setIsAnalyzingImage(false);
+      setError('');
+      try {
+        const result = await api.analyzeImage(file);
+        if (result.tags) {
+          setVisualTags(result.tags);
+          // Auto-select category if AI detects a strong match
+          const primaryTag = result.tags[0]?.toLowerCase();
+          if (primaryTag) {
+            const matchedCat = categories.find(c => c.id.includes(primaryTag) || primaryTag.includes(c.id));
+            if (matchedCat) {
+              setCategory(matchedCat.id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Image analysis failed:", err);
+        // We don't block the user if AI analysis fails, but we log it.
+      } finally {
+        setIsAnalyzingImage(false);
+      }
     } else {
       setFileName(null);
       setVisualTags([]);
@@ -71,21 +89,17 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
         throw new Error('Please enter the village address/specific location for the problem.');
       }
 
-      const submitterId = profile.id;
-
-      console.log('Mock Problem Submission:', {
-        coordinator_id: submitterId,
+      await api.submitProblem({
+        coordinator_id: profile.id,
         title,
         description,
         category,
         village_name: villageName,
         village_address: villageAddress,
-        fileName,
         visual_tags: visualTags,
-        transcription_fused: !!description.includes("[Transcribed Audio]")
+        has_audio: description.includes("[Transcribed Audio]")
       });
 
-      await new Promise(res => setTimeout(res, 1000));
       setSuccess(true);
       setTitle('');
       setDescription('');
@@ -225,8 +239,8 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
                     type="button"
                     onClick={() => setCategory(cat.id)}
                     className={`p-4 rounded-lg border-2 transition ${category === cat.id
-                        ? 'border-green-600 bg-green-50'
-                        : 'border-gray-200 hover:border-green-300'
+                      ? 'border-green-600 bg-green-50'
+                      : 'border-gray-200 hover:border-green-300'
                       }`}
                   >
                     <div className={`w-12 h-12 ${cat.color} rounded-full flex items-center justify-center mx-auto mb-2`}>

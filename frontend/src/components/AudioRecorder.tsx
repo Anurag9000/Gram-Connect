@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Square, Loader2, Volume2 } from 'lucide-react';
+import { Mic, Square, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { api } from '../services/api';
 
 interface AudioRecorderProps {
     onTranscription: (text: string) => void;
@@ -10,16 +11,18 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
     const { t } = useTranslation();
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const mediaRecorder = useRef<MediaRecorder | null>(null);
     const audioChunks = useRef<Blob[]>([]);
 
     const startRecording = async () => {
+        setError(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder.current = new MediaRecorder(stream);
             audioChunks.current = [];
 
-            mediaRecorder.current.ondataavailable = (event) => {
+            mediaRecorder.current.ondataavailable = (event: BlobEvent) => {
                 audioChunks.current.push(event.data);
             };
 
@@ -32,6 +35,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
             setIsRecording(true);
         } catch (err) {
             console.error("Error accessing microphone:", err);
+            setError("Could not access microphone.");
         }
     };
 
@@ -39,21 +43,22 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
         if (mediaRecorder.current && isRecording) {
             mediaRecorder.current.stop();
             setIsRecording(false);
-            mediaRecorder.current.stream.getTracks().forEach(track => track.stop());
+            mediaRecorder.current.stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
         }
     };
 
     const handleTranscription = async (blob: Blob) => {
         setIsProcessing(true);
-        // In a real app, you'd upload this blob. 
-        // Here we simulate the process with the backend path.
-        console.log("Mocking audio upload and transcription...");
-        await new Promise(res => setTimeout(res, 2000));
-
-        // Simulate a successful transcription response
-        const mockText = "The handpump near the primary school is leaking and the water is contaminated.";
-        onTranscription(mockText);
-        setIsProcessing(false);
+        setError(null);
+        try {
+            const text = await api.transcribe(blob);
+            onTranscription(text);
+        } catch (err) {
+            console.error("Transcription error:", err);
+            setError("Failed to transcribe audio.");
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     return (
@@ -86,6 +91,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
                     </div>
                 )}
             </div>
+            {error && (
+                <div className="text-red-500 text-sm mt-1">
+                    {error}
+                </div>
+            )}
         </div>
     );
 };

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     CheckCircle, Clock, Camera, MapPin,
     ChevronRight, ArrowLeft, Loader2
@@ -6,6 +6,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../components/LanguageToggle';
+import { api } from '../services/api';
 
 interface VolunteerDashboardProps {
     onNavigate: (page: string) => void;
@@ -14,23 +15,31 @@ interface VolunteerDashboardProps {
 export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardProps) {
     const { profile } = useAuth();
     const { t } = useTranslation();
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const [selectedTask, setSelectedTask] = useState<any | null>(null);
     const [beforeImage, setBeforeImage] = useState<string | null>(null);
     const [afterImage, setAfterImage] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Mock Tasks
-    const tasks = [
-        {
-            id: 'task-1',
-            title: 'Broken Well Pump',
-            village: 'Gram Puram',
-            location: 'Near Primary School',
-            status: 'assigned',
-            description: 'The handle of the hand-pump is broken. Needs basic welding or part replacement.',
-            assigned_at: '2023-10-25',
+    useEffect(() => {
+        if (profile) {
+            loadTasks();
         }
-    ];
+    }, [profile]);
+
+    async function loadTasks() {
+        if (!profile) return;
+        setLoading(true);
+        try {
+            const data = await api.getVolunteerTasks(profile.id);
+            setTasks(data);
+        } catch (err) {
+            console.error("Failed to load volunteer tasks:", err);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     const handleComplete = async () => {
         if (!afterImage) {
@@ -38,11 +47,19 @@ export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardPro
             return;
         }
         setIsSubmitting(true);
-        // Mock simulation
-        await new Promise(res => setTimeout(res, 2000));
-        alert("Impact verified! Thank you for your service.");
-        setIsSubmitting(false);
-        setSelectedTask(null);
+        try {
+            // Real simulation would upload proof images
+            await new Promise(res => setTimeout(res, 2000));
+            alert("Impact verified! Thank you for your service.");
+            setSelectedTask(null);
+            // In a real app, refresh tasks
+            loadTasks();
+        } catch (err) {
+            console.error("Task completion failed:", err);
+            alert("Failed to verify impact. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     if (selectedTask) {
@@ -134,22 +151,32 @@ export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardPro
                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                         <Clock className="text-green-600" /> Active Assignments
                     </h2>
-                    {tasks.map(task => (
-                        <div
-                            key={task.id}
-                            className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex justify-between items-center group"
-                            onClick={() => setSelectedTask(task)}
-                        >
-                            <div>
-                                <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition mb-1">{task.title}</h3>
-                                <div className="flex items-center gap-4 text-sm text-gray-500">
-                                    <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
-                                    <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{task.status}</span>
-                                </div>
-                            </div>
-                            <ChevronRight className="text-gray-300 group-hover:text-green-600 group-hover:translate-x-1 transition" />
+                    {loading ? (
+                        <div className="flex justify-center py-12">
+                            <Loader2 className="animate-spin text-green-600" size={32} />
                         </div>
-                    ))}
+                    ) : tasks.length === 0 ? (
+                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center text-gray-500">
+                            No active assignments at the moment.
+                        </div>
+                    ) : (
+                        tasks.map(task => (
+                            <div
+                                key={task.id}
+                                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex justify-between items-center group"
+                                onClick={() => setSelectedTask(task)}
+                            >
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition mb-1">{task.title}</h3>
+                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                        <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
+                                        <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{task.status}</span>
+                                    </div>
+                                </div>
+                                <ChevronRight className="text-gray-300 group-hover:text-green-600 group-hover:translate-x-1 transition" />
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
         </div>

@@ -10,24 +10,27 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import cosine_similarity
 
 from embeddings import embed_texts, embed_with
+from utils import (
+    AVAILABILITY_LEVELS,
+    SEVERITY_LABELS,
+    SEVERITY_KEYWORDS,
+    normalize_phrase,
+    load_village_names,
+    load_distance_lookup,
+    extract_location,
+    estimate_severity,
+    severity_penalty,
+    lookup_distance_km,
+    robust_sigmoid as sigmoid, # keeping the name sigmoid for internal compatibility
+    read_csv_norm,
+    get_any,
+)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
 )
 logger = logging.getLogger("m3_trainer")
-
-AVAILABILITY_LEVELS = {
-    "rarely available": 0,
-    "generally available": 1,
-    "immediately available": 2,
-}
-
-SEVERITY_LABELS = {0: "low", 1: "normal", 2: "high"}
-SEVERITY_KEYWORDS = {
-    2: ["urgent", "immediate", "critical", "outbreak", "epidemic", "collapse", "broken", "flood", "drought", "disease", "contamination", "crisis", "emergency"],
-    1: ["audit", "survey", "assessment", "monitoring", "planning", "inspection", "review", "repair", "maintenance"],
-}
 
 @dataclass
 class TrainingConfig:
@@ -40,97 +43,6 @@ class TrainingConfig:
     village_distances: Optional[str] = None
     distance_scale: float = 50.0
     distance_decay: float = 30.0
-
-def normalize_phrase(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).strip()
-
-def load_village_names(village_locations_path: Optional[str]) -> List[str]:
-    if not village_locations_path:
-        return []
-    rows = read_csv_norm(village_locations_path)
-    names = [get_any(r, ["village_name", "village", "name"], "") for r in rows]
-    names = [n for n in names if n]
-    return sorted(names, key=lambda x: len(x), reverse=True)
-
-def load_distance_lookup(village_distances_path: Optional[str]) -> Dict[Tuple[str, str], Dict[str, float]]:
-    lookup: Dict[Tuple[str, str], Dict[str, float]] = {}
-    if not village_distances_path:
-        return lookup
-    rows = read_csv_norm(village_distances_path)
-    for r in rows:
-        a = get_any(r, ["village_a", "from", "source"])
-        b = get_any(r, ["village_b", "to", "destination"])
-        if not a or not b:
-            continue
-        dist = float(get_any(r, ["distance_km", "distance"], 0.0) or 0.0)
-        travel = float(get_any(r, ["travel_time_min", "travel_min"], 0.0) or 0.0)
-        lookup[(a.lower(), b.lower())] = {"distance": dist, "travel": travel}
-        lookup[(b.lower(), a.lower())] = {"distance": dist, "travel": travel}
-    return lookup
-
-def extract_location(text: str, village_names: List[str]) -> str:
-    if not text:
-        return ""
-    norm_text = normalize_phrase(text)
-    for name in village_names:
-        if normalize_phrase(name) in norm_text:
-            return name
-    return ""
-
-def estimate_severity(text: str) -> int:
-    if not text:
-        return 1
-    text_norm = text.lower()
-    for kw in SEVERITY_KEYWORDS[2]:
-        if kw in text_norm:
-            return 2
-    for kw in SEVERITY_KEYWORDS[1]:
-        if kw in text_norm:
-            return 1
-    return 0
-
-def severity_penalty(availability_label: str, severity_level: int) -> float:
-    label = (availability_label or "").lower()
-    if severity_level >= 2:
-        if label == "generally available":
-            return 0.2
-        if label == "rarely available":
-            return 0.4
-    if severity_level == 1 and label == "rarely available":
-        return 0.2
-    return 0.0
-
-def lookup_distance_km(origin: str, target: str, distance_lookup: Dict[Tuple[str, str], Dict[str, float]]) -> float:
-    if not origin or not target:
-        return 0.0
-    rec = distance_lookup.get((origin.lower(), target.lower()))
-    if rec:
-        return float(rec.get("distance", 0.0))
-    return 0.0
-
-# ---------------- utils ----------------
-
-def sigmoid(x: float) -> float:
-    return 1.0 / (1.0 + math.exp(-x))
-
-def read_csv_norm(fp: str) -> List[Dict]:
-    """Read CSV and normalize keys to lowercase, strip whitespace."""
-    rows = []
-    with open(fp, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        if reader.fieldnames is None:
-            raise SystemExit(f"{fp}: missing header row")
-        reader.fieldnames = [h.strip().lower() for h in reader.fieldnames]
-        for r in reader:
-            rows.append({(k.strip().lower() if k else k): (v.strip() if isinstance(v, str) else v)
-                         for k, v in r.items()})
-    return rows
-
-def get_any(d: Dict, keys, default=None):
-    for k in keys:
-        if k in d and d[k] not in (None, ""):
-            return d[k]
-    return default
 
 def as2d(v):
     """Ensure a single sample row is 2D for cosine_similarity."""
@@ -195,13 +107,13 @@ def build_feature_matrix(props, people, pairs, prop_model, people_model, backend
         prop_texts = [prop_map[pid] for pid in prop_ids]
     except KeyError as e:
         missing = str(e).strip("'")
-        raise SystemExit(f"pairs.csv references proposal_id '{missing}' not found in proposals.csv")
+        raise ValueError(f"pairs.csv references proposal_id '{missing}' which is not found in proposals.csv. Please ensure all proposal IDs in pairs.csv are present in proposals.csv.")
 
     try:
         person_texts = [people_map[sid]["text"] for sid in person_ids]
     except KeyError as e:
         missing = str(e).strip("'")
-        raise SystemExit(f"pairs.csv references person_id/student_id '{missing}' not found in people.csv")
+        raise ValueError(f"pairs.csv references person_id/student_id '{missing}' which is not found in people.csv. Please ensure all person IDs in pairs.csv are present in people.csv.")
 
     P = embed_with(prop_model, prop_texts, backend)
     S = embed_with(people_model, person_texts, backend)
@@ -262,7 +174,7 @@ def train_model(config: TrainingConfig) -> float:
         ("village_distances", config.village_distances),
     ):
         if path and not os.path.exists(path):
-            raise SystemExit(f"Not found: {path} ({path_name})")
+            raise ValueError(f"Not found: {path} ({path_name})")
 
     logger.info("Loading CSVs")
     props = read_csv_norm(config.proposals)
@@ -322,7 +234,7 @@ def train_model(config: TrainingConfig) -> float:
 
     n = len(y)
     if n == 0:
-        raise SystemExit("No training pairs after normalization. Check your CSV headers/values.")
+        raise ValueError("No training pairs after normalization. Check your CSV headers/values.")
 
     logger.info("Feature matrix shape: %s, %d labels", X.shape, n)
     rng = np.random.RandomState(42)

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle, X, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../lib/supabase';
 import type { Database } from '../lib/database.types';
 
 type Volunteer = Database['public']['Tables']['volunteers']['Row'];
@@ -25,6 +24,8 @@ const commonSkills = [
   'Accounting',
 ];
 
+import { api } from '../services/api';
+
 export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) {
   const { profile } = useAuth();
   const [volunteer, setVolunteer] = useState<Volunteer | null>(null);
@@ -44,27 +45,21 @@ export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) 
 
   async function loadVolunteerData() {
     if (!profile) return;
-
-    // This is a mock load. In a real app, this would fetch data.
-    // We'll simulate finding an existing profile, or starting a new one.
-    
-    // const { data, error } = await supabase
-    //   .from('volunteers')
-    //   .select('*')
-    //   .eq('user_id', profile.id)
-    //   .maybeSingle();
-
-    // if (data) {
-    //   setVolunteer(data);
-    //   setSkills(data.skills || []);
-    //   setAvailabilityStatus(data.availability_status);
-    // } else if (!error) {
-    //   setIsEditing(true); // No profile found, force edit mode
-    // }
-
-    // For now, let's just force edit mode if no data is found
-    if (!volunteer) {
+    setLoading(true);
+    try {
+      const data = await api.getVolunteer(profile.id);
+      if (data) {
+        setVolunteer(data);
+        setSkills(data.skills || []);
+        setAvailabilityStatus(data.availability_status);
+      } else {
+        setIsEditing(true);
+      }
+    } catch (err) {
+      console.error("Failed to load volunteer data:", err);
       setIsEditing(true);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -100,24 +95,16 @@ export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) 
         throw new Error('Please select at least one skill');
       }
 
-      // This is a mock save
-      const newVolunteerData: Volunteer = {
-        id: volunteer?.id || 'mock-vol-profile-id',
+      const volunteerData = {
+        id: volunteer?.id,
         user_id: profile.id,
         skills,
         availability_status: availabilityStatus,
-        created_at: volunteer?.created_at || new Date().toISOString(),
       };
-      
-      console.log('Mock saving volunteer profile:', newVolunteerData);
-      // In a real app:
-      // if (volunteer) {
-      //   await supabase.from('volunteers').update(...).eq('user_id', profile.id);
-      // } else {
-      //   await supabase.from('volunteers').insert(...);
-      // }
-      
-      setVolunteer(newVolunteerData); // Save mock data to state
+
+      const response = await api.updateVolunteer(volunteerData);
+
+      setVolunteer(response.data);
       setSuccess(true);
       setIsEditing(false);
       setTimeout(() => setSuccess(false), 3000);
@@ -192,11 +179,10 @@ export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) 
                       key={status.value}
                       type="button"
                       onClick={() => setAvailabilityStatus(status.value as typeof availabilityStatus)}
-                      className={`p-3 rounded-lg border-2 transition ${
-                        availabilityStatus === status.value
-                          ? `border-${status.color}-600 bg-${status.color}-50`
-                          : 'border-gray-200 hover:border-green-300'
-                      }`}
+                      className={`p-3 rounded-lg border-2 transition ${availabilityStatus === status.value
+                        ? `border-${status.color}-600 bg-${status.color}-50`
+                        : 'border-gray-200 hover:border-green-300'
+                        }`}
                     >
                       <p className="text-sm font-medium text-gray-700">{status.label}</p>
                     </button>
@@ -214,11 +200,10 @@ export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) 
                       key={skill}
                       type="button"
                       onClick={() => toggleSkill(skill)}
-                      className={`p-3 rounded-lg border-2 transition text-sm ${
-                        skills.includes(skill)
-                          ? 'border-green-600 bg-green-50 text-green-700'
-                          : 'border-gray-200 hover:border-green-300 text-gray-700'
-                      }`}
+                      className={`p-3 rounded-lg border-2 transition text-sm ${skills.includes(skill)
+                        ? 'border-green-600 bg-green-50 text-green-700'
+                        : 'border-gray-200 hover:border-green-300 text-gray-700'
+                        }`}
                     >
                       {skill}
                     </button>
@@ -298,13 +283,12 @@ export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) 
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Availability Status</h3>
                 <span
-                  className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${
-                    volunteer.availability_status === 'available'
-                      ? 'bg-green-100 text-green-700'
-                      : volunteer.availability_status === 'busy'
+                  className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${volunteer.availability_status === 'available'
+                    ? 'bg-green-100 text-green-700'
+                    : volunteer.availability_status === 'busy'
                       ? 'bg-yellow-100 text-yellow-700'
                       : 'bg-gray-100 text-gray-700'
-                  }`}
+                    }`}
                 >
                   {volunteer.availability_status.charAt(0).toUpperCase() + volunteer.availability_status.slice(1)}
                 </span>

@@ -2,7 +2,6 @@ import os
 import whisper
 import torch
 from PIL import Image
-# import clip (removed from top-level to handle missing dependency)
 import logging
 
 logger = logging.getLogger("multimodal_service")
@@ -64,11 +63,13 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
     import clip # Local import for tokenize
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    image = preprocess(Image.open(image_path)).unsqueeze(0).to(device)
-    text = clip.tokenize(candidate_labels).to(device)
+    with Image.open(image_path) as img:
+        image_input = preprocess(img).unsqueeze(0).to(device)
+    
+    text_input = clip.tokenize(candidate_labels).to(device)
 
     with torch.no_grad():
-        logits_per_image, logits_per_text = model(image, text)
+        logits_per_image, logits_per_text = model(image_input, text_input)
         probs = logits_per_image.softmax(dim=-1).cpu().numpy()[0]
 
     # Map labels to probabilities

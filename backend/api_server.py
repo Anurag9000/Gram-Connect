@@ -1,15 +1,17 @@
 import os
 import logging
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+import shutil
+import tempfile
 
 from m3_trainer import TrainingConfig, train_model
 from m3_recommend import RecommendationConfig
-from recommender_service import generate_recommendations
+from recommender_service import RecommenderService
 from multimodal_service import transcribe_audio, analyze_image
 from notification_service import notify_team_assignment
 
@@ -27,6 +29,13 @@ DEFAULT_PAIRS_CSV = os.path.join(DATASET_ROOT, "pairs.csv")
 DEFAULT_VILLAGE_LOCATIONS = os.path.join(DATASET_ROOT, "village_locations.csv")
 DEFAULT_DISTANCE_CSV = os.path.join(DATASET_ROOT, "village_distances.csv")
 
+# Initialize Service
+recommender_service = RecommenderService(
+    model_path=DEFAULT_MODEL_PATH,
+    people_csv=DEFAULT_PEOPLE_CSV,
+    dataset_root=DATASET_ROOT
+)
+
 app = FastAPI(title="SocialCode Backend Service")
 
 app.add_middleware(
@@ -42,10 +51,10 @@ class TrainRequest(BaseModel):
     proposals: Optional[str] = None
     people: Optional[str] = None
     pairs: Optional[str] = None
-    out: Optional[str] = DEFAULT_MODEL_PATH
-    model_name: Optional[str] = "sentence-transformers/all-MiniLM-L6-v2"
-    village_locations: Optional[str] = DEFAULT_VILLAGE_LOCATIONS
-    village_distances: Optional[str] = DEFAULT_DISTANCE_CSV
+    out: Optional[str] = None
+    model_name: Optional[str] = None
+    village_locations: Optional[str] = None
+    village_distances: Optional[str] = None
     distance_scale: float = 50.0
     distance_decay: float = 30.0
 
@@ -54,6 +63,17 @@ class TrainResponse(BaseModel):
     status: str
     auc: Optional[float]
     model_path: str
+
+
+class ProblemRequest(BaseModel):
+    title: str
+    description: str
+    category: str
+    village_name: str
+    village_address: Optional[str] = None
+    coordinator_id: str
+    visual_tags: Optional[List[str]] = []
+    has_audio: Optional[bool] = False
 
 
 class RecommendRequest(BaseModel):
@@ -69,6 +89,9 @@ class RecommendRequest(BaseModel):
     threshold: float = 0.25
     weekly_quota: float = 5.0
     overwork_penalty: float = 0.1
+    soft_cap: int = 6
+    topk_swap: int = 10
+    k_robust: int = 1
     lambda_red: float = 1.0
     lambda_size: float = 1.0
     lambda_will: float = 0.5
@@ -119,43 +142,180 @@ async def train_endpoint(request: TrainRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/problems")
+async def get_problems():
+    # Mock data to match what the frontend expected
+    return [
+        {
+            "id": "problem-1",
+            "villager_id": "villager-1",
+            "title": "Broken Well Pump",
+            "description": "The main well pump is broken and needs repair.",
+            "category": "infrastructure",
+            "village_name": "Test Village",
+            "status": "pending",
+            "lat": 21.1458,
+            "lng": 79.0882,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "profiles": { 
+                "id": "villager-1", 
+                "full_name": "Submitted by Coordinator", 
+                "email": "anon@test.com", 
+                "role": "villager", 
+                "created_at": datetime.now().isoformat(), 
+                "phone": None 
+            },
+            "matches": []
+        },
+        {
+            "id": "problem-2",
+            "villager_id": "villager-2",
+            "title": "Digital Literacy Class",
+            "description": "Need someone to teach basic computer skills to children.",
+            "category": "digital",
+            "village_name": "Other Village",
+            "status": "in_progress",
+            "lat": 21.1610,
+            "lng": 79.0720,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "profiles": { 
+                "id": "villager-2", 
+                "full_name": "Submitted by Coordinator", 
+                "email": "jane@test.com", 
+                "role": "villager", 
+                "created_at": datetime.now().isoformat(), 
+                "phone": None 
+            },
+            "matches": [
+                {
+                    "id": "match-1",
+                    "problem_id": "problem-2",
+                    "volunteer_id": "vol-1",
+                    "assigned_at": datetime.now().isoformat(),
+                    "completed_at": None,
+                    "notes": "Assigned to Test Volunteer",
+                    "volunteers": {
+                        "id": "vol-1",
+                        "user_id": "mock-volunteer-uuid",
+                        "skills": ["Teaching", "Digital Literacy"],
+                        "availability_status": "available",
+                        "created_at": datetime.now().isoformat(),
+                        "profiles": { 
+                            "id": "mock-volunteer-uuid", 
+                            "full_name": "Test Volunteer", 
+                            "email": "volunteer@test.com", 
+                            "role": "volunteer", 
+                            "created_at": datetime.now().isoformat(), 
+                            "phone": "1234567890" 
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+
+@app.get("/volunteers")
+async def get_volunteers():
+    return [
+        {
+            "id": "vol-1",
+            "user_id": "mock-volunteer-uuid",
+            "skills": ["Teaching", "Digital Literacy", "Web Development"],
+            "availability_status": "available",
+            "created_at": datetime.now().isoformat(),
+            "profiles": { 
+                "id": "mock-volunteer-uuid", 
+                "full_name": "Test Volunteer", 
+                "email": "volunteer@test.com", 
+                "role": "volunteer", 
+                "created_at": datetime.now().isoformat(), 
+                "phone": "1234567890" 
+            }
+        },
+        {
+            "id": "vol-2",
+            "user_id": "mock-vol-2-uuid",
+            "skills": ["Plumbing", "Construction"],
+            "availability_status": "available",
+            "created_at": datetime.now().isoformat(),
+            "profiles": { 
+                "id": "mock-vol-2-uuid", 
+                "full_name": "Skilled Sam", 
+                "email": "sam@test.com", 
+                "role": "volunteer", 
+                "created_at": datetime.now().isoformat(), 
+                "phone": "2345678901" 
+            }
+        },
+        {
+            "id": "vol-3",
+            "user_id": "mock-vol-3-uuid",
+            "skills": ["Electrical Work", "Plumbing"],
+            "availability_status": "available",
+            "created_at": datetime.now().isoformat(),
+            "profiles": { 
+                "id": "mock-vol-3-uuid", 
+                "full_name": "Electrician Alice", 
+                "email": "alice@test.com", 
+                "role": "volunteer", 
+                "created_at": datetime.now().isoformat(), 
+                "phone": "3456789012" 
+            }
+        },
+        {
+            "id": "vol-4",
+            "user_id": "mock-vol-4-uuid",
+            "skills": ["Agriculture", "Healthcare"],
+            "availability_status": "busy",
+            "created_at": datetime.now().isoformat(),
+            "profiles": { 
+                "id": "mock-vol-4-uuid", 
+                "full_name": "Doctor Dave", 
+                "email": "dave@test.com", 
+                "role": "volunteer", 
+                "created_at": datetime.now().isoformat(), 
+                "phone": "4567890123" 
+            }
+        }
+    ]
+
+@app.get("/volunteer/{volunteer_id}")
+async def get_volunteer(volunteer_id: str):
+    # Mock finding a volunteer
+    return {
+        "id": "vol-profile-id",
+        "user_id": volunteer_id,
+        "skills": ["Teaching", "Digital Literacy"],
+        "availability_status": "available",
+        "created_at": datetime.now().isoformat(),
+    }
+
+@app.post("/volunteer")
+async def update_volunteer(data: Dict[str, Any]):
+    logger.info(f"Volunteer profile updated for {data.get('user_id')}")
+    return {"status": "success", "data": data}
+
+@app.get("/volunteer-tasks")
+async def get_volunteer_tasks(volunteer_id: str):
+    # Mock assignments for the volunteer
+    return [
+        {
+            "id": 'task-1',
+            "title": 'Broken Well Pump',
+            "village": 'Gram Puram',
+            "location": 'Near Primary School',
+            "status": 'assigned',
+            "description": 'The handle of the hand-pump is broken. Needs basic welding or part replacement.',
+            "assigned_at": (datetime.now() - timedelta(days=2)).isoformat(),
+        }
+    ]
+
 @app.post("/recommend", response_model=RecommendResponse)
 async def recommend_endpoint(request: RecommendRequest):
-    config = RecommendationConfig(
-        model=request.model_path or DEFAULT_MODEL_PATH,
-        people=request.people_csv or DEFAULT_PEOPLE_CSV,
-        proposal_text=request.proposal_text,
-        proposal_location_override=request.village_name,
-        # Fuse multimodal inputs if present
-        transcription=request.transcription,
-        visual_tags=request.visual_tags,
-        auto_extract=request.auto_extract,
-        threshold=request.threshold,
-        required_skills=request.required_skills,
-        tau=request.tau,
-        task_start=request.task_start.isoformat(),
-        task_end=request.task_end.isoformat(),
-        schedule_csv=request.schedule_csv,
-        weekly_quota=request.weekly_quota,
-        overwork_penalty=request.overwork_penalty,
-        soft_cap=max(request.team_size or 6, 1),
-        topk_swap=request.num_teams or 10,
-        k_robust=1,
-        lambda_red=request.lambda_red,
-        lambda_size=request.lambda_size,
-        lambda_will=request.lambda_will,
-        size_buckets=request.size_buckets,
-        team_size=request.team_size,
-        num_teams=request.num_teams,
-        severity_override=request.severity,
-        village_locations=request.village_locations or DEFAULT_VILLAGE_LOCATIONS,
-        distance_csv=request.distance_csv or DEFAULT_DISTANCE_CSV,
-        distance_scale=request.distance_scale,
-        distance_decay=request.distance_decay,
-        out=None,
-    )
     try:
-        results = generate_recommendations(config)
+        results = recommender_service.generate_recommendations(request.dict())
         
         # Notify teams if recommendations were generated
         if results and results.get("teams"):
@@ -171,23 +331,57 @@ async def recommend_endpoint(request: RecommendRequest):
         logger.exception("Recommendation failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
-@app.post("/transcribe")
-async def transcribe_endpoint(file_path: str):
+@app.post("/submit-problem")
+async def submit_problem_endpoint(request: ProblemRequest):
     try:
-        text = transcribe_audio(file_path)
-        return {"text": text}
+        # In a real app, this would save to a database.
+        # For this demo, we'll just log it.
+        logger.info(f"Problem submitted: {request.title} in {request.village_name}")
+        return {"status": "success", "id": f"prob-{int(datetime.now().timestamp())}"}
+    except Exception as exc:
+        logger.exception("Problem submission failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+@app.post("/transcribe")
+async def transcribe_endpoint(file: UploadFile = File(...)):
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+        
+        try:
+            text = transcribe_audio(tmp_path)
+            return {"text": text}
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
     except Exception as exc:
         logger.exception("Transcription failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/analyze-image")
-async def analyze_image_endpoint(file_path: str, labels: Optional[List[str]] = None):
+async def analyze_image_endpoint(file: UploadFile = File(...), labels: Optional[str] = None):
+    # labels is passed as a comma-separated string if from form-data
+    candidate_labels = labels.split(",") if (labels and labels.strip()) else None
+    tmp_path = None
     try:
-        result = analyze_image(file_path, labels)
+        suffix = os.path.splitext(file.filename)[1] if file.filename else ".jpg"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+        
+        result = analyze_image(tmp_path, candidate_labels)
         return result
     except Exception as exc:
         logger.exception("Image analysis failed")
         raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

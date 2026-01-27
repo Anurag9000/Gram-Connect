@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { API_BASE_URL } from '../config';
 import { Search, CheckCircle, Clock, AlertCircle, Users, X, Cpu, UserCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import ProblemMap from '../components/ProblemMap';
 import LanguageToggle from '../components/LanguageToggle';
 import type { Database } from '../lib/database.types';
+
+import { api } from '../services/api';
 
 type Problem = Database['public']['Tables']['problems']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -84,104 +85,26 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
 
   async function loadData() {
     setLoading(true);
-    // (Mock data loading remains the same as before)
-    const mockProblemsData = [
-      {
-        id: 'problem-1',
-        villager_id: 'villager-1',
-        title: 'Broken Well Pump',
-        description: 'The main well pump is broken and needs repair.',
-        category: 'infrastructure',
-        village_name: 'Test Village',
-        status: 'pending',
-        lat: 21.1458,
-        lng: 79.0882,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        profiles: { id: 'villager-1', full_name: 'Submitted by Coordinator', email: 'anon@test.com', role: 'villager', created_at: new Date().toISOString(), phone: null }
-      },
-      {
-        id: 'problem-2',
-        villager_id: 'villager-2',
-        title: 'Digital Literacy Class',
-        description: 'Need someone to teach basic computer skills to children.',
-        category: 'digital',
-        village_name: 'Other Village',
-        status: 'in_progress',
-        lat: 21.1610,
-        lng: 79.0720,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        profiles: { id: 'villager-2', full_name: 'Submitted by Coordinator', email: 'jane@test.com', role: 'villager', created_at: new Date().toISOString(), phone: null }
-      }
-    ];
-    const mockMatchesData = [
-      {
-        id: 'match-1',
-        problem_id: 'problem-2',
-        volunteer_id: 'vol-1',
-        assigned_at: new Date().toISOString(),
-        completed_at: null,
-        notes: 'Assigned to Test Volunteer',
-        volunteers: {
-          id: 'vol-1',
-          user_id: 'mock-volunteer-uuid',
-          skills: ['Teaching', 'Digital Literacy'],
-          availability_status: 'available',
-          created_at: new Date().toISOString(),
-          profiles: { id: 'mock-volunteer-uuid', full_name: 'Test Volunteer', email: 'volunteer@test.com', role: 'volunteer', created_at: new Date().toISOString(), phone: '1234567890' }
-        }
-      }
-    ];
-    const mockVolunteersData = [
-      {
-        id: 'vol-1',
-        user_id: 'mock-volunteer-uuid',
-        skills: ['Teaching', 'Digital Literacy', 'Web Development'],
-        availability_status: 'available',
-        created_at: new Date().toISOString(),
-        profiles: { id: 'mock-volunteer-uuid', full_name: 'Test Volunteer', email: 'volunteer@test.com', role: 'volunteer', created_at: new Date().toISOString(), phone: '1234567890' }
-      },
-      {
-        id: 'vol-2',
-        user_id: 'mock-vol-2-uuid',
-        skills: ['Plumbing', 'Construction'],
-        availability_status: 'available',
-        created_at: new Date().toISOString(),
-        profiles: { id: 'mock-vol-2-uuid', full_name: 'Skilled Sam', email: 'sam@test.com', role: 'volunteer', created_at: new Date().toISOString(), phone: '2345678901' }
-      },
-      {
-        id: 'vol-3',
-        user_id: 'mock-vol-3-uuid',
-        skills: ['Electrical Work', 'Plumbing'],
-        availability_status: 'available',
-        created_at: new Date().toISOString(),
-        profiles: { id: 'mock-vol-3-uuid', full_name: 'Electrician Alice', email: 'alice@test.com', role: 'volunteer', created_at: new Date().toISOString(), phone: '3456789012' }
-      },
-      {
-        id: 'vol-4',
-        user_id: 'mock-vol-4-uuid',
-        skills: ['Agriculture', 'Healthcare'],
-        availability_status: 'busy',
-        created_at: new Date().toISOString(),
-        profiles: { id: 'mock-vol-4-uuid', full_name: 'Doctor Dave', email: 'dave@test.com', role: 'volunteer', created_at: new Date().toISOString(), phone: '4567890123' }
-      }
-    ];
-    if (mockProblemsData) {
-      const problemsWithMatches = mockProblemsData.map((problem: any) => ({
+    try {
+      const problemsData = await api.getProblems();
+      const volunteersData = await api.getVolunteers();
+
+      const problemsWithMatches = problemsData.map((problem: any) => ({
         ...problem,
         villager: problem.profiles,
-        matches: mockMatchesData?.filter((m: any) => m.problem_id === problem.id).map((m: any) => ({
+        matches: problem.matches?.map((m: any) => ({
           ...m,
           volunteer: m.volunteers,
         })) || [],
       }));
-      setProblems(problemsWithMatches as any);
+
+      setProblems(problemsWithMatches);
+      setAllVolunteers(volunteersData);
+    } catch (err) {
+      console.error("Failed to load dashboard data:", err);
+    } finally {
+      setLoading(false);
     }
-    if (mockVolunteersData) {
-      setAllVolunteers(mockVolunteersData as any);
-    }
-    setLoading(false);
   }
 
   function applyFilters() {
@@ -219,60 +142,51 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
     return individuals;
   };
 
-  const runMockAiAlgo = async () => {
+  const runAiAlgo = async () => {
     if (!selectedProblem) return;
     try {
       setAiError(null);
       setAiSummary(null);
       setAiLoading(true);
+
       const start = new Date(taskStart);
       if (Number.isNaN(start.getTime())) {
         setAiError("Please provide a valid task start time.");
         setAiLoading(false);
         return;
       }
+
       const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000);
-      const response = await fetch(`${API_BASE_URL}/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          proposal_text: selectedProblem.description,
-          village_name: selectedVillage || selectedProblem.village_name,
-          task_start: start.toISOString(),
-          task_end: end.toISOString(),
-          team_size: teamSize,
-          num_teams: numTeamsToShow,
-          severity: severityOverride === 'AUTO' ? undefined : severityOverride,
-          auto_extract: true,
-          threshold: 0.25,
-          weekly_quota: 5.0,
-          overwork_penalty: 0.1,
-          lambda_red: 1.0,
-          lambda_size: 1.0,
-          lambda_will: 0.5,
-        }),
+
+      const data = await api.getRecommendations({
+        proposal_text: selectedProblem.description,
+        village_name: selectedVillage || selectedProblem.village_name,
+        task_start: start.toISOString(),
+        task_end: end.toISOString(),
+        team_size: teamSize,
+        num_teams: numTeamsToShow,
+        severity: severityOverride === 'AUTO' ? undefined : severityOverride,
+        auto_extract: true,
       });
-      if (!response.ok) {
-        const detail = await response.text();
-        throw new Error(detail || 'Failed to fetch recommendations');
-      }
-      const data = await response.json();
+
       setAiSummary({
         severity: data.severity_detected,
         origin: data.severity_source,
-        location: data.proposal_location,
+        location: data.proposal_location || undefined,
       });
+
       const teams = (data.teams || []).map((team: any, index: number) => ({
         id: team.team_ids || `team-${index + 1}`,
         name: team.team_names || `Team ${index + 1}`,
         goodness: team.goodness,
-        coverage: team.coverage,
-        kRobustness: team.k_robustness,
-        willingnessAvg: team.willingness_avg,
+        coverage: team.coverage || 0,
+        kRobustness: team.k_robustness || 0,
+        willingnessAvg: team.willingness_avg || 0,
         members: team.members || [],
         mockScore: Math.round(team.goodness * 100),
-        combinedSkills: Array.from(new Set(team.members?.flatMap((m: any) => m.skills || []) || []))
+        combinedSkills: Array.from(new Set(team.members?.flatMap((m: any) => m.skills || []) || [])) as string[]
       }));
+
       setAiTeams(teams);
     } catch (error) {
       setAiTeams([]);
@@ -659,7 +573,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
                     </div>
                     <div className="flex-shrink-0 sm:self-end">
                       <button
-                        onClick={runMockAiAlgo}
+                        onClick={runAiAlgo}
                         disabled={loading}
                         className="w-full bg-blue-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
                       >

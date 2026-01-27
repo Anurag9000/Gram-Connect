@@ -6,7 +6,7 @@ embeddings.py
 from typing import List, Tuple
 import numpy as np
 
-def embed_texts(texts: List[str], model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> Tuple[object, np.ndarray, str]:
+def embed_texts(texts: List[str], model_name: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2") -> Tuple[object, np.ndarray, str]:
     """
     Returns (model_or_vectorizer, embeddings ndarray, backend)
     backend in {"sentence-transformers", "tfidf"}

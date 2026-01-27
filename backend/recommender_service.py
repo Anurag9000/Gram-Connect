@@ -123,14 +123,25 @@ def generate_recommendations(config: RecommendationConfig, write_output: bool = 
         ("proposal_file", config.proposal_file),
     ):
         if path and not os.path.exists(path):
-            raise SystemExit(f"Not found: {path} ({name})")
+            raise FileNotFoundError(f"Not found: {path} ({name})")
 
     text = config.proposal_text
     if config.proposal_file:
         with open(config.proposal_file, "r", encoding="utf-8") as f:
             text = f.read()
+
+    # Fusion of Multimodal Information
+    if config.transcription:
+        logger.info("Fusing transcribed audio into proposal...")
+        text = f"{text or ''}\n\n[Transcribed Audio]: {config.transcription}".strip()
+    
+    if config.visual_tags:
+        logger.info("Fusing visual tags into proposal...")
+        tags_str = ", ".join(config.visual_tags)
+        text = f"{text or ''}\n\n[Visual Tags]: {tags_str}".strip()
+
     if not text:
-        raise SystemExit("proposal_text or proposal_file is required")
+        raise ValueError("proposal_text, proposal_file, or multimodal input is required")
 
     village_names = load_village_names(config.village_locations)
     distance_lookup = load_distance_lookup(config.distance_csv)
@@ -151,15 +162,15 @@ def generate_recommendations(config: RecommendationConfig, write_output: bool = 
     logger.info("Severity: %s (source=%s)", severity_label, "override" if severity_override else "auto")
 
     if not config.task_start or not config.task_end:
-        raise SystemExit("task_start and task_end are required")
+        raise ValueError("task_start and task_end are required")
     task_start = parse_datetime(config.task_start, "task_start")
     task_end = parse_datetime(config.task_end, "task_end")
     if task_end <= task_start:
-        raise SystemExit("task_end must be after task_start")
+        raise ValueError("task_end must be after task_start")
     task_interval = (task_start, task_end)
     task_week_hours = split_hours_by_week(task_start, task_end)
     if not task_week_hours:
-        raise SystemExit("Task duration must be positive.")
+        raise ValueError("Task duration must be positive.")
     schedule_map = parse_schedule_csv(config.schedule_csv) if config.schedule_csv else {}
 
     with open(config.model, "rb") as f:
@@ -173,7 +184,7 @@ def generate_recommendations(config: RecommendationConfig, write_output: bool = 
 
     people = read_people(config.people)
     if not people:
-        raise SystemExit("No valid rows found in people CSV.")
+        raise ValueError("No valid rows found in people CSV.")
     filtered_people: List[Dict[str, Any]] = []
     conflicts = 0
     for person in people:
@@ -202,7 +213,7 @@ def generate_recommendations(config: RecommendationConfig, write_output: bool = 
         logger.info("Excluded %d volunteers due to overlapping assignments", conflicts)
     people = filtered_people
     if not people:
-        raise SystemExit("No available volunteers after applying schedule and workload constraints.")
+        raise ValueError("No available volunteers after applying schedule and workload constraints.")
 
     if config.required_skills:
         required = [s for s in config.required_skills if s.strip()]

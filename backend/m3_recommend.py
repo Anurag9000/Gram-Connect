@@ -86,6 +86,9 @@ class RecommendationConfig:
     distance_csv: Optional[str] = None
     distance_scale: float = 50.0
     distance_decay: float = 30.0
+    # Hybrid Multimodal extensions
+    transcription: Optional[str] = None
+    visual_tags: Optional[List[str]] = None
 # ---------------- utils ----------------
 
 def sigmoid(x: float) -> float:

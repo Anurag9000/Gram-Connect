@@ -1,0 +1,42 @@
+{
+    "common": {
+        "title": "SocialCode",
+        "home": "Home",
+        "dashboard": "Dashboard",
+        "submit_problem": "Submit Problem",
+        "volunteer_profile": "Volunteer Profile",
+        "login": "Login",
+        "logout": "Logout",
+        "loading": "Loading...",
+        "language": "Language",
+        "en": "English",
+        "hi": "Hindi"
+    },
+    "home": {
+        "hero_title": "Connecting Volunteers to Village Needs",
+        "hero_subtitle": "An intelligent, multimodal platform powered by SahayAI to empower rural communities.",
+        "get_started": "Get Started",
+        "how_it_works": "How it Works"
+    },
+    "dashboard": {
+        "coordinator_dashboard": "Coordinator Dashboard",
+        "total_problems": "Total Problems",
+        "pending": "Pending",
+        "in_progress": "In Progress",
+        "completed": "Completed",
+        "search_placeholder": "Search problems...",
+        "assign_team": "Assign Team",
+        "find_teams": "Find Teams"
+    },
+    "submit": {
+        "submit_heading": "Submit a New Problem",
+        "village_name": "Village Name",
+        "village_address": "Village Address",
+        "problem_title": "Problem Title",
+        "category": "Category",
+        "description": "Description",
+        "upload_photo": "Upload Photo",
+        "record_audio": "Record Audio (Voice Report)",
+        "submit_button": "Submit Problem"
+    }
+}

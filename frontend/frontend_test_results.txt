@@ -1,0 +1,3147 @@
+﻿
+> vite-react-typescript-starter@0.0.0 test
+> vitest --run
+
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mD:/Done,Toreview/SocialCode/frontend[39m
+
+ [32mΓ£ô[39m src/contexts/AuthContext.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 86[2mms[22m[39m
+ [31mΓ¥»[39m src/components/Navigation.test.tsx [2m([22m[2m2 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 76[2mms[22m[39m
+     [32mΓ£ô[39m should render navigation bar[32m 57[2mms[22m[39m
+[31m     [31m├ù[31m should show login buttons when not authenticated[39m[32m 17[2mms[22m[39m
+node.exe : 
+[90mstderr[2m | src/page
+s/Home.test.tsx[2m > 
+[22m[2mHome[2m > 
+[22m[2mshould render 
+home page with main 
+heading
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (  
+  [90mstderr[2m...th m   
+ ain heading:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+[22m[39mreact-i18next:: 
+You will need to pass in 
+an i18next instance by 
+using initReactI18next
+
+ [31mΓ¥»[39m src/pages/Home.test.tsx [2m([22m[2m3 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[32m 119[2mms[22m[39m
+[31m     [31m├ù[31m should render home page with main heading[39m[32m 80[2mms[22m[39m
+[31m     [31m├ù[31m should render submit problem button[39m[32m 19[2mms[22m[39m
+[31m     [31m├ù[31m should render features section[39m[32m 18[2mms[22m[39m
+
+[31mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+[39m[1m[41m Failed 
+Tests 4 [49m[22m[31mΓÄ»
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[39m
+
+[41m[1m FAIL [22m[49m 
+src/components/Navigation.
+test.tsx[2m > 
+[22mNavigation[2m > 
+[22mshould show login 
+buttons when not 
+authenticated
+[31m[1mTestingLibraryEle
+mentError[22m[39m: 
+Unable to find an element 
+with the text: Volunteer 
+Login. This could be 
+because the text is 
+broken up by multiple 
+elements. In this case, 
+you can provide a 
+function for your text 
+matcher to make your 
+matcher more flexible.
+
+Ignored nodes: comments, 
+script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<nav[39m
+      [33mclass[39m=[32
+m"bg-green-600 text-white 
+shadow-lg"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[
+32m"max-w-7xl mx-auto 
+px-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"flex 
+justify-between 
+items-center h-16"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex items-center 
+space-x-2"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"w-10 h-10 
+bg-white rounded-full 
+flex items-center 
+justify-center"[39m
+            [36m>[39m
+              
+[36m<span[39m
+                [33mclass
+[39m=[32m"text-green-600
+ font-bold text-xl"[39m
+              [36m>[39m
+                [0mS[0m
+              
+[36m</span>[39m
+            
+[36m</div>[39m
+            [36m<h1[39m
+              [33mclass[
+39m=[32m"text-xl 
+font-bold"[39m
+            [36m>[39m
+              
+[0mSocialCode[0m
+            
+[36m</h1>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex space-x-1 
+md:space-x-2 
+items-center"[39m
+          [36m>[39m
+            
+[36m<button[39m
+              [33mclass[
+39m=[32m"flex 
+items-center space-x-1 
+px-3 py-2 rounded-lg 
+transition 
+hover:bg-green-700"[39m
+            [36m>[39m
+              
+[36m<svg[39m
+                [33mclass
+[39m=[32m"lucide 
+lucide-home "[39m
+                [33mfill
+[39m=[32m"none"[39m
+                [33mheigh
+t[39m=[32m"20"[39m
+                [33mstrok
+e[39m=[32m"currentColor"
+[39m
+                [33mstrok
+e-linecap[39m=[32m"round
+"[39m
+                [33mstrok
+e-linejoin[39m=[32m"roun
+d"[39m
+                [33mstrok
+e-width[39m=[32m"2"[39m
+                
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                [33mwidth
+[39m=[32m"20"[39m
+                [33mxmlns
+[39m=[32m"http://www.w3.
+org/2000/svg"[39m
+              [36m>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"m3 9 
+9-7 9 7v11a2 2 0 0 1-2 
+2H5a2 2 0 0 1-2-2z"[39m
+                
+[36m/>[39m
+                
+[36m<polyline[39m
+                  
+[33mpoints[39m=[32m"9 
+22 9 12 15 12 15 22"[39m
+                
+[36m/>[39m
+              
+[36m</svg>[39m
+              
+[36m<span[39m
+                [33mclass
+[39m=[32m"hidden 
+sm:inline"[39m
+              [36m>[39m
+                
+[0mHome[0m
+              
+[36m</span>[39m
+            
+[36m</button>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"flex 
+items-center 
+space-x-2"[39m
+            [36m>[39m
+              
+[36m<button[39m
+                [33mclass
+[39m=[32m"flex 
+items-center space-x-1 
+px-3 py-2 rounded-lg 
+bg-white/10 
+hover:bg-white/20 
+transition border 
+border-white/20"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-log-in "[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"20"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"20"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M15 
+3h4a2 2 0 0 1 2 2v14a2 2 
+0 0 1-2 2h-4"[39m
+                  
+[36m/>[39m
+                  
+[36m<polyline[39m
+                    
+[33mpoints[39m=[32m"10 
+17 15 12 10 7"[39m
+                  
+[36m/>[39m
+                  
+[36m<line[39m
+                    [33mx
+1[39m=[32m"15"[39m
+                    
+[33mx2[39m=[32m"3"[39m
+                    [33my
+1[39m=[32m"12"[39m
+                    [33my
+2[39m=[32m"12"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+                
+[36m<span[39m
+                  [33mcla
+ss[39m=[32m"hidden 
+sm:inline"[39m
+                
+[36m>[39m
+                  
+[0mVolunteer[0m
+                
+[36m</span>[39m
+              
+[36m</button>[39m
+              
+[36m<button[39m
+                [33mclass
+[39m=[32m"flex 
+items-center space-x-1 
+px-3 py-2 rounded-lg 
+bg-green-700 
+hover:bg-green-800 
+transition shadow-sm"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-log-in "[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"20"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"20"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M15 
+3h4a2 2 0 0 1 2 2v14a2 2 
+0 0 1-2 2h-4"[39m
+                  
+[36m/>[39m
+                  
+[36m<polyline[39m
+                    
+[33mpoints[39m=[32m"10 
+17 15 12 10 7"[39m
+                  
+[36m/>[39m
+                  
+[36m<line[39m
+                    [33mx
+1[39m=[32m"15"[39m
+                    
+[33mx2[39m=[32m"3"[39m
+                    [33my
+1[39m=[32m"12"[39m
+                    [33my
+2[39m=[32m"12"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+                
+[36m<span[39m
+                  [33mcla
+ss[39m=[32m"hidden 
+sm:inline"[39m
+                
+[36m>[39m
+                  
+[0mCoordinator[0m
+                
+[36m</span>[39m
+              
+[36m</button>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"ml-2"[39m
+              [33mid[39m
+=[32m"google_translate_el
+ement"[39m
+            [36m/>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</nav>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2mΓ¥»[22m 
+Object.getElementError nod
+e_modules/@testing-library
+/dom/dist/config.js:[2m37
+:19[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m76:38[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m52:17[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m95:19[22m[39m
+[36m [2mΓ¥»[22m src/com
+ponents/Navigation.test.ts
+x:[2m30:23[22m[39m
+    [90m 28| [39m       
+ )[33m;[39m
+    [90m 29| [39m
+    [90m 30| [39m       
+ expect(screen.getByText('
+Volunteer Login')).toBeInT
+heDocument(ΓÇª
+    [90m   | [39m       
+               [31m^[39m
+    [90m 31| [39m       
+ expect(screen.getByText('
+Coordinator Login')).toBeI
+nTheDocumenΓÇª
+    [90m 32| [39m    
+})[33m;[39m
+
+[31m[2mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ
+»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»Γ
+Ä»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+ΓÄ»[1/4]ΓÄ»[22m[39m
+
+[41m[1m FAIL [22m[49m 
+src/pages/Home.test.tsx[2
+m > [22mHome[2m > 
+[22mshould render home 
+page with main heading
+[31m[1mTestingLibraryEle
+mentError[22m[39m: 
+Unable to find an element 
+with the text: 
+/Empowering Rural 
+Communities/i. This could 
+be because the text is 
+broken up by multiple 
+elements. In this case, 
+you can provide a 
+function for your text 
+matcher to make your 
+matcher more flexible.
+
+Ignored nodes: comments, 
+script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32
+m"min-h-screen bg-white 
+pt-16"[39m
+    [36m>[39m
+      [36m<nav[39m
+        [33mclass[39m=[
+32m"fixed w-full 
+bg-white/80 
+backdrop-blur-md z-50 
+border-b 
+border-gray-100"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4 sm:px-6 lg:px-8"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex 
+justify-between h-16 
+items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"flex 
+items-center 
+space-x-2"[39m
+            [36m>[39m
+              
+[36m<svg[39m
+                [33mclass
+[39m=[32m"lucide 
+lucide-globe 
+text-green-600"[39m
+                [33mfill
+[39m=[32m"none"[39m
+                [33mheigh
+t[39m=[32m"32"[39m
+                [33mstrok
+e[39m=[32m"currentColor"
+[39m
+                [33mstrok
+e-linecap[39m=[32m"round
+"[39m
+                [33mstrok
+e-linejoin[39m=[32m"roun
+d"[39m
+                [33mstrok
+e-width[39m=[32m"2"[39m
+                
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                [33mwidth
+[39m=[32m"32"[39m
+                [33mxmlns
+[39m=[32m"http://www.w3.
+org/2000/svg"[39m
+              [36m>[39m
+                
+[36m<circle[39m
+                  [33mcx
+[39m=[32m"12"[39m
+                  [33mcy
+[39m=[32m"12"[39m
+                  
+[33mr[39m=[32m"10"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M12 
+2a14.5 14.5 0 0 0 0 20 
+14.5 14.5 0 0 0 0-20"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M2 
+12h20"[39m
+                
+[36m/>[39m
+              
+[36m</svg>[39m
+              
+[36m<span[39m
+                [33mclass
+[39m=[32m"text-2xl 
+font-bold text-gray-900 
+tracking-tight"[39m
+              [36m>[39m
+                
+[0mSocialCode[0m
+              
+[36m</span>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"hidden md:flex 
+items-center 
+space-x-8"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+hover:text-green-600 
+transition"[39m
+                [33mhref
+[39m=[32m"#features"[39m
+              [36m>[39m
+                
+[0mFeatures[0m
+              
+[36m</a>[39m
+              [36m<a[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+hover:text-green-600 
+transition"[39m
+                [33mhref
+[39m=[32m"#how-it-works"
+[39m
+              [36m>[39m
+                [0mHow 
+it Works[0m
+              
+[36m</a>[39m
+              
+[36m<button[39m
+                [33mclass
+[39m=[32m"flex 
+items-center gap-2 px-3 
+py-2 bg-white border 
+border-gray-300 
+rounded-lg shadow-sm 
+hover:bg-gray-50 
+transition text-sm 
+font-medium 
+text-gray-700"[39m
+                [33mtitle
+[39m=[32m"common.languag
+e"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-languages 
+text-green-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"18"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"18"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m5 8 6 
+6"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m4 14 
+6-6 2-3"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M2 
+5h12"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M7 
+2h1"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m22 
+22-5-10-5 10"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M14 
+18h6"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+                
+[36m<span>[39m
+                  
+[0mEnglish[0m
+                
+[36m</span>[39m
+              
+[36m</button>[39m
+              
+[36m<button[39m
+                [33mclass
+[39m=[32m"bg-green-600 
+text-white px-6 py-2 
+rounded-full 
+font-semibold 
+hover:bg-green-700 
+transition shadow-lg 
+shadow-green-200"[39m
+              [36m>[39m
+                [0mSign 
+In[0m
+              
+[36m</button>[39m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"pt-32 pb-20 px-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+text-center"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"inline-flex 
+items-center space-x-2 
+bg-green-50 
+text-green-700 px-4 py-2 
+rounded-full mb-8 
+animate-fade-in"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[
+39m=[32m"lucide 
+lucide-zap "[39m
+              [33mfill[3
+9m=[32m"none"[39m
+              [33mheight
+[39m=[32m"16"[39m
+              [33mstroke
+[39m=[32m"currentColor"[
+39m
+              [33mstroke-
+linecap[39m=[32m"round"
+[39m
+              [33mstroke-
+linejoin[39m=[32m"round"
+[39m
+              [33mstroke-
+width[39m=[32m"2"[39m
+              
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+              [33mwidth[
+39m=[32m"16"[39m
+              [33mxmlns[
+39m=[32m"http://www.w3.or
+g/2000/svg"[39m
+            [36m>[39m
+              
+[36m<polygon[39m
+                
+[33mpoints[39m=[32m"13 
+2 3 14 12 14 11 22 21 10 
+12 10 13 2"[39m
+              [36m/>[39m
+            
+[36m</svg>[39m
+            
+[36m<span[39m
+              [33mclass[
+39m=[32m"text-sm 
+font-bold uppercase 
+tracking-wider"[39m
+            [36m>[39m
+              
+[0mAI-Powered Social 
+Impact[0m
+            
+[36m</span>[39m
+          [36m</div>[39m
+          [36m<h1[39m
+            [33mclass[39
+m=[32m"text-5xl 
+md:text-7xl 
+font-extrabold 
+text-gray-900 mb-8 
+tracking-tight"[39m
+          [36m>[39m
+            [0mBridging 
+Villages with [0m
+            [36m<br 
+/>[39m
+            
+[36m<span[39m
+              [33mclass[
+39m=[32m"text-transparent
+ bg-clip-text 
+bg-gradient-to-r 
+from-green-600 
+to-emerald-600"[39m
+            [36m>[39m
+              
+[0mIntelligent Action[0m
+            
+[36m</span>[39m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39
+m=[32m"text-xl 
+text-gray-600 mb-12 
+max-w-2xl mx-auto 
+leading-relaxed"[39m
+          [36m>[39m
+            
+[0mSocialCode uses 
+multimodal AI to match 
+student volunteers with 
+critical village needs, 
+ensuring expertise goes 
+exactly where it's needed 
+most.[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex flex-col 
+sm:flex-row 
+justify-center gap-4"[39m
+          [36m>[39m
+            
+[36m<button[39m
+              [33mclass[
+39m=[32m"bg-gray-900 
+text-white px-8 py-4 
+rounded-full font-bold 
+text-lg hover:bg-gray-800 
+transition flex 
+items-center group"[39m
+            [36m>[39m
+              [0mStart 
+Volunteering[0m
+              
+[36m<svg[39m
+                [33mclass
+[39m=[32m"lucide 
+lucide-arrow-right ml-2 
+group-hover:translate-x-1 
+transition"[39m
+                [33mfill
+[39m=[32m"none"[39m
+                [33mheigh
+t[39m=[32m"20"[39m
+                [33mstrok
+e[39m=[32m"currentColor"
+[39m
+                [33mstrok
+e-linecap[39m=[32m"round
+"[39m
+                [33mstrok
+e-linejoin[39m=[32m"roun
+d"[39m
+                [33mstrok
+e-width[39m=[32m"2"[39m
+                
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                [33mwidth
+[39m=[32m"20"[39m
+                [33mxmlns
+[39m=[32m"http://www.w3.
+org/2000/svg"[39m
+              [36m>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M5 
+12h14"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"m12 5 7 
+7-7 7"[39m
+                
+[36m/>[39m
+              
+[36m</svg>[39m
+            
+[36m</button>[39m
+            
+[36m<button[39m
+              [33mclass[
+39m=[32m"bg-white 
+text-gray-900 border-2 
+border-gray-200 px-8 py-4 
+rounded-full font-bold 
+text-lg 
+hover:border-green-600 
+hover:text-green-600 
+transition"[39m
+            [36m>[39m
+              [0mExplore 
+Projects[0m
+            
+[36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"py-20 bg-gray-50"[39m
+        [33mid[39m=[32m
+"features"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"text-center 
+mb-16"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[
+39m=[32m"text-3xl 
+font-bold text-gray-900 
+mb-4"[39m
+            [36m>[39m
+              
+[0mEmpowering 
+Communities[0m
+            
+[36m</h2>[39m
+            [36m<p[39m
+              [33mclass[
+39m=[32m"text-gray-600"[
+39m
+            [36m>[39m
+              
+[0mNext-generation tools 
+for grassroots 
+development.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"grid 
+md:grid-cols-3 gap-8"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-green-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-message-square 
+text-green-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M21 
+15a2 2 0 0 1-2 2H7l-4 
+4V5a2 2 0 0 1 2-2h14a2 2 
+0 0 1 2 2z"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                
+[0mMultimodal AI[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+              [36m>[39m
+                
+[0mVillagers can report 
+problems using audio, 
+photos, or text in their 
+local language.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-blue-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-zap 
+text-blue-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<polygon[39m
+                    
+[33mpoints[39m=[32m"13 
+2 3 14 12 14 11 22 21 10 
+12 10 13 2"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                [0mSmart 
+Matching[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+              [36m>[39m
+                [0mOur 
+M3 Recommender finds the 
+perfect team based on 
+skills, logistics, and 
+fairness.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-purple-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-map 
+text-purple-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<polygon[39m
+                    
+[33mpoints[39m=[32m"3 
+6 9 3 15 6 21 3 21 18 15 
+21 9 18 3 21"[39m
+                  
+[36m/>[39m
+                  
+[36m<line[39m
+                    
+[33mx1[39m=[32m"9"[39m
+                    
+[33mx2[39m=[32m"9"[39m
+                    
+[33my1[39m=[32m"3"[39m
+                    [33my
+2[39m=[32m"18"[39m
+                  
+[36m/>[39m
+                  
+[36m<line[39m
+                    [33mx
+1[39m=[32m"15"[39m
+                    [33mx
+2[39m=[32m"15"[39m
+                    
+[33my1[39m=[32m"6"[39m
+                    [33my
+2[39m=[32m"21"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                
+[0mGeo-Spatial Map[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+              [36m>[39m
+                
+[0mCoordinators 
+visualize problems and 
+volunteer deployments on 
+an interactive map.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"py-20 
+bg-green-600"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4 grid md:grid-cols-3 
+gap-12 text-center 
+text-white"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m50+[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mVillages Empowered[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m1.2k[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mVolunteer Hours[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m98%[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mResolution Rate[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2mΓ¥»[22m 
+Object.getElementError nod
+e_modules/@testing-library
+/dom/dist/config.js:[2m37
+:19[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m76:38[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m52:17[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m95:19[22m[39m
+[36m [2mΓ¥»[22m src/pag
+es/Home.test.tsx:[2m18:23
+[22m[39m
+    [90m 16| [39m       
+ )[33m;[39m
+    [90m 17| [39m
+    [90m 18| [39m       
+ expect(screen.getByText(/
+Empowering Rural 
+Communities/i)).toBeΓÇª
+    [90m   | [39m       
+               [31m^[39m
+    [90m 19| [39m    
+})[33m;[39m
+    [90m 20| [39m
+
+[31m[2mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ
+»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»Γ
+Ä»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+ΓÄ»[2/4]ΓÄ»[22m[39m
+
+[41m[1m FAIL [22m[49m 
+src/pages/Home.test.tsx[2
+m > [22mHome[2m > 
+[22mshould render submit 
+problem button
+[31m[1mTestingLibraryEle
+mentError[22m[39m: 
+Unable to find an element 
+with the text: /Submit a 
+Problem/i. This could be 
+because the text is 
+broken up by multiple 
+elements. In this case, 
+you can provide a 
+function for your text 
+matcher to make your 
+matcher more flexible.
+
+Ignored nodes: comments, 
+script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32
+m"min-h-screen bg-white 
+pt-16"[39m
+    [36m>[39m
+      [36m<nav[39m
+        [33mclass[39m=[
+32m"fixed w-full 
+bg-white/80 
+backdrop-blur-md z-50 
+border-b 
+border-gray-100"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4 sm:px-6 lg:px-8"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex 
+justify-between h-16 
+items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"flex 
+items-center 
+space-x-2"[39m
+            [36m>[39m
+              
+[36m<svg[39m
+                [33mclass
+[39m=[32m"lucide 
+lucide-globe 
+text-green-600"[39m
+                [33mfill
+[39m=[32m"none"[39m
+                [33mheigh
+t[39m=[32m"32"[39m
+                [33mstrok
+e[39m=[32m"currentColor"
+[39m
+                [33mstrok
+e-linecap[39m=[32m"round
+"[39m
+                [33mstrok
+e-linejoin[39m=[32m"roun
+d"[39m
+                [33mstrok
+e-width[39m=[32m"2"[39m
+                
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                [33mwidth
+[39m=[32m"32"[39m
+                [33mxmlns
+[39m=[32m"http://www.w3.
+org/2000/svg"[39m
+              [36m>[39m
+                
+[36m<circle[39m
+                  [33mcx
+[39m=[32m"12"[39m
+                  [33mcy
+[39m=[32m"12"[39m
+                  
+[33mr[39m=[32m"10"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M12 
+2a14.5 14.5 0 0 0 0 20 
+14.5 14.5 0 0 0 0-20"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M2 
+12h20"[39m
+                
+[36m/>[39m
+              
+[36m</svg>[39m
+              
+[36m<span[39m
+                [33mclass
+[39m=[32m"text-2xl 
+font-bold text-gray-900 
+tracking-tight"[39m
+              [36m>[39m
+                
+[0mSocialCode[0m
+              
+[36m</span>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"hidden md:flex 
+items-center 
+space-x-8"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+hover:text-green-600 
+transition"[39m
+                [33mhref
+[39m=[32m"#features"[39m
+              [36m>[39m
+                
+[0mFeatures[0m
+              
+[36m</a>[39m
+              [36m<a[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+hover:text-green-600 
+transition"[39m
+                [33mhref
+[39m=[32m"#how-it-works"
+[39m
+              [36m>[39m
+                [0mHow 
+it Works[0m
+              
+[36m</a>[39m
+              
+[36m<button[39m
+                [33mclass
+[39m=[32m"flex 
+items-center gap-2 px-3 
+py-2 bg-white border 
+border-gray-300 
+rounded-lg shadow-sm 
+hover:bg-gray-50 
+transition text-sm 
+font-medium 
+text-gray-700"[39m
+                [33mtitle
+[39m=[32m"common.languag
+e"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-languages 
+text-green-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"18"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"18"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m5 8 6 
+6"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m4 14 
+6-6 2-3"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M2 
+5h12"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M7 
+2h1"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m22 
+22-5-10-5 10"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M14 
+18h6"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+                
+[36m<span>[39m
+                  
+[0mEnglish[0m
+                
+[36m</span>[39m
+              
+[36m</button>[39m
+              
+[36m<button[39m
+                [33mclass
+[39m=[32m"bg-green-600 
+text-white px-6 py-2 
+rounded-full 
+font-semibold 
+hover:bg-green-700 
+transition shadow-lg 
+shadow-green-200"[39m
+              [36m>[39m
+                [0mSign 
+In[0m
+              
+[36m</button>[39m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"pt-32 pb-20 px-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+text-center"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"inline-flex 
+items-center space-x-2 
+bg-green-50 
+text-green-700 px-4 py-2 
+rounded-full mb-8 
+animate-fade-in"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[
+39m=[32m"lucide 
+lucide-zap "[39m
+              [33mfill[3
+9m=[32m"none"[39m
+              [33mheight
+[39m=[32m"16"[39m
+              [33mstroke
+[39m=[32m"currentColor"[
+39m
+              [33mstroke-
+linecap[39m=[32m"round"
+[39m
+              [33mstroke-
+linejoin[39m=[32m"round"
+[39m
+              [33mstroke-
+width[39m=[32m"2"[39m
+              
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+              [33mwidth[
+39m=[32m"16"[39m
+              [33mxmlns[
+39m=[32m"http://www.w3.or
+g/2000/svg"[39m
+            [36m>[39m
+              
+[36m<polygon[39m
+                
+[33mpoints[39m=[32m"13 
+2 3 14 12 14 11 22 21 10 
+12 10 13 2"[39m
+              [36m/>[39m
+            
+[36m</svg>[39m
+            
+[36m<span[39m
+              [33mclass[
+39m=[32m"text-sm 
+font-bold uppercase 
+tracking-wider"[39m
+            [36m>[39m
+              
+[0mAI-Powered Social 
+Impact[0m
+            
+[36m</span>[39m
+          [36m</div>[39m
+          [36m<h1[39m
+            [33mclass[39
+m=[32m"text-5xl 
+md:text-7xl 
+font-extrabold 
+text-gray-900 mb-8 
+tracking-tight"[39m
+          [36m>[39m
+            [0mBridging 
+Villages with [0m
+            [36m<br 
+/>[39m
+            
+[36m<span[39m
+              [33mclass[
+39m=[32m"text-transparent
+ bg-clip-text 
+bg-gradient-to-r 
+from-green-600 
+to-emerald-600"[39m
+            [36m>[39m
+              
+[0mIntelligent Action[0m
+            
+[36m</span>[39m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39
+m=[32m"text-xl 
+text-gray-600 mb-12 
+max-w-2xl mx-auto 
+leading-relaxed"[39m
+          [36m>[39m
+            
+[0mSocialCode uses 
+multimodal AI to match 
+student volunteers with 
+critical village needs, 
+ensuring expertise goes 
+exactly where it's needed 
+most.[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex flex-col 
+sm:flex-row 
+justify-center gap-4"[39m
+          [36m>[39m
+            
+[36m<button[39m
+              [33mclass[
+39m=[32m"bg-gray-900 
+text-white px-8 py-4 
+rounded-full font-bold 
+text-lg hover:bg-gray-800 
+transition flex 
+items-center group"[39m
+            [36m>[39m
+              [0mStart 
+Volunteering[0m
+              
+[36m<svg[39m
+                [33mclass
+[39m=[32m"lucide 
+lucide-arrow-right ml-2 
+group-hover:translate-x-1 
+transition"[39m
+                [33mfill
+[39m=[32m"none"[39m
+                [33mheigh
+t[39m=[32m"20"[39m
+                [33mstrok
+e[39m=[32m"currentColor"
+[39m
+                [33mstrok
+e-linecap[39m=[32m"round
+"[39m
+                [33mstrok
+e-linejoin[39m=[32m"roun
+d"[39m
+                [33mstrok
+e-width[39m=[32m"2"[39m
+                
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                [33mwidth
+[39m=[32m"20"[39m
+                [33mxmlns
+[39m=[32m"http://www.w3.
+org/2000/svg"[39m
+              [36m>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M5 
+12h14"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"m12 5 7 
+7-7 7"[39m
+                
+[36m/>[39m
+              
+[36m</svg>[39m
+            
+[36m</button>[39m
+            
+[36m<button[39m
+              [33mclass[
+39m=[32m"bg-white 
+text-gray-900 border-2 
+border-gray-200 px-8 py-4 
+rounded-full font-bold 
+text-lg 
+hover:border-green-600 
+hover:text-green-600 
+transition"[39m
+            [36m>[39m
+              [0mExplore 
+Projects[0m
+            
+[36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"py-20 bg-gray-50"[39m
+        [33mid[39m=[32m
+"features"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"text-center 
+mb-16"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[
+39m=[32m"text-3xl 
+font-bold text-gray-900 
+mb-4"[39m
+            [36m>[39m
+              
+[0mEmpowering 
+Communities[0m
+            
+[36m</h2>[39m
+            [36m<p[39m
+              [33mclass[
+39m=[32m"text-gray-600"[
+39m
+            [36m>[39m
+              
+[0mNext-generation tools 
+for grassroots 
+development.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"grid 
+md:grid-cols-3 gap-8"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-green-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-message-square 
+text-green-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M21 
+15a2 2 0 0 1-2 2H7l-4 
+4V5a2 2 0 0 1 2-2h14a2 2 
+0 0 1 2 2z"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                
+[0mMultimodal AI[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+              [36m>[39m
+                
+[0mVillagers can report 
+problems using audio, 
+photos, or text in their 
+local language.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-blue-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-zap 
+text-blue-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<polygon[39m
+                    
+[33mpoints[39m=[32m"13 
+2 3 14 12 14 11 22 21 10 
+12 10 13 2"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                [0mSmart 
+Matching[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+              [36m>[39m
+                [0mOur 
+M3 Recommender finds the 
+perfect team based on 
+skills, logistics, and 
+fairness.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-purple-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-map 
+text-purple-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<polygon[39m
+                    
+[33mpoints[39m=[32m"3 
+6 9 3 15 6 21 3 21 18 15 
+21 9 18 3 21"[39m
+                  
+[36m/>[39m
+                  
+[36m<line[39m
+                    
+[33mx1[39m=[32m"9"[39m
+                    
+[33mx2[39m=[32m"9"[39m
+                    
+[33my1[39m=[32m"3"[39m
+                    [33my
+2[39m=[32m"18"[39m
+                  
+[36m/>[39m
+                  
+[36m<line[39m
+                    [33mx
+1[39m=[32m"15"[39m
+                    [33mx
+2[39m=[32m"15"[39m
+                    
+[33my1[39m=[32m"6"[39m
+                    [33my
+2[39m=[32m"21"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                
+[0mGeo-Spatial Map[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+              [36m>[39m
+                
+[0mCoordinators 
+visualize problems and 
+volunteer deployments on 
+an interactive map.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"py-20 
+bg-green-600"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4 grid md:grid-cols-3 
+gap-12 text-center 
+text-white"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m50+[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mVillages Empowered[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m1.2k[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mVolunteer Hours[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m98%[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mResolution Rate[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2mΓ¥»[22m 
+Object.getElementError nod
+e_modules/@testing-library
+/dom/dist/config.js:[2m37
+:19[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m76:38[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m52:17[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m95:19[22m[39m
+[36m [2mΓ¥»[22m src/pag
+es/Home.test.tsx:[2m30:23
+[22m[39m
+    [90m 28| [39m       
+ )[33m;[39m
+    [90m 29| [39m
+    [90m 30| [39m       
+ expect(screen.getByText(/
+Submit a Problem/i)).toBeI
+nTheDocumenΓÇª
+    [90m   | [39m       
+               [31m^[39m
+    [90m 31| [39m    
+})[33m;[39m
+    [90m 32| [39m
+
+[31m[2mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ
+»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»Γ
+Ä»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+ΓÄ»[3/4]ΓÄ»[22m[39m
+
+[41m[1m FAIL [22m[49m 
+src/pages/Home.test.tsx[2
+m > [22mHome[2m > 
+[22mshould render 
+features section
+[31m[1mTestingLibraryEle
+mentError[22m[39m: 
+Unable to find an element 
+with the text: /Smart 
+Team Matching/i. This 
+could be because the text 
+is broken up by multiple 
+elements. In this case, 
+you can provide a 
+function for your text 
+matcher to make your 
+matcher more flexible.
+
+Ignored nodes: comments, 
+script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32
+m"min-h-screen bg-white 
+pt-16"[39m
+    [36m>[39m
+      [36m<nav[39m
+        [33mclass[39m=[
+32m"fixed w-full 
+bg-white/80 
+backdrop-blur-md z-50 
+border-b 
+border-gray-100"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4 sm:px-6 lg:px-8"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex 
+justify-between h-16 
+items-center"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"flex 
+items-center 
+space-x-2"[39m
+            [36m>[39m
+              
+[36m<svg[39m
+                [33mclass
+[39m=[32m"lucide 
+lucide-globe 
+text-green-600"[39m
+                [33mfill
+[39m=[32m"none"[39m
+                [33mheigh
+t[39m=[32m"32"[39m
+                [33mstrok
+e[39m=[32m"currentColor"
+[39m
+                [33mstrok
+e-linecap[39m=[32m"round
+"[39m
+                [33mstrok
+e-linejoin[39m=[32m"roun
+d"[39m
+                [33mstrok
+e-width[39m=[32m"2"[39m
+                
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                [33mwidth
+[39m=[32m"32"[39m
+                [33mxmlns
+[39m=[32m"http://www.w3.
+org/2000/svg"[39m
+              [36m>[39m
+                
+[36m<circle[39m
+                  [33mcx
+[39m=[32m"12"[39m
+                  [33mcy
+[39m=[32m"12"[39m
+                  
+[33mr[39m=[32m"10"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M12 
+2a14.5 14.5 0 0 0 0 20 
+14.5 14.5 0 0 0 0-20"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M2 
+12h20"[39m
+                
+[36m/>[39m
+              
+[36m</svg>[39m
+              
+[36m<span[39m
+                [33mclass
+[39m=[32m"text-2xl 
+font-bold text-gray-900 
+tracking-tight"[39m
+              [36m>[39m
+                
+[0mSocialCode[0m
+              
+[36m</span>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"hidden md:flex 
+items-center 
+space-x-8"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+hover:text-green-600 
+transition"[39m
+                [33mhref
+[39m=[32m"#features"[39m
+              [36m>[39m
+                
+[0mFeatures[0m
+              
+[36m</a>[39m
+              [36m<a[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+hover:text-green-600 
+transition"[39m
+                [33mhref
+[39m=[32m"#how-it-works"
+[39m
+              [36m>[39m
+                [0mHow 
+it Works[0m
+              
+[36m</a>[39m
+              
+[36m<button[39m
+                [33mclass
+[39m=[32m"flex 
+items-center gap-2 px-3 
+py-2 bg-white border 
+border-gray-300 
+rounded-lg shadow-sm 
+hover:bg-gray-50 
+transition text-sm 
+font-medium 
+text-gray-700"[39m
+                [33mtitle
+[39m=[32m"common.languag
+e"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-languages 
+text-green-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"18"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"18"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m5 8 6 
+6"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m4 14 
+6-6 2-3"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M2 
+5h12"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M7 
+2h1"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"m22 
+22-5-10-5 10"[39m
+                  
+[36m/>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M14 
+18h6"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+                
+[36m<span>[39m
+                  
+[0mEnglish[0m
+                
+[36m</span>[39m
+              
+[36m</button>[39m
+              
+[36m<button[39m
+                [33mclass
+[39m=[32m"bg-green-600 
+text-white px-6 py-2 
+rounded-full 
+font-semibold 
+hover:bg-green-700 
+transition shadow-lg 
+shadow-green-200"[39m
+              [36m>[39m
+                [0mSign 
+In[0m
+              
+[36m</button>[39m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"pt-32 pb-20 px-4"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+text-center"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"inline-flex 
+items-center space-x-2 
+bg-green-50 
+text-green-700 px-4 py-2 
+rounded-full mb-8 
+animate-fade-in"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[
+39m=[32m"lucide 
+lucide-zap "[39m
+              [33mfill[3
+9m=[32m"none"[39m
+              [33mheight
+[39m=[32m"16"[39m
+              [33mstroke
+[39m=[32m"currentColor"[
+39m
+              [33mstroke-
+linecap[39m=[32m"round"
+[39m
+              [33mstroke-
+linejoin[39m=[32m"round"
+[39m
+              [33mstroke-
+width[39m=[32m"2"[39m
+              
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+              [33mwidth[
+39m=[32m"16"[39m
+              [33mxmlns[
+39m=[32m"http://www.w3.or
+g/2000/svg"[39m
+            [36m>[39m
+              
+[36m<polygon[39m
+                
+[33mpoints[39m=[32m"13 
+2 3 14 12 14 11 22 21 10 
+12 10 13 2"[39m
+              [36m/>[39m
+            
+[36m</svg>[39m
+            
+[36m<span[39m
+              [33mclass[
+39m=[32m"text-sm 
+font-bold uppercase 
+tracking-wider"[39m
+            [36m>[39m
+              
+[0mAI-Powered Social 
+Impact[0m
+            
+[36m</span>[39m
+          [36m</div>[39m
+          [36m<h1[39m
+            [33mclass[39
+m=[32m"text-5xl 
+md:text-7xl 
+font-extrabold 
+text-gray-900 mb-8 
+tracking-tight"[39m
+          [36m>[39m
+            [0mBridging 
+Villages with [0m
+            [36m<br 
+/>[39m
+            
+[36m<span[39m
+              [33mclass[
+39m=[32m"text-transparent
+ bg-clip-text 
+bg-gradient-to-r 
+from-green-600 
+to-emerald-600"[39m
+            [36m>[39m
+              
+[0mIntelligent Action[0m
+            
+[36m</span>[39m
+          [36m</h1>[39m
+          [36m<p[39m
+            [33mclass[39
+m=[32m"text-xl 
+text-gray-600 mb-12 
+max-w-2xl mx-auto 
+leading-relaxed"[39m
+          [36m>[39m
+            
+[0mSocialCode uses 
+multimodal AI to match 
+student volunteers with 
+critical village needs, 
+ensuring expertise goes 
+exactly where it's needed 
+most.[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"flex flex-col 
+sm:flex-row 
+justify-center gap-4"[39m
+          [36m>[39m
+            
+[36m<button[39m
+              [33mclass[
+39m=[32m"bg-gray-900 
+text-white px-8 py-4 
+rounded-full font-bold 
+text-lg hover:bg-gray-800 
+transition flex 
+items-center group"[39m
+            [36m>[39m
+              [0mStart 
+Volunteering[0m
+              
+[36m<svg[39m
+                [33mclass
+[39m=[32m"lucide 
+lucide-arrow-right ml-2 
+group-hover:translate-x-1 
+transition"[39m
+                [33mfill
+[39m=[32m"none"[39m
+                [33mheigh
+t[39m=[32m"20"[39m
+                [33mstrok
+e[39m=[32m"currentColor"
+[39m
+                [33mstrok
+e-linecap[39m=[32m"round
+"[39m
+                [33mstrok
+e-linejoin[39m=[32m"roun
+d"[39m
+                [33mstrok
+e-width[39m=[32m"2"[39m
+                
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                [33mwidth
+[39m=[32m"20"[39m
+                [33mxmlns
+[39m=[32m"http://www.w3.
+org/2000/svg"[39m
+              [36m>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"M5 
+12h14"[39m
+                
+[36m/>[39m
+                
+[36m<path[39m
+                  
+[33md[39m=[32m"m12 5 7 
+7-7 7"[39m
+                
+[36m/>[39m
+              
+[36m</svg>[39m
+            
+[36m</button>[39m
+            
+[36m<button[39m
+              [33mclass[
+39m=[32m"bg-white 
+text-gray-900 border-2 
+border-gray-200 px-8 py-4 
+rounded-full font-bold 
+text-lg 
+hover:border-green-600 
+hover:text-green-600 
+transition"[39m
+            [36m>[39m
+              [0mExplore 
+Projects[0m
+            
+[36m</button>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"py-20 bg-gray-50"[39m
+        [33mid[39m=[32m
+"features"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"text-center 
+mb-16"[39m
+          [36m>[39m
+            [36m<h2[39m
+              [33mclass[
+39m=[32m"text-3xl 
+font-bold text-gray-900 
+mb-4"[39m
+            [36m>[39m
+              
+[0mEmpowering 
+Communities[0m
+            
+[36m</h2>[39m
+            [36m<p[39m
+              [33mclass[
+39m=[32m"text-gray-600"[
+39m
+            [36m>[39m
+              
+[0mNext-generation tools 
+for grassroots 
+development.[0m
+            [36m</p>[39m
+          [36m</div>[39m
+          [36m<div[39m
+            [33mclass[39
+m=[32m"grid 
+md:grid-cols-3 gap-8"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-green-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-message-square 
+text-green-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<path[39m
+                    
+[33md[39m=[32m"M21 
+15a2 2 0 0 1-2 2H7l-4 
+4V5a2 2 0 0 1 2-2h14a2 2 
+0 0 1 2 2z"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                
+[0mMultimodal AI[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+              [36m>[39m
+                
+[0mVillagers can report 
+problems using audio, 
+photos, or text in their 
+local language.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-blue-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-zap 
+text-blue-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<polygon[39m
+                    
+[33mpoints[39m=[32m"13 
+2 3 14 12 14 11 22 21 10 
+12 10 13 2"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                [0mSmart 
+Matching[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+
+[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m1 passed[39m[22m[90m (3)[39m
+[2m      Tests [22m [1m[31m4 failed[39m[22m[2m | [22m[1m[32m5 passed[39m[22m[90m (9)[39m
+[2m   Start at [22m 13:52:31
+[2m   Duration [22m 3.44s[2m (transform 500ms, setup 920ms, import 1.67s, tests 281ms, environment 4.27s)[22m
+
+              [36m>[39m
+                [0mOur 
+M3 Recommender finds the 
+perfect team based on 
+skills, logistics, and 
+fairness.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"bg-white p-8 
+rounded-2xl shadow-sm 
+hover:shadow-md 
+transition border 
+border-gray-100"[39m
+            [36m>[39m
+              
+[36m<div[39m
+                [33mclass
+[39m=[32m"w-12 h-12 
+bg-purple-100 rounded-xl 
+flex items-center 
+justify-center mb-6"[39m
+              [36m>[39m
+                
+[36m<svg[39m
+                  [33mcla
+ss[39m=[32m"lucide 
+lucide-map 
+text-purple-600"[39m
+                  [33mfil
+l[39m=[32m"none"[39m
+                  [33mhei
+ght[39m=[32m"24"[39m
+                  [33mstr
+oke[39m=[32m"currentColo
+r"[39m
+                  [33mstr
+oke-linecap[39m=[32m"rou
+nd"[39m
+                  [33mstr
+oke-linejoin[39m=[32m"ro
+und"[39m
+                  [33mstr
+oke-width[39m=[32m"2"[3
+9m
+                  
+[33mviewBox[39m=[32m"0 
+0 24 24"[39m
+                  [33mwid
+th[39m=[32m"24"[39m
+                  [33mxml
+ns[39m=[32m"http://www.w
+3.org/2000/svg"[39m
+                
+[36m>[39m
+                  
+[36m<polygon[39m
+                    
+[33mpoints[39m=[32m"3 
+6 9 3 15 6 21 3 21 18 15 
+21 9 18 3 21"[39m
+                  
+[36m/>[39m
+                  
+[36m<line[39m
+                    
+[33mx1[39m=[32m"9"[39m
+                    
+[33mx2[39m=[32m"9"[39m
+                    
+[33my1[39m=[32m"3"[39m
+                    [33my
+2[39m=[32m"18"[39m
+                  
+[36m/>[39m
+                  
+[36m<line[39m
+                    [33mx
+1[39m=[32m"15"[39m
+                    [33mx
+2[39m=[32m"15"[39m
+                    
+[33my1[39m=[32m"6"[39m
+                    [33my
+2[39m=[32m"21"[39m
+                  
+[36m/>[39m
+                
+[36m</svg>[39m
+              
+[36m</div>[39m
+              
+[36m<h3[39m
+                [33mclass
+[39m=[32m"text-xl 
+font-bold mb-4"[39m
+              [36m>[39m
+                
+[0mGeo-Spatial Map[0m
+              
+[36m</h3>[39m
+              [36m<p[39m
+                [33mclass
+[39m=[32m"text-gray-600 
+leading-relaxed"[39m
+              [36m>[39m
+                
+[0mCoordinators 
+visualize problems and 
+volunteer deployments on 
+an interactive map.[0m
+              
+[36m</p>[39m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+      [36m<section[39m
+        [33mclass[39m=[
+32m"py-20 
+bg-green-600"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=
+[32m"max-w-7xl mx-auto 
+px-4 grid md:grid-cols-3 
+gap-12 text-center 
+text-white"[39m
+        [36m>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m50+[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mVillages Empowered[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m1.2k[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mVolunteer Hours[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+          [36m<div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-5xl 
+font-extrabold mb-2"[39m
+            [36m>[39m
+              [0m98%[0m
+            
+[36m</div>[39m
+            [36m<div[39m
+              [33mclass[
+39m=[32m"text-green-100 
+font-medium"[39m
+            [36m>[39m
+              
+[0mResolution Rate[0m
+            
+[36m</div>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+[90m [2mΓ¥»[22m 
+Object.getElementError nod
+e_modules/@testing-library
+/dom/dist/config.js:[2m37
+:19[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m76:38[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m52:17[22m[39m
+[90m [2mΓ¥»[22m node_mo
+dules/@testing-library/dom
+/dist/query-helpers.js:[2
+m95:19[22m[39m
+[36m [2mΓ¥»[22m src/pag
+es/Home.test.tsx:[2m42:23
+[22m[39m
+    [90m 40| [39m       
+ )[33m;[39m
+    [90m 41| [39m
+    [90m 42| [39m       
+ expect(screen.getByText(/
+Smart Team Matching/i)).to
+BeInTheDocuΓÇª
+    [90m   | [39m       
+               [31m^[39m
+    [90m 43| [39m       
+ expect(screen.getByText(/
+Real-time Tracking/i)).toB
+eInTheDocumΓÇª
+    [90m 44| [39m    
+})[33m;[39m
+
+[31m[2mΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ
+»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»Γ
+Ä»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+ΓÄ»[4/4]ΓÄ»[22m[39m
+

@@ -1,0 +1,55 @@
+﻿
+      1..1
+      not ok 1 - Home # 
+time=107.46ms {
+          1..3
+          ok 1 - should 
+render home page with 
+main heading # 
+time=65.28ms
+          ok 2 - should 
+render call-to-action 
+buttons # time=15.24ms
+>         not ok 3 - 
+should render features 
+section # time=25.86ms
+              ---
+              error:
+                  name: "T
+estingLibraryElementError"
+                  
+message: "Found multiple 
+elements with the text: 
+/Multimodal AI/i
+  
+  Here are the matching 
+elements:
+  
+  Ignored nodes: 
+comments, script, style
+  [36m<p[39m
+    [33mclass[39m=[32m\
+"text-xl text-gray-600 
+mb-12 max-w-2xl mx-auto 
+leading-relaxed\"[39m
+  [36m>[39m
+    [0mSocialCode uses 
+multimodal AI to match 
+student volunteers with 
+critical village needs, 
+ensuring expertise goes 
+exactly where it's needed 
+most.[0m
+  [36m</p>[39m
+  
+  Ignored nodes: 
+comments, script, style
+  [36m<h3[39m
+    [33mclass[39m=[32m\
+"text-xl font-bold 
+mb-4\"[39m
+  [36m>[39m
+    [0mMultimodal AI[0m
+  [36m</h3>[39m
+
+

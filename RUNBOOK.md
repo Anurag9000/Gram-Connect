@@ -18,7 +18,7 @@ Follow these steps on a fresh machine to train the model, launch the API, and ru
 ```powershell
 # Backend repo
 
-Ensure the dataset folder `gram_sahayta_dataset_with_locations_and_availability` is present and contains:
+Ensure the dataset folder `data/` is present and contains:
 ```
 availability_legend.csv
 pairs.csv
@@ -36,7 +36,7 @@ village_locations.csv
 ### 2.1 Create and activate virtual environment
 
 ```powershell
-cd "D:\SocialCode\Social Code Scripts"
+cd backend
 python -m venv .venv
 .\.venv\Scripts\activate
 ```
@@ -55,9 +55,9 @@ python -m uvicorn api_server:app --help  # sanity check import works
 
 # Run training (will read dataset defaults automatically)
 python -c "from m3_trainer import TrainingConfig, train_model; train_model(TrainingConfig(
-    proposals=r'D:\SocialCode\gram_sahayta_dataset_with_locations_and_availability\proposals.csv',
-    people=r'D:\SocialCode\gram_sahayta_dataset_with_locations_and_availability\people.csv',
-    pairs=r'D:\SocialCode\gram_sahayta_dataset_with_locations_and_availability\pairs.csv',
+    proposals=r'../data/proposals.csv',
+    people=r'../data/people.csv',
+    pairs=r'../data/pairs.csv',
     out='model.pkl'
 ))"
 ```
@@ -80,7 +80,7 @@ Endpoints now available:
 ### 3.1 Install dependencies
 
 ```powershell
-cd "D:\SocialCode\Social-Code-Hackathon-Frontend\Social-Code-Hackathon"
+cd frontend
 npm install
 ```
 

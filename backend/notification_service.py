@@ -26,17 +26,22 @@ def send_sms_notification(to_phone: str, message: str) -> bool:
     # Mock success
     return True
 
-def notify_team_assignment(team_members: list, problem_title: str, village_name: str):
-    """Notifies a team about their new assignment."""
-    for member in team_members:
-        # Expected member structure: {'profile': {'full_name': '...', 'phone': '...'}}
-        profile = member.get('profile', {})
-        phone = profile.get('phone')
-        name = profile.get('full_name', 'Volunteer')
-        
-        if phone:
-            msg = f"Hello {name}, you have been assigned to: '{problem_title}' in {village_name}. Local coordinators will contact you soon."
-            send_sms_notification(phone, msg)
+def notify_team_assignment(teams: list, problem_title: str, village_name: str):
+    """Notifies all teams about their assignment."""
+    for team in teams:
+        members = team.get('members', [])
+        for member in members:
+            # Recommender members have 'name' and 'person_id' directly
+            # Fallback to 'profile' structure if present
+            profile = member.get('profile', {})
+            name = member.get('name') or profile.get('full_name') or profile.get('name') or 'Volunteer'
+            phone = member.get('phone') or profile.get('phone')
+            
+            if phone:
+                msg = f"Hello {name}, you have been assigned to: '{problem_title}' in {village_name}. Local coordinators will contact you soon."
+                send_sms_notification(phone, msg)
+            else:
+                logger.info(f"Skipping notification for {name} (no phone number found).")
 
 def notify_problem_resolved(villager_phone: str, problem_title: str):
     """Notifies the villager that their problem is resolved."""

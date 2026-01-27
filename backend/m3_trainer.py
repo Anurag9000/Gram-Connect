@@ -363,7 +363,8 @@ def main():
     ap.add_argument("--pairs", required=True)
     ap.add_argument("--out", default="model.pkl")
     ap.add_argument("--model_name", default="sentence-transformers/all-MiniLM-L6-v2")
-    default_dataset_root = r"D:\SocialCode\gram_sahayta_dataset_with_locations_and_availability"
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    default_dataset_root = os.path.join(backend_dir, "..", "data")
     ap.add_argument("--village_locations", default=os.path.join(default_dataset_root, "village_locations.csv"))
     ap.add_argument("--village_distances", default=os.path.join(default_dataset_root, "village_distances.csv"))
     ap.add_argument("--distance_scale", type=float, default=50.0, help="Distance in km mapped to 1.0 in features")

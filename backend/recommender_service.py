@@ -21,6 +21,12 @@ class RecommenderService:
         
         if not os.path.exists(model_path):
             logger.warning(f"Model file not found at {model_path}. Optimization will be disabled until trained.")
+            self.model_bundle = None
+        else:
+            logger.info(f"Loading M3 Model from {model_path}...")
+            with open(model_path, "rb") as f:
+                self.model_bundle = pickle.load(f)
+            logger.info("Model loaded successfully.")
 
     def generate_recommendations(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -65,7 +71,9 @@ class RecommenderService:
             weekly_quota=float(config.get("weekly_quota", 5.0)),
             soft_cap=int(config.get("soft_cap", 6)),
             k_robust=int(config.get("k_robust", 1)),
-            severity_override=config.get("severity")
+            k_robust=int(config.get("k_robust", 1)),
+            severity_override=config.get("severity"),
+            loaded_bundle=self.model_bundle
         )
 
         try:
@@ -82,11 +90,10 @@ class RecommenderService:
         from utils import read_csv_norm
         import pickle
         
-        if not os.path.exists(self.model_path):
+        if not self.model_bundle:
             return {"goodness": 0, "coverage": 0}
             
-        with open(self.model_path, "rb") as f:
-            bundle = pickle.load(f)
+        bundle = self.model_bundle
         
         all_people = read_csv_norm(self.people_csv)
         people_map = {get_any(p, ["person_id", "id"]): p for p in all_people}

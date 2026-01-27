@@ -122,7 +122,7 @@ async def health():
 
 
 @app.post("/train", response_model=TrainResponse)
-async def train_endpoint(request: TrainRequest):
+def train_endpoint(request: TrainRequest):
     config = TrainingConfig(
         proposals=request.proposals or DEFAULT_PROPOSALS_CSV,
         people=request.people or DEFAULT_PEOPLE_CSV,
@@ -313,7 +313,7 @@ async def get_volunteer_tasks(volunteer_id: str):
     ]
 
 @app.post("/recommend", response_model=RecommendResponse)
-async def recommend_endpoint(request: RecommendRequest):
+def recommend_endpoint(request: RecommendRequest):
     try:
         results = recommender_service.generate_recommendations(request.dict())
         
@@ -343,7 +343,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/transcribe")
-async def transcribe_endpoint(file: UploadFile = File(...)):
+def transcribe_endpoint(file: UploadFile = File(...)):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
             shutil.copyfileobj(file.file, tmp)
@@ -360,7 +360,7 @@ async def transcribe_endpoint(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/analyze-image")
-async def analyze_image_endpoint(file: UploadFile = File(...), labels: Optional[str] = None):
+def analyze_image_endpoint(file: UploadFile = File(...), labels: Optional[str] = None):
     # labels is passed as a comma-separated string if from form-data
     candidate_labels = labels.split(",") if (labels and labels.strip()) else None
     tmp_path = None

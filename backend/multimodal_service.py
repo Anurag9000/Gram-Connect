@@ -63,8 +63,16 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
     import clip # Local import for tokenize
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    with Image.open(image_path) as img:
-        image_input = preprocess(img).unsqueeze(0).to(device)
+    try:
+        with Image.open(image_path) as img:
+            image_input = preprocess(img).unsqueeze(0).to(device)
+    except Exception as e:
+        logger.error(f"Failed to open/preprocess image: {e}")
+        return {
+            "top_label": "Error",
+            "confidence": 0.0,
+            "all_probs": {"error": str(e)}
+        }
     
     text_input = clip.tokenize(candidate_labels).to(device)
 

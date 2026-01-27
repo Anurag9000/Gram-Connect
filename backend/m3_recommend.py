@@ -93,6 +93,9 @@ class RecommendationConfig:
     # Hybrid Multimodal extensions
     transcription: Optional[str] = None
     visual_tags: Optional[List[str]] = None
+    
+    # Performance optimization
+    loaded_bundle: Optional[Any] = None
 
 # -------- reading people / roster (robust) --------
 
@@ -396,10 +399,13 @@ def run_recommender(config: RecommendationConfig) -> List[Dict[str, Any]]:
     schedule_map = parse_schedule_csv(config.schedule_csv) if config.schedule_csv else {}
 
     # 2. Load model bundle
-    if not os.path.exists(config.model):
+    if config.loaded_bundle:
+        bundle = config.loaded_bundle
+    elif not os.path.exists(config.model):
         raise FileNotFoundError(f"Model file not found: {config.model}")
-    with open(config.model, "rb") as f:
-        bundle = pickle.load(f)
+    else:
+        with open(config.model, "rb") as f:
+            bundle = pickle.load(f)
     clf = bundle["model"]
     backend = bundle["backend"]
     prop_model = bundle["prop_model"]

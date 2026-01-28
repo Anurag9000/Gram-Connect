@@ -5,10 +5,9 @@ import Home from './pages/Home';
 import SubmitProblem from './pages/SubmitProblem';
 import VolunteerProfile from './pages/VolunteerProfile';
 import CoordinatorDashboard from './pages/CoordinatorDashboard';
-// --- ADD THESE NEW IMPORTS ---
 import VolunteerLogin from './pages/VolunteerLogin';
 import CoordinatorLogin from './pages/CoordinatorLogin';
-import VolunteerDashboard from './pages/VolunteerDashboard'; // Ensure this matches the export
+import VolunteerDashboard from './pages/VolunteerDashboard';
 
 function AppContent() {
   const { loading } = useAuth();
@@ -33,8 +32,6 @@ function AppContent() {
       {currentPage === 'submit' && <SubmitProblem onNavigate={setCurrentPage} />}
       {currentPage === 'profile' && <VolunteerProfile onNavigate={setCurrentPage} />}
       {currentPage === 'dashboard' && <CoordinatorDashboard onNavigate={setCurrentPage} />}
-
-      {/* --- ADD THESE NEW ROUTES --- */}
       {currentPage === 'volunteer-login' && <VolunteerLogin onNavigate={setCurrentPage} />}
       {currentPage === 'coordinator-login' && <CoordinatorLogin onNavigate={setCurrentPage} />}
       {currentPage === 'volunteer-dashboard' && <VolunteerDashboard onNavigate={setCurrentPage} />}

@@ -71,7 +71,6 @@ class RecommenderService:
             weekly_quota=float(config.get("weekly_quota", 5.0)),
             soft_cap=int(config.get("soft_cap", 6)),
             k_robust=int(config.get("k_robust", 1)),
-            k_robust=int(config.get("k_robust", 1)),
             severity_override=config.get("severity"),
             loaded_bundle=self.model_bundle
         )

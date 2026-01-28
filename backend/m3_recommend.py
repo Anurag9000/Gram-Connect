@@ -21,14 +21,22 @@ Or if you already have a skills JSON:
   python m3_recommend.py --model model.pkl --people people.csv --proposal_text "..." --skills_json skills.json --out teams_m3.csv
 """
 
-import argparse, csv, json, pickle, math, os, re, logging
+import argparse
+import csv
+import json
+import pickle
+import math
+import os
+import re
+import logging
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Any, Optional
+from datetime import datetime, timedelta, timezone
+from collections import defaultdict
+
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from embeddings import embed_with
-from datetime import datetime, timedelta, timezone
-from collections import defaultdict
 
 from utils import (
     AVAILABILITY_LEVELS,

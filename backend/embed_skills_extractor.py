@@ -230,6 +230,104 @@ SYNONYMS: Dict[str, List[str]] = {
 # ---------------------------
 # 3) Core extractor
 # ---------------------------
+# ---------------------------
+# 3) Core extractor (Cached)
+# ---------------------------
+class SkillsExtractor:
+    _instance = None
+
+    def __init__(self):
+        self.vectorizer = None
+        self.skill_mat = None
+        self.sk_ids = []
+        self._built = False
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    def _build_model(self):
+        if self._built:
+            return
+
+        # Build corpus: canonical + synonyms
+        skill_variants = []
+        self.sk_ids = []
+        idx = 0
+        for s in CANONICAL_SKILLS:
+            skill_variants.append(s.lower())
+            self.sk_ids.append((s, idx))
+            idx += 1
+            for syn in SYNONYMS.get(s, []):
+                skill_variants.append(syn.lower())
+                self.sk_ids.append((s, idx))
+                idx += 1
+        
+        # Initialize vectorizer
+        self.vectorizer = TfidfVectorizer(ngram_range=(1,2), min_df=1, stop_words='english')
+        # Check if we have any skills to fit (sanity check)
+        if not skill_variants:
+            # Fallback for empty skill list, though this shouldn't happen with default CANONICAL_SKILLS
+            self.vectorizer.fit(["placeholder"]) 
+            self.skill_mat = self.vectorizer.transform(["placeholder"])
+        else:
+            self.skill_mat = self.vectorizer.fit_transform(skill_variants)
+            
+        self._built = True
+
+    def extract(self, text: str, topk_per_sentence: int = 5, threshold: float = 0.25) -> List[str]:
+        self._build_model()
+        
+        sentences = _split_sentences(text.lower())
+        if not sentences:
+            return []
+
+        sent_mat = self.vectorizer.transform(sentences)
+        
+        # Calculate cosine similarity
+        sims = cosine_similarity(sent_mat, self.skill_mat)
+        
+        chosen = set()
+        n_sent = sent_mat.shape[0]
+        
+        for i in range(n_sent):
+            row = sims[i]
+            # Get indices of top matches
+            # argsort is ascending, so negate or take from end
+            if row.max() < threshold:
+                continue
+                
+            top_idx = np.argsort(row)[::-1][:topk_per_sentence]
+            
+            for j in top_idx:
+                score = row[j]
+                if score >= threshold:
+                    # Map col index j back to canonical name
+                    # self.sk_ids is a flat list mapping column index -> (canonical_name, original_idx_unused)
+                    # wait, earlier logic was index-based.
+                    # Let's double check mapping logic.
+                    # TfidfVectorizer output columns correspond to vocabulary features, NOT input document order.
+                    # Wait, logic in original `extract_skills_embed`:
+                    # "sent_mat = X[:n_sent]", "skill_mat = X[n_sent:]"
+                    # It was fitting on (sentences + skills). That ensures vocabulary covers everything.
+                    # But that means it rebuilds every time because `sentences` change.
+                    # 
+                    # If I pre-fit on JUST skills, I might miss vocabulary from input sentences?
+                    # No, TfidfVectorizer ignores words not in vocabulary during `transform`.
+                    # This is acceptable for keyword extraction against a fixed set of skills.
+                    # If the input text has "foobar" and "foobar" is not in skill keywords, it doesn't matter for matching.
+                    # 
+                    # Correct mapping:
+                    # `self.skill_mat` rows correspond to `skill_variants` list order.
+                    # `j` in matches corresponds to the ROW index in `self.skill_mat` because we did `cosine_similarity(sent_mat, self.skill_mat)`.
+                    # So `j` index into `self.sk_ids` IS correct.
+                    canon, _ = self.sk_ids[j]
+                    chosen.add(canon)
+                    
+        return sorted(chosen)
+
 def _split_sentences(text: str) -> List[str]:
     parts = re.split(r'(?<=[.!?])\s+', text.strip())
     parts = [p.strip() for p in parts if p.strip()]
@@ -243,54 +341,31 @@ def _merge_external_skills(extra_json_path: str):
         blob = json.load(f)
     ext_skills = blob.get("skills", [])
     ext_syn = blob.get("synonyms", {})
+    
+    changed = False
     for s in ext_skills:
         if s not in CANONICAL_SKILLS:
             CANONICAL_SKILLS.append(s)
+            changed = True
     for k, vals in ext_syn.items():
         base = SYNONYMS.get(k, [])
         for v in vals:
             if v not in base:
                 base.append(v)
+                changed = True
         SYNONYMS[k] = base
+        
+    # If external skills added, reset the singleton to force rebuild
+    if changed and SkillsExtractor._instance:
+        SkillsExtractor._instance._built = False
+
 
 def extract_skills_embed(text: str, topk_per_sentence: int = 5, threshold: float = 0.25) -> List[str]:
-    sentences = _split_sentences(text.lower())
-    # Build corpus: sentences + canonical + synonyms
-    corpus = []
-    corpus.extend(sentences)
-    skill_variants = []
-    for s in CANONICAL_SKILLS:
-        skill_variants.append(s.lower())
-        for syn in SYNONYMS.get(s, []):
-            skill_variants.append(syn.lower())
-    corpus.extend(skill_variants)
-
-    vec = TfidfVectorizer(ngram_range=(1,2), min_df=1, stop_words='english')
-    X = vec.fit_transform(corpus)
-
-    n_sent = len(sentences)
-    sent_mat = X[:n_sent]
-    skill_mat = X[n_sent:]  # canonical + synonyms in order
-
-    # Map each row in skill_mat back to canonical skill id
-    sk_ids = []
-    idx = 0
-    for s in CANONICAL_SKILLS:
-        sk_ids.append((s, idx)); idx += 1
-        for syn in SYNONYMS.get(s, []):
-            sk_ids.append((s, idx)); idx += 1
-
-    sims = cosine_similarity(sent_mat, skill_mat)  # (n_sent, n_skill_variants)
-    chosen = set()
-    for i in range(n_sent):
-        row = sims[i]
-        top_idx = np.argsort(-row)[:topk_per_sentence]
-        for j in top_idx:
-            score = row[j]
-            if score >= threshold:
-                canon, _ = sk_ids[j]
-                chosen.add(canon)
-    return sorted(chosen)
+    """
+    Wrapper function to maintain backward compatibility but use the cached class.
+    """
+    extractor = SkillsExtractor.get_instance()
+    return extractor.extract(text, topk_per_sentence, threshold)
 
 # Simple domain-aware fallback for very short inputs
 VILLAGE_FALLBACK = [

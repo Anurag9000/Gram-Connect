@@ -1,5 +1,6 @@
 import os
 import logging
+import csv
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
@@ -14,6 +15,7 @@ from m3_recommend import RecommendationConfig
 from recommender_service import RecommenderService
 from multimodal_service import transcribe_audio, analyze_image
 from notification_service import notify_team_assignment
+from mock_data import get_mock_problems, get_mock_volunteers, get_mock_volunteer_tasks
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,9 +40,12 @@ recommender_service = RecommenderService(
 
 app = FastAPI(title="SocialCode Backend Service")
 
+# CORS Configuration
+# Allow user to specify origins via env var, otherwise default to lenient for dev
+origins = os.getenv("CORS_ORIGINS", "*").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development; refine for production
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -137,6 +142,9 @@ def train_endpoint(request: TrainRequest):
     try:
         auc = train_model(config)
         return TrainResponse(status="ok", auc=auc, model_path=config.out)
+    except FileNotFoundError as e:
+        logger.error(f"Training file not found: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as exc:
         logger.exception("Training failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -144,142 +152,13 @@ def train_endpoint(request: TrainRequest):
 
 @app.get("/problems")
 async def get_problems():
-    # Mock data to match what the frontend expected
-    return [
-        {
-            "id": "problem-1",
-            "villager_id": "villager-1",
-            "title": "Broken Well Pump",
-            "description": "The main well pump is broken and needs repair.",
-            "category": "infrastructure",
-            "village_name": "Test Village",
-            "status": "pending",
-            "lat": 21.1458,
-            "lng": 79.0882,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
-            "profiles": { 
-                "id": "villager-1", 
-                "full_name": "Submitted by Coordinator", 
-                "email": "anon@test.com", 
-                "role": "villager", 
-                "created_at": datetime.now().isoformat(), 
-                "phone": None 
-            },
-            "matches": []
-        },
-        {
-            "id": "problem-2",
-            "villager_id": "villager-2",
-            "title": "Digital Literacy Class",
-            "description": "Need someone to teach basic computer skills to children.",
-            "category": "digital",
-            "village_name": "Other Village",
-            "status": "in_progress",
-            "lat": 21.1610,
-            "lng": 79.0720,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
-            "profiles": { 
-                "id": "villager-2", 
-                "full_name": "Submitted by Coordinator", 
-                "email": "jane@test.com", 
-                "role": "villager", 
-                "created_at": datetime.now().isoformat(), 
-                "phone": None 
-            },
-            "matches": [
-                {
-                    "id": "match-1",
-                    "problem_id": "problem-2",
-                    "volunteer_id": "vol-1",
-                    "assigned_at": datetime.now().isoformat(),
-                    "completed_at": None,
-                    "notes": "Assigned to Test Volunteer",
-                    "volunteers": {
-                        "id": "vol-1",
-                        "user_id": "mock-volunteer-uuid",
-                        "skills": ["Teaching", "Digital Literacy"],
-                        "availability_status": "available",
-                        "created_at": datetime.now().isoformat(),
-                        "profiles": { 
-                            "id": "mock-volunteer-uuid", 
-                            "full_name": "Test Volunteer", 
-                            "email": "volunteer@test.com", 
-                            "role": "volunteer", 
-                            "created_at": datetime.now().isoformat(), 
-                            "phone": "1234567890" 
-                        }
-                    }
-                }
-            ]
-        }
-    ]
+    # In a real scenario, this would read from DB or merged CSV
+    # For now, we return mock data plus we could read newly added rows from a CSV if we wanted
+    return get_mock_problems()
 
 @app.get("/volunteers")
 async def get_volunteers():
-    return [
-        {
-            "id": "vol-1",
-            "user_id": "mock-volunteer-uuid",
-            "skills": ["Teaching", "Digital Literacy", "Web Development"],
-            "availability_status": "available",
-            "created_at": datetime.now().isoformat(),
-            "profiles": { 
-                "id": "mock-volunteer-uuid", 
-                "full_name": "Test Volunteer", 
-                "email": "volunteer@test.com", 
-                "role": "volunteer", 
-                "created_at": datetime.now().isoformat(), 
-                "phone": "1234567890" 
-            }
-        },
-        {
-            "id": "vol-2",
-            "user_id": "mock-vol-2-uuid",
-            "skills": ["Plumbing", "Construction"],
-            "availability_status": "available",
-            "created_at": datetime.now().isoformat(),
-            "profiles": { 
-                "id": "mock-vol-2-uuid", 
-                "full_name": "Skilled Sam", 
-                "email": "sam@test.com", 
-                "role": "volunteer", 
-                "created_at": datetime.now().isoformat(), 
-                "phone": "2345678901" 
-            }
-        },
-        {
-            "id": "vol-3",
-            "user_id": "mock-vol-3-uuid",
-            "skills": ["Electrical Work", "Plumbing"],
-            "availability_status": "available",
-            "created_at": datetime.now().isoformat(),
-            "profiles": { 
-                "id": "mock-vol-3-uuid", 
-                "full_name": "Electrician Alice", 
-                "email": "alice@test.com", 
-                "role": "volunteer", 
-                "created_at": datetime.now().isoformat(), 
-                "phone": "3456789012" 
-            }
-        },
-        {
-            "id": "vol-4",
-            "user_id": "mock-vol-4-uuid",
-            "skills": ["Agriculture", "Healthcare"],
-            "availability_status": "busy",
-            "created_at": datetime.now().isoformat(),
-            "profiles": { 
-                "id": "mock-vol-4-uuid", 
-                "full_name": "Doctor Dave", 
-                "email": "dave@test.com", 
-                "role": "volunteer", 
-                "created_at": datetime.now().isoformat(), 
-                "phone": "4567890123" 
-            }
-        }
-    ]
+    return get_mock_volunteers()
 
 @app.get("/volunteer/{volunteer_id}")
 async def get_volunteer(volunteer_id: str):
@@ -299,18 +178,7 @@ async def update_volunteer(data: Dict[str, Any]):
 
 @app.get("/volunteer-tasks")
 async def get_volunteer_tasks(volunteer_id: str):
-    # Mock assignments for the volunteer
-    return [
-        {
-            "id": 'task-1',
-            "title": 'Broken Well Pump',
-            "village": 'Gram Puram',
-            "location": 'Near Primary School',
-            "status": 'assigned',
-            "description": 'The handle of the hand-pump is broken. Needs basic welding or part replacement.',
-            "assigned_at": (datetime.now() - timedelta(days=2)).isoformat(),
-        }
-    ]
+    return get_mock_volunteer_tasks()
 
 @app.post("/recommend", response_model=RecommendResponse)
 def recommend_endpoint(request: RecommendRequest):
@@ -327,6 +195,9 @@ def recommend_endpoint(request: RecommendRequest):
             )
 
         return RecommendResponse(**results)
+    except ValueError as ve:
+        logger.error(f"Recommendation validation error: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as exc:
         logger.exception("Recommendation failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -334,10 +205,22 @@ def recommend_endpoint(request: RecommendRequest):
 @app.post("/submit-problem")
 async def submit_problem_endpoint(request: ProblemRequest):
     try:
-        # In a real app, this would save to a database.
-        # For this demo, we'll just log it.
-        logger.info(f"Problem submitted: {request.title} in {request.village_name}")
-        return {"status": "success", "id": f"prob-{int(datetime.now().timestamp())}"}
+        # Persist to CSV
+        file_exists = os.path.exists(DEFAULT_PROPOSALS_CSV)
+        new_id = f"prob-{int(datetime.now().timestamp())}"
+        
+        with open(DEFAULT_PROPOSALS_CSV, "a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                # Write header if new file (matching standard fields)
+                writer.writerow(["proposal_id", "text", "village"])
+            
+            # Sanitizing text to avoid CSV injection or formatting issues
+            text_content = f"{request.title}: {request.description} ({request.category})"
+            writer.writerow([new_id, text_content, request.village_name])
+            
+        logger.info(f"Problem submitted and saved: {request.title} in {request.village_name}")
+        return {"status": "success", "id": new_id}
     except Exception as exc:
         logger.exception("Problem submission failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -357,7 +240,7 @@ def transcribe_endpoint(file: UploadFile = File(...)):
                 os.remove(tmp_path)
     except Exception as exc:
         logger.exception("Transcription failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Transcription service error")
 
 @app.post("/analyze-image")
 def analyze_image_endpoint(file: UploadFile = File(...), labels: Optional[str] = None):
@@ -374,7 +257,7 @@ def analyze_image_endpoint(file: UploadFile = File(...), labels: Optional[str] =
         return result
     except Exception as exc:
         logger.exception("Image analysis failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail="Image analysis service error")
     finally:
         if tmp_path and os.path.exists(tmp_path):
             try:

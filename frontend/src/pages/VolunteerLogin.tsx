@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Heart } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-interface LoginProps {
-  onNavigate: (page: string) => void;
-}
-
-export default function VolunteerLogin({ onNavigate }: LoginProps) {
+export default function VolunteerLogin() {
   const { signIn } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,7 +19,7 @@ export default function VolunteerLogin({ onNavigate }: LoginProps) {
     try {
       // Dummy account: volunteer@test.com / password
       const { error } = await signIn(email, password);
-      
+
       if (error) {
         if (email !== 'volunteer@test.com') {
           throw new Error(`Invalid email for volunteer. Use 'volunteer@test.com'`);
@@ -29,7 +27,7 @@ export default function VolunteerLogin({ onNavigate }: LoginProps) {
         throw error;
       }
 
-      onNavigate('home'); // On success, go to home
+      navigate('/'); // On success, go to home
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -41,7 +39,7 @@ export default function VolunteerLogin({ onNavigate }: LoginProps) {
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center px-4">
       <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
         <button
-          onClick={() => onNavigate('home')}
+          onClick={() => navigate('/')}
           className="text-green-600 hover:text-green-700 mb-4 flex items-center"
         >
           ← Back to Home

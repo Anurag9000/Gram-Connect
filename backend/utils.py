@@ -94,11 +94,21 @@ def read_csv_norm(fp: str) -> List[Dict[str, Any]]:
     with open(fp, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         if reader.fieldnames is None:
-            raise ValueError(f"{fp}: missing header row")
-        reader.fieldnames = [h.strip().lower() for h in reader.fieldnames]
+            # Empty file or just header
+            return []
+        
+        # Normalize header keys once
+        # reader.fieldnames = [h.strip().lower() for h in reader.fieldnames]
+        
         for r in reader:
-            rows.append({(k.strip().lower() if k else k): (v.strip() if isinstance(v, str) else v)
-                         for k, v in r.items()})
+            # Clean values
+            clean_row = {}
+            for k, v in r.items():
+                if k is None: continue # Skip None keys
+                key = k.strip().lower()
+                val = v.strip() if isinstance(v, str) else v
+                clean_row[key] = val
+            rows.append(clean_row)
     return rows
 
 def get_any(d: Dict[str, Any], keys: List[str], default: Any = None) -> Any:

@@ -180,5 +180,37 @@ export const api = {
         }
 
         return await response.json();
+    },
+
+    async assignTask(problemId: string, volunteerId: string): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/problems/${problemId}/assign`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ volunteer_id: volunteerId }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to assign task');
+        }
+
+        return await response.json();
+    },
+
+    async updateProblemStatus(problemId: string, status: string): Promise<any> {
+        const response = await fetch(`${API_BASE_URL}/problems/${problemId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to update problem status');
+        }
+
+        return await response.json();
     }
 };

@@ -23,8 +23,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api_server")
 
-DATASET_ROOT = os.path.join(os.path.dirname(__file__), "..", "data")
-DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pkl")
+DATASET_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+DEFAULT_MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "model.pkl"))
 DEFAULT_PEOPLE_CSV = os.path.join(DATASET_ROOT, "people.csv")
 DEFAULT_PROPOSALS_CSV = os.path.join(DATASET_ROOT, "proposals.csv")
 DEFAULT_PAIRS_CSV = os.path.join(DATASET_ROOT, "pairs.csv")
@@ -125,6 +125,59 @@ class RecommendResponse(BaseModel):
 async def health():
     return {"status": "ok"}
 
+# --- In-Memory State & Data Loading ---
+# We use in-memory lists to simulate a database for this session.
+# In a real app, this would be replaced by SQL queries.
+
+PROBLEMS: List[Dict[str, Any]] = []
+VOLUNTEERS: List[Dict[str, Any]] = []
+
+def load_initial_data():
+    """Loads mock data and combines it with CSV data."""
+    global PROBLEMS, VOLUNTEERS
+    
+    # Load foundational mocks
+    PROBLEMS = get_mock_problems()
+    VOLUNTEERS = get_mock_volunteers()
+    
+    # Load persisted proposals from CSV
+    if os.path.exists(DEFAULT_PROPOSALS_CSV):
+        try:
+            with open(DEFAULT_PROPOSALS_CSV, "r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    # Check if already exists (mock data might duplicate IDs if not careful, 
+                    # but here we assume CSV has user-submitted ones with unique IDs)
+                    p_id = row.get("proposal_id")
+                    if any(p["id"] == p_id for p in PROBLEMS):
+                        continue
+                        
+                    # Convert CSV row to Problem structure
+                    PROBLEMS.append({
+                        "id": p_id,
+                        "villager_id": "anon-villager",
+                        "title": row.get("title", "Untitled Issue") if "title" in row else row.get("text", "Issue").split(":")[0],
+                        "description": row.get("text", ""),
+                        "category": "others", # Default
+                        "village_name": row.get("village", "Unknown"),
+                        "status": "pending",
+                        "lat": 0.0,
+                        "lng": 0.0,
+                        "created_at": datetime.now().isoformat(),
+                        "updated_at": datetime.now().isoformat(),
+                        "profiles": {
+                            "id": "anon-villager",
+                            "full_name": "Community Member",
+                            "role": "villager",
+                        },
+                        "matches": []
+                    })
+        except Exception as e:
+            logger.error(f"Failed to load CSV data: {e}")
+
+# Load data on startup (or module import)
+load_initial_data()
+
 
 @app.post("/train", response_model=TrainResponse)
 def train_endpoint(request: TrainRequest):
@@ -152,17 +205,20 @@ def train_endpoint(request: TrainRequest):
 
 @app.get("/problems")
 async def get_problems():
-    # In a real scenario, this would read from DB or merged CSV
-    # For now, we return mock data plus we could read newly added rows from a CSV if we wanted
-    return get_mock_problems()
+    # Return the current in-memory state
+    return PROBLEMS
 
 @app.get("/volunteers")
 async def get_volunteers():
-    return get_mock_volunteers()
+    return VOLUNTEERS
 
 @app.get("/volunteer/{volunteer_id}")
 async def get_volunteer(volunteer_id: str):
-    # Mock finding a volunteer
+    # Find in in-memory list
+    for v in VOLUNTEERS:
+        if v["user_id"] == volunteer_id or v["id"] == volunteer_id:
+            return v
+    # Fallback / Mock
     return {
         "id": "vol-profile-id",
         "user_id": volunteer_id,
@@ -174,11 +230,95 @@ async def get_volunteer(volunteer_id: str):
 @app.post("/volunteer")
 async def update_volunteer(data: Dict[str, Any]):
     logger.info(f"Volunteer profile updated for {data.get('user_id')}")
+    # Update in-memory
+    user_id = data.get("user_id")
+    for v in VOLUNTEERS:
+        if v["user_id"] == user_id:
+            v.update(data)
+            return {"status": "success", "data": v}
+            
+    # If not found, create new
+    VOLUNTEERS.append(data)
     return {"status": "success", "data": data}
 
 @app.get("/volunteer-tasks")
 async def get_volunteer_tasks(volunteer_id: str):
-    return get_mock_volunteer_tasks()
+    # Filter problems where matches contain this volunteer
+    tasks = []
+    for p in PROBLEMS:
+        if not p.get("matches"): continue
+        for m in p["matches"]:
+            if m.get("volunteer_id") == volunteer_id or m.get("volunteers", {}).get("user_id") == volunteer_id:
+                 tasks.append({
+                    "id": p["id"],
+                    "title": p["title"],
+                    "village": p["village_name"],
+                    "location": p.get("village_address") or p["village_name"],
+                    "status": "assigned",
+                    "description": p["description"],
+                    "assigned_at": m.get("assigned_at", datetime.now().isoformat()),
+                })
+    return tasks
+
+@app.post("/problems/{problem_id}/assign")
+async def assign_task(problem_id: str, payload: Dict[str, str]):
+    volunteer_id = payload.get("volunteer_id")
+    if not volunteer_id:
+        raise HTTPException(status_code=400, detail="volunteer_id is required")
+
+    problem = next((p for p in PROBLEMS if p["id"] == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    volunteer = next((v for v in VOLUNTEERS if v["id"] == volunteer_id or v["user_id"] == volunteer_id), None)
+    if not volunteer:
+        print(f"Volunteer {volunteer_id} not found in memory, continuing with mock data...")
+        # In a real app we'd error, but here we might just construct a mock match for robustness
+        volunteer = {
+            "id": volunteer_id,
+            "full_name": "Assigned Volunteer", 
+            "email": "volunteer@example.com"
+        }
+
+    # Add match
+    match = {
+        "id": f"match-{len(problem.get('matches', [])) + 1}-{int(datetime.now().timestamp())}",
+        "problem_id": problem_id,
+        "volunteer_id": volunteer_id,
+        "assigned_at": datetime.now().isoformat(),
+        "completed_at": None,
+        "notes": "Assigned via Coordinator Dashboard",
+        "volunteers": volunteer
+    }
+    
+    if "matches" not in problem:
+        problem["matches"] = []
+    problem["matches"].append(match)
+    
+    # Update problem status to in_progress if it was pending
+    if problem["status"] == "pending":
+        problem["status"] = "in_progress"
+
+    return {"status": "success", "match": match}
+
+
+@app.put("/problems/{problem_id}/status")
+async def update_problem_status(problem_id: str, payload: Dict[str, str]):
+    new_status = payload.get("status")
+    if not new_status:
+         raise HTTPException(status_code=400, detail="status is required")
+         
+    problem = next((p for p in PROBLEMS if p["id"] == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+        
+    problem["status"] = new_status
+    if new_status == "completed":
+        # Mark matches as completed? Optional logic
+        pass
+        
+    return {"status": "success", "problem": problem}
+
 
 @app.post("/recommend", response_model=RecommendResponse)
 def recommend_endpoint(request: RecommendRequest):
@@ -202,22 +342,48 @@ def recommend_endpoint(request: RecommendRequest):
         logger.exception("Recommendation failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
+# Global lock for CSV writing to ensure thread safety
+import threading
+csv_lock = threading.Lock()
+
 @app.post("/submit-problem")
 async def submit_problem_endpoint(request: ProblemRequest):
     try:
-        # Persist to CSV
-        file_exists = os.path.exists(DEFAULT_PROPOSALS_CSV)
         new_id = f"prob-{int(datetime.now().timestamp())}"
         
-        with open(DEFAULT_PROPOSALS_CSV, "a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                # Write header if new file (matching standard fields)
-                writer.writerow(["proposal_id", "text", "village"])
-            
-            # Sanitizing text to avoid CSV injection or formatting issues
-            text_content = f"{request.title}: {request.description} ({request.category})"
-            writer.writerow([new_id, text_content, request.village_name])
+        # 1. Update in-memory state
+        new_problem = {
+            "id": new_id,
+            "villager_id": request.coordinator_id or "anon",
+            "title": request.title,
+            "description": request.description,
+            "category": request.category,
+            "village_name": request.village_name,
+            "status": "pending",
+            "lat": 0.0, 
+            "lng": 0.0,
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat(),
+            "profiles": {
+                "id": request.coordinator_id or "anon",
+                "full_name": "Coordinator",
+                "role": "coordinator"
+            },
+            "matches": []
+        }
+        PROBLEMS.append(new_problem)
+
+        # 2. Persist to CSV
+        with csv_lock:
+            file_exists = os.path.exists(DEFAULT_PROPOSALS_CSV)
+            with open(DEFAULT_PROPOSALS_CSV, "a", newline="", encoding="utf-8") as f:
+                writer = csv.writer(f)
+                if not file_exists:
+                    writer.writerow(["proposal_id", "text", "village"])
+                
+                text_content = f"{request.title}: {request.description} ({request.category})"
+                text_content = text_content.replace("\n", " ").replace("\r", "")
+                writer.writerow([new_id, text_content, request.village_name])
             
         logger.info(f"Problem submitted and saved: {request.title} in {request.village_name}")
         return {"status": "success", "id": new_id}
@@ -234,6 +400,7 @@ def transcribe_endpoint(file: UploadFile = File(...)):
         
         try:
             text = transcribe_audio(tmp_path)
+            # Auto-cleanup temp file is handled by finally
             return {"text": text}
         finally:
             if os.path.exists(tmp_path):
@@ -267,4 +434,7 @@ def analyze_image_endpoint(file: UploadFile = File(...), labels: Optional[str] =
 
 if __name__ == "__main__":
     import uvicorn
+    # Clean startup log
+    print("Starting SocialCode Backend Server...")
+    print(f"Loading data from: {DATASET_ROOT}")
     uvicorn.run(app, host="0.0.0.0", port=8000)

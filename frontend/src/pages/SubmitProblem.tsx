@@ -7,12 +7,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import AudioRecorder from '../components/AudioRecorder';
 import LanguageToggle from '../components/LanguageToggle';
+import { useNavigate } from 'react-router-dom';
 
 import { api } from '../services/api';
-
-interface SubmitProblemProps {
-  onNavigate: (page: string) => void;
-}
 
 const categories = [
   { id: 'education', label: 'Education', icon: GraduationCap, color: 'bg-blue-100 text-blue-600' },
@@ -22,9 +19,10 @@ const categories = [
   { id: 'others', label: 'Others', icon: MoreHorizontal, color: 'bg-gray-100 text-gray-600' },
 ];
 
-export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
+export default function SubmitProblem() {
   const { t } = useTranslation();
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string>('');
@@ -124,7 +122,7 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
             You must be logged in as a Coordinator to submit a new problem.
           </p>
           <button
-            onClick={() => onNavigate('home')}
+            onClick={() => navigate('/')}
             className="w-full bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
           >
             Back to Home
@@ -153,7 +151,7 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
               Submit Another Problem
             </button>
             <button
-              onClick={() => onNavigate('dashboard')}
+              onClick={() => navigate('/dashboard')}
               className="w-full border border-green-600 text-green-600 px-6 py-2 rounded-lg font-semibold hover:bg-green-50 transition"
             >
               Go to Dashboard
@@ -168,7 +166,7 @@ export default function SubmitProblem({ onNavigate }: SubmitProblemProps) {
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <button onClick={() => onNavigate('home')} className="text-green-700 font-semibold">&larr; {t('common.home')}</button>
+          <button onClick={() => navigate('/')} className="text-green-700 font-semibold">&larr; {t('common.home')}</button>
           <LanguageToggle />
         </div>
         <div className="bg-white rounded-xl shadow-lg p-8">

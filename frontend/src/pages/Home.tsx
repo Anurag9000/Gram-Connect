@@ -2,14 +2,12 @@ import { ArrowRight, Zap, Globe, MessageSquare, Map, Users } from 'lucide-react'
 import LanguageToggle from '../components/LanguageToggle';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
-interface HomeProps {
-  onNavigate: (page: string) => void;
-}
-
-export default function Home({ onNavigate }: HomeProps) {
+export default function Home() {
   const { profile } = useAuth();
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   // Show this view if a user (Volunteer or Coordinator) is logged in
   if (profile) {
@@ -26,7 +24,7 @@ export default function Home({ onNavigate }: HomeProps) {
           <div className="grid md:grid-cols-2 gap-8">
             {profile.role === 'coordinator' ? (
               <>
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => onNavigate('dashboard')}>
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/dashboard')}>
                   <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
                     <Zap className="text-green-600" size={24} />
                   </div>
@@ -37,7 +35,7 @@ export default function Home({ onNavigate }: HomeProps) {
                   </div>
                 </div>
 
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => onNavigate('submit')}>
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/submit')}>
                   <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
                     <MessageSquare className="text-blue-600" size={24} />
                   </div>
@@ -49,7 +47,7 @@ export default function Home({ onNavigate }: HomeProps) {
                 </div>
               </>
             ) : (
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => onNavigate('volunteer-dashboard')}>
+              <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/volunteer-dashboard')}>
                 <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
                   <Users className="text-green-600" size={24} />
                 </div>
@@ -82,7 +80,7 @@ export default function Home({ onNavigate }: HomeProps) {
               <a href="#how-it-works" className="text-gray-600 hover:text-green-600 transition">How it Works</a>
               <LanguageToggle />
               <button
-                onClick={() => onNavigate('volunteer-login')}
+                onClick={() => navigate('/volunteer-login')}
                 className="bg-green-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-green-700 transition shadow-lg shadow-green-200"
               >
                 Sign In
@@ -111,7 +109,7 @@ export default function Home({ onNavigate }: HomeProps) {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <button
-              onClick={() => onNavigate('volunteer-login')}
+              onClick={() => navigate('/volunteer-login')}
               className="bg-gray-900 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-800 transition flex items-center group"
             >
               Start Volunteering

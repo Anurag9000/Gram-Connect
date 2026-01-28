@@ -9,9 +9,10 @@ import VolunteerLogin from './pages/VolunteerLogin';
 import CoordinatorLogin from './pages/CoordinatorLogin';
 import VolunteerDashboard from './pages/VolunteerDashboard';
 
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+
 function AppContent() {
   const { loading } = useAuth();
-  const [currentPage, setCurrentPage] = useState('home');
 
   if (loading) {
     return (
@@ -25,17 +26,21 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation currentPage={currentPage} onNavigate={setCurrentPage} />
-
-      {currentPage === 'home' && <Home onNavigate={setCurrentPage} />}
-      {currentPage === 'submit' && <SubmitProblem onNavigate={setCurrentPage} />}
-      {currentPage === 'profile' && <VolunteerProfile onNavigate={setCurrentPage} />}
-      {currentPage === 'dashboard' && <CoordinatorDashboard onNavigate={setCurrentPage} />}
-      {currentPage === 'volunteer-login' && <VolunteerLogin onNavigate={setCurrentPage} />}
-      {currentPage === 'coordinator-login' && <CoordinatorLogin onNavigate={setCurrentPage} />}
-      {currentPage === 'volunteer-dashboard' && <VolunteerDashboard onNavigate={setCurrentPage} />}
-    </div>
+    <Router>
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/submit" element={<SubmitProblem />} />
+          <Route path="/profile" element={<VolunteerProfile />} />
+          <Route path="/dashboard" element={<CoordinatorDashboard />} />
+          <Route path="/volunteer-login" element={<VolunteerLogin />} />
+          <Route path="/coordinator-login" element={<CoordinatorLogin />} />
+          <Route path="/volunteer-dashboard" element={<VolunteerDashboard />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

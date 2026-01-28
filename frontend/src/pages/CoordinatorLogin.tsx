@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Briefcase } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-interface LoginProps {
-  onNavigate: (page: string) => void;
-}
-
-export default function CoordinatorLogin({ onNavigate }: LoginProps) {
+export default function CoordinatorLogin() {
   const { signIn } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,15 +19,15 @@ export default function CoordinatorLogin({ onNavigate }: LoginProps) {
     try {
       // Dummy account: coordinator@test.com / password
       const { error } = await signIn(email, password);
-      
+
       if (error) {
-         if (email !== 'coordinator@test.com') {
+        if (email !== 'coordinator@test.com') {
           throw new Error(`Invalid email for coordinator. Use 'coordinator@test.com'`);
         }
         throw error;
       }
 
-      onNavigate('home'); // On success, go to home
+      navigate('/'); // On success, go to home
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -41,7 +39,7 @@ export default function CoordinatorLogin({ onNavigate }: LoginProps) {
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center px-4">
       <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full">
         <button
-          onClick={() => onNavigate('home')}
+          onClick={() => navigate('/')}
           className="text-green-600 hover:text-green-700 mb-4 flex items-center"
         >
           ← Back to Home

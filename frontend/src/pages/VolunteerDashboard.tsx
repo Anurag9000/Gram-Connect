@@ -7,14 +7,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../components/LanguageToggle';
 import { api } from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
-interface VolunteerDashboardProps {
-    onNavigate: (page: string) => void;
-}
-
-export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardProps) {
+export default function VolunteerDashboard() {
     const { profile } = useAuth();
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const [tasks, setTasks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedTask, setSelectedTask] = useState<any | null>(null);
@@ -141,7 +139,7 @@ export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardPro
                         <p className="text-gray-600">{t('volunteer.dashboard_subtitle')}</p>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button onClick={() => onNavigate('home')} className="text-green-700 font-semibold">{t('common.home')}</button>
+                        <button onClick={() => navigate('/')} className="text-green-700 font-semibold">{t('common.home')}</button>
                         <LanguageToggle />
                         {profile && <span className="text-xs text-gray-400">ID: {profile.id.slice(0, 8)}</span>}
                     </div>

@@ -2,12 +2,9 @@ import { useState, useEffect } from 'react';
 import { CheckCircle, X, Plus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import type { Database } from '../lib/database.types';
+import { useNavigate } from 'react-router-dom';
 
 type Volunteer = Database['public']['Tables']['volunteers']['Row'];
-
-interface VolunteerProfileProps {
-  onNavigate: (page: string) => void;
-}
 
 const commonSkills = [
   'Computer Repair',
@@ -26,8 +23,9 @@ const commonSkills = [
 
 import { api } from '../services/api';
 
-export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) {
+export default function VolunteerProfile() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [volunteer, setVolunteer] = useState<Volunteer | null>(null);
   const [skills, setSkills] = useState<string[]>([]);
   const [customSkill, setCustomSkill] = useState('');
@@ -121,7 +119,7 @@ export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) 
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
           <p className="text-gray-600 mb-4">You must be logged in as a Volunteer to view this page.</p>
           <button
-            onClick={() => onNavigate('home')}
+            onClick={() => navigate('/')}
             className="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
           >
             Go to Home

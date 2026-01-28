@@ -222,7 +222,6 @@ def k_robustness(required: List[str], team_members: List[Dict], backend: str, mo
         if len(subsets) > sample_limit:
             break
     if len(subsets) > sample_limit:
-        random.seed(42)
         subsets = random.sample(subsets, sample_limit)
     ok = 0
     for rem in subsets:
@@ -683,12 +682,15 @@ def main():
             "willingness_avg", "willingness_min"
         ])
         w.writeheader()
-        for i, r in enumerate(results, start=1):
+        
+        # FIX: 'results' is a dict, we must iterate over results['teams']
+        teams_list = results.get("teams", [])
+        for i, r in enumerate(teams_list, start=1):
             row = {k: v for k, v in r.items() if k != "members"}
             row["rank"] = i
             w.writerow(row)
             
-    print(f"Wrote {len(results)} teams to {args.out}")
+    print(f"Wrote {len(results.get('teams', []))} teams to {args.out}")
 
 if __name__ == "__main__":
     main()

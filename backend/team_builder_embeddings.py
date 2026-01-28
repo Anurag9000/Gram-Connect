@@ -104,7 +104,12 @@ def similarity_coverage(required: List[str], team: List[Dict], tau: float = 0.35
         if s < tau:
             adj.append(0.0)
         else:
-            adj.append((s - tau) / (1.0 - tau))
+            # Handle tau=1.0 edge case
+            denom = (1.0 - tau)
+            if denom <= 1e-6:  # Case where tau is close to 1.0
+                adj.append(1.0 if s >= tau else 0.0)
+            else:
+                adj.append(min(1.0, (s - tau) / denom))
     coverage = float(np.mean(adj)) if len(adj) > 0 else 0.0
     per_req_map = {required[i]: float(per_req_best[i]) for i in range(len(required))}
     return coverage, per_req_map, covered_counts
@@ -172,16 +177,63 @@ def goodness(metrics: Dict[str, float], lambda_red: float = 1.0, lambda_size: fl
 def recommend_teams(required: List[str], students: List[Dict], team_size_min=2, team_size_max=5, top_k=10, tau: float = 0.35, k: int = 1, lambda_red: float = 1.0, lambda_size: float = 1.0, lambda_will: float = 0.5):
     recs = []
     n = len(students)
+    MAX_COMBINATIONS_LIMIT = 500000
+    
+    total_est = 0
+    # Quick check for explosion
     for r in range(team_size_min, min(team_size_max, n)+1):
-        for combo in itertools.combinations(students, r):
-            mets = team_metrics(required, list(combo), tau=tau, k=k)
-            score = goodness(mets, lambda_red=lambda_red, lambda_size=lambda_size, lambda_will=lambda_will)
-            recs.append({
-                "team_ids": [m["student_id"] for m in combo],
-                "team_names": [m["name"] for m in combo],
-                "metrics": mets,
-                "goodness": round(score, 4)
-            })
+        total_est += math.comb(n, r)
+        
+    use_sampling = False
+    if total_est > MAX_COMBINATIONS_LIMIT:
+        print(f"Warning: {total_est} combinations is too large. Switching to random sampling mode.")
+        use_sampling = True
+
+    import random
+
+    for r in range(team_size_min, min(team_size_max, n)+1):
+        if use_sampling:
+            # Sample a fixed reasonable number of combinations per size
+            # This is a heuristic to prevent hanging
+            PER_SIZE_LIMIT = 20000
+            if math.comb(n, r) > PER_SIZE_LIMIT:
+                 # Reservoir sampling or just repeated random checks (simple for this context)
+                 # Since itertools combinations is efficient iter, we can just slice or random sample indices.
+                 # Taking random sample of indices is better.
+                 for _ in range(PER_SIZE_LIMIT):
+                     combo = random.sample(students, r)
+                     # Logic duplicated below, but safer to refactor into inner func
+                     # For now, let's just let it fall through to a common block if we construct the loop differently.
+                     # But minimal change:
+                     mets = team_metrics(required, list(combo), tau=tau, k=k)
+                     score = goodness(mets, lambda_red=lambda_red, lambda_size=lambda_size, lambda_will=lambda_will)
+                     recs.append({
+                        "team_ids": [m["student_id"] for m in combo],
+                        "team_names": [m["name"] for m in combo],
+                        "metrics": mets,
+                        "goodness": round(score, 4)
+                     })
+            else:
+                 # Standard exact loop
+                 for combo in itertools.combinations(students, r):
+                    mets = team_metrics(required, list(combo), tau=tau, k=k)
+                    score = goodness(mets, lambda_red=lambda_red, lambda_size=lambda_size, lambda_will=lambda_will)
+                    recs.append({
+                        "team_ids": [m["student_id"] for m in combo],
+                        "team_names": [m["name"] for m in combo],
+                        "metrics": mets,
+                        "goodness": round(score, 4)
+                    })
+        else:
+            for combo in itertools.combinations(students, r):
+                mets = team_metrics(required, list(combo), tau=tau, k=k)
+                score = goodness(mets, lambda_red=lambda_red, lambda_size=lambda_size, lambda_will=lambda_will)
+                recs.append({
+                    "team_ids": [m["student_id"] for m in combo],
+                    "team_names": [m["name"] for m in combo],
+                    "metrics": mets,
+                    "goodness": round(score, 4)
+                })
     recs.sort(key=lambda x: (x["goodness"], x["metrics"]["coverage"], -len(x["team_ids"])), reverse=True)
     return recs[:top_k]
 

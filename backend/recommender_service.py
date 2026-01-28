@@ -2,7 +2,7 @@ import os
 import pickle
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from m3_recommend import run_recommender, RecommendationConfig
 from utils import get_any, SEVERITY_LABELS
@@ -43,11 +43,12 @@ class RecommenderService:
         # Calculate task_end if not provided
         if task_start and not config.get("task_end"):
             try:
-                start_dt = datetime.fromisoformat(task_start.replace("Z", "+00:00"))
-                from datetime import timedelta
+                from utils import parse_datetime
+                start_dt = parse_datetime(task_start, "task_start")
                 end_dt = start_dt + timedelta(hours=duration_hours)
                 task_end = end_dt.isoformat()
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Failed to parse task_start for duration calculation: {e}")
                 task_end = task_start # fallback
         else:
             task_end = config.get("task_end", task_start)

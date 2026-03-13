@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+import type { User, Session } from '@supabase/supabase-js';
 import type { Database } from '../lib/database.types';
+import { AuthContext } from './auth-shared';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -40,24 +41,6 @@ const MOCK_COORDINATOR_PROFILE: Profile = {
   created_at: new Date().toISOString(),
 };
 // --- END DUMMY DATA ---
-
-interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
-  session: Session | null;
-  loading: boolean;
-  signUp: (
-    email: string,
-    password: string,
-    fullName: string,
-    phone: string,
-    role: 'villager' | 'volunteer' | 'coordinator'
-  ) => Promise<{ error: Error | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -125,12 +108,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }

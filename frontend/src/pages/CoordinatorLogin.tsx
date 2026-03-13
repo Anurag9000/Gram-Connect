@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/auth-shared';
 import { Briefcase } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 

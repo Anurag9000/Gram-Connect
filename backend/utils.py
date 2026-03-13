@@ -206,7 +206,12 @@ def split_hours_by_week(start: datetime, end: datetime) -> Dict[Tuple[int, int],
     while cursor < end:
         iso_year, iso_week, _ = cursor.isocalendar()
         week_key = (iso_year, iso_week)
-        week_start = cursor - timedelta(days=cursor.weekday())
+        week_start = (cursor - timedelta(days=cursor.weekday())).replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
         week_end = week_start + timedelta(days=7)
         segment_end = min(end, week_end)
         hours = (segment_end - cursor).total_seconds() / 3600.0

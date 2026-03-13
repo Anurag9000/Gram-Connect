@@ -7,7 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -17,7 +17,14 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 interface ProblemMapProps {
-    problems: any[];
+    problems: {
+        id: string;
+        title: string;
+        village_name: string;
+        status: string;
+        lat: number;
+        lng: number;
+    }[];
     center?: [number, number];
     zoom?: number;
 }

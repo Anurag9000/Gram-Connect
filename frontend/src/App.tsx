@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext';
+import { useAuth } from './contexts/auth-shared';
 import Navigation from './components/Navigation';
 import Home from './pages/Home';
 import SubmitProblem from './pages/SubmitProblem';

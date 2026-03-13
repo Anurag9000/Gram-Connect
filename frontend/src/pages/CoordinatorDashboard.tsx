@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Activity, Clock, AlertTriangle, CheckCircle, Search,
   BarChart3, LayoutGrid, List, MapPin, ChevronRight, X, UserCheck, Cpu
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/auth-shared';
 import LanguageToggle from '../components/LanguageToggle';
-import { api } from '../services/api';
+import { api, type ProblemRecord, type TeamMember, type VolunteerRecord } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import type { Database } from '../lib/database.types';
 
@@ -29,7 +28,7 @@ interface ProblemWithDetails extends Problem {
 interface AITeam {
   id: string;
   name: string;
-  members: any[];
+  members: TeamMember[];
   goodness: number;
   coverage: number;
   kRobustness: number;
@@ -72,17 +71,7 @@ export default function CoordinatorDashboard() {
   // Stats
   const [stats, setStats] = useState({ pending: 0, inProgress: 0, resolved: 0 });
 
-  useEffect(() => {
-    if (profile) {
-      loadDashboardData();
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [problems, statusFilter, categoryFilter, searchTerm]);
-
-  async function loadDashboardData() {
+  const loadDashboardData = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
     try {
@@ -91,21 +80,24 @@ export default function CoordinatorDashboard() {
         api.getVolunteers()
       ]);
 
-      const problemsWithMatches = problemsData.map((problem: any) => ({
+      const problemsWithMatches: ProblemWithDetails[] = problemsData.map((problem: ProblemRecord) => ({
         ...problem,
         villager: problem.profiles,
-        matches: problem.matches?.map((m: any) => ({
+        matches: problem.matches?.map((m) => ({
           ...m,
           volunteer: m.volunteers,
         })) || [],
       }));
 
       setProblems(problemsWithMatches);
-      setAllVolunteers(volunteersData);
+      setAllVolunteers(volunteersData.map((volunteer: VolunteerRecord) => ({
+        ...volunteer,
+        profile: volunteer.profiles ?? volunteer.profile,
+      })));
 
       // Calculate stats
       const s = { pending: 0, inProgress: 0, resolved: 0 };
-      problemsData.forEach((p: any) => {
+      problemsData.forEach((p) => {
         if (p.status === 'pending') s.pending++;
         else if (p.status === 'in_progress') s.inProgress++;
         else if (p.status === 'completed') s.resolved++;
@@ -117,9 +109,9 @@ export default function CoordinatorDashboard() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [profile]);
 
-  function applyFilters() {
+  const applyFilters = useCallback(() => {
     let filtered = [...problems];
     if (statusFilter !== 'all') {
       filtered = filtered.filter((p) => p.status === statusFilter);
@@ -136,18 +128,28 @@ export default function CoordinatorDashboard() {
       );
     }
     setFilteredProblems(filtered);
-  }
+  }, [categoryFilter, problems, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    if (profile) {
+      loadDashboardData();
+    }
+  }, [loadDashboardData, profile]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const getFilteredAndSortedVolunteers = () => {
     let individuals = [...allVolunteers];
     if (individualSearch) {
       individuals = individuals.filter(v =>
-        v.profile?.full_name.toLowerCase().includes(individualSearch.toLowerCase()) ||
+        (v.profile?.full_name ?? '').toLowerCase().includes(individualSearch.toLowerCase()) ||
         v.skills.join(' ').toLowerCase().includes(individualSearch.toLowerCase())
       );
     }
     if (individualSort === 'name') {
-      individuals.sort((a, b) => a.profile?.full_name.localeCompare(b.profile?.full_name || '') || 0);
+      individuals.sort((a, b) => (a.profile?.full_name ?? '').localeCompare(b.profile?.full_name ?? ''));
     } else if (individualSort === 'skills') {
       individuals.sort((a, b) => b.skills.length - a.skills.length);
     }
@@ -182,21 +184,21 @@ export default function CoordinatorDashboard() {
         location: data.proposal_location || undefined, // Handle null -> undefined
       });
 
-      const teams = (data.teams || []).map((team: any, index: number) => ({
+      const teams = (data.teams || []).map((team, index: number) => ({
         id: team.team_ids || `team-${index + 1}`,
         name: team.team_names || `Team ${index + 1}`,
         members: team.members || [],
         goodness: team.goodness || 0,
         coverage: team.coverage || 0,
-        kRobustness: team.metrics?.k_robustness || 0,
-        willingnessAvg: team.metrics?.willingness_avg || 0,
+        kRobustness: team.k_robustness || 0,
+        willingnessAvg: team.willingness_avg || 0,
         mockScore: Math.round((team.goodness || 0) * 100),
-        combinedSkills: Array.from(new Set(team.members?.flatMap((m: any) => m.skills || []) || [])) as string[]
+        combinedSkills: Array.from(new Set(team.members?.flatMap((m) => m.skills || []) || [])) as string[]
       }));
 
       setAiTeams(teams);
-    } catch (err: any) {
-      setAiError(err.message || "Failed to generate recommendations.");
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Failed to generate recommendations.");
       setAiTeams([]);
     } finally {
       setAiLoading(false);
@@ -209,7 +211,7 @@ export default function CoordinatorDashboard() {
       alert(`Assigned to ${volunteer.profile?.full_name}!`);
       setShowAssignModal(false);
       loadDashboardData();
-    } catch (err) {
+    } catch {
       alert("Failed to assign task.");
     }
   };
@@ -220,12 +222,12 @@ export default function CoordinatorDashboard() {
       // In a real scenario, we might assign all members to the task.
       const lead = team.members[0];
       if (lead) {
-        await api.assignTask(problemId, lead.id);
-        alert(`Team ${team.name} assigned! Lead: ${lead.profile?.full_name}`);
+        await api.assignTask(problemId, lead.person_id || lead.id || '');
+        alert(`Team ${team.name} assigned! Lead: ${lead.profile?.full_name || lead.name}`);
         setShowAssignModal(false);
         loadDashboardData();
       }
-    } catch (err) {
+    } catch {
       alert("Failed to assign team.");
     }
   };
@@ -567,8 +569,8 @@ export default function CoordinatorDashboard() {
                           </button>
                         </div>
                         <div className="space-y-2">
-                          {team.members.map((member: any) => (
-                            <div key={member.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                          {team.members.map((member) => (
+                            <div key={member.person_id || member.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
                               <span className="font-medium text-gray-700">{member.profile?.full_name || member.name || "Unknown"}</span>
                               <span className="text-xs text-gray-500">{member.skills?.slice(0, 2).join(', ')}</span>
                             </div>

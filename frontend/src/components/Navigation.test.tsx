@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Navigation from './Navigation';
 import { AuthProvider } from '../contexts/AuthContext';
-import React from 'react';
 
 describe('Navigation', () => {
     it('should render navigation bar', () => {

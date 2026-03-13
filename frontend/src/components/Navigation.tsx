@@ -1,12 +1,27 @@
 import { Home, FileText, UserPlus, LayoutDashboard, LogOut, LogIn } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/auth-shared';
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // Declare the google global object for TypeScript
 declare global {
+  interface GoogleTranslateLayout {
+    SIMPLE: string;
+  }
+
+  interface GoogleTranslateConstructor {
+    InlineLayout: GoogleTranslateLayout;
+    new (options: { pageLanguage: string; layout: string; includedLanguages: string }, elementId: string): unknown;
+  }
+
+  interface GoogleTranslateNamespace {
+    TranslateElement: GoogleTranslateConstructor;
+  }
+
   interface Window {
-    google: any;
+    google?: {
+      translate?: GoogleTranslateNamespace;
+    };
     googleTranslateElementInit: () => void;
   }
 }

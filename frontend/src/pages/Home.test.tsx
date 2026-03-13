@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Home from './Home';
 import { AuthProvider } from '../contexts/AuthContext';
-import React from 'react';
 
 describe('Home', () => {
     it('should render home page with main heading', () => {

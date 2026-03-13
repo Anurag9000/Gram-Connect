@@ -3,7 +3,7 @@ import {
   GraduationCap, Heart, Building, Laptop, MoreHorizontal,
   CheckCircle, Upload, MapPin, Loader2
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import AudioRecorder from '../components/AudioRecorder';
 import LanguageToggle from '../components/LanguageToggle';

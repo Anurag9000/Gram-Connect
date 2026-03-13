@@ -1,6 +1,6 @@
 import { ArrowRight, Zap, Globe, MessageSquare, Map, Users } from 'lucide-react';
 import LanguageToggle from '../components/LanguageToggle';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 

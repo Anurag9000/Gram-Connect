@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { CheckCircle, X, Plus } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/auth-shared';
 import type { Database } from '../lib/database.types';
 import { useNavigate } from 'react-router-dom';
 
@@ -35,13 +35,7 @@ export default function VolunteerProfile() {
   const [success, setSuccess] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  useEffect(() => {
-    if (profile) {
-      loadVolunteerData();
-    }
-  }, [profile]);
-
-  async function loadVolunteerData() {
+  const loadVolunteerData = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
     try {
@@ -49,7 +43,11 @@ export default function VolunteerProfile() {
       if (data) {
         setVolunteer(data);
         setSkills(data.skills || []);
-        setAvailabilityStatus(data.availability_status);
+        setAvailabilityStatus(
+          data.availability_status === 'busy' || data.availability_status === 'inactive'
+            ? data.availability_status
+            : 'available'
+        );
       } else {
         setIsEditing(true);
       }
@@ -59,7 +57,13 @@ export default function VolunteerProfile() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [profile]);
+
+  useEffect(() => {
+    if (profile) {
+      loadVolunteerData();
+    }
+  }, [loadVolunteerData, profile]);
 
   const toggleSkill = (skill: string) => {
     if (skills.includes(skill)) {
@@ -295,7 +299,7 @@ export default function VolunteerProfile() {
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Your Skills</h3>
                 <div className="flex flex-wrap gap-2">
-                  {volunteer.skills.map((skill) => (
+                  {volunteer.skills.map((skill: string) => (
                     <span
                       key={skill}
                       className="inline-block bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium"

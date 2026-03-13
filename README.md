@@ -75,23 +75,16 @@ The project is organized into a clean, modular structure for maximum portability
 
 ### Backend Setup
 1. `cd backend`
-2. Create virtual environment: `python -m venv venv`
-3. Activate: `.\venv\Scripts\activate`
+2. Create virtual environment: `python3 -m venv .venv`
+3. Activate: `source .venv/bin/activate`
 4. Install: `pip install -r requirements.txt`
 5. Run: `uvicorn api_server:app --reload`
 
 ### Frontend Setup
 1. `cd frontend`
 2. Install: `npm install`
-3. Run: `npm run dev`
-   ```
-3. Set up environment variables (`.env`):
-   ```
-   VITE_API_BASE_URL=http://localhost:8000
-   ```
-   ```powershell
-   npm run dev
-   ```
+3. Set up environment variables (`.env`): `VITE_API_BASE_URL=` and, if you need a dev proxy, `VITE_DEV_PROXY_TARGET=http://backend-origin`
+4. Run: `npm run dev`
 
 ---
 

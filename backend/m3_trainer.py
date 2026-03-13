@@ -16,6 +16,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics.pairwise import cosine_similarity
 
 from embeddings import embed_texts, embed_with
+from path_utils import get_repo_paths
 from utils import (
     AVAILABILITY_LEVELS,
     SEVERITY_LABELS,
@@ -281,8 +282,7 @@ def main():
     ap.add_argument("--pairs", required=True)
     ap.add_argument("--out", default="model.pkl")
     ap.add_argument("--model_name", default="sentence-transformers/all-MiniLM-L6-v2")
-    backend_dir = os.path.dirname(os.path.abspath(__file__))
-    default_dataset_root = os.path.join(backend_dir, "..", "data")
+    default_dataset_root = str(get_repo_paths().data_dir.resolve())
     ap.add_argument("--village_locations", default=os.path.join(default_dataset_root, "village_locations.csv"))
     ap.add_argument("--village_distances", default=os.path.join(default_dataset_root, "village_distances.csv"))
     ap.add_argument("--distance_scale", type=float, default=50.0, help="Distance in km mapped to 1.0 in features")

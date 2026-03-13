@@ -1,6 +1,6 @@
 # Social Code Scripts - CLI & API Parameters
 
-Every script in this repository is a self-contained CLI tool. The flags documented here map directly to parameters you can surface through a future API. Defaults target the Gram Sahayta dataset at `D:\SocialCode\gram_sahayta_dataset_with_locations_and_availability`.
+Every script in this repository is a self-contained CLI tool. The flags documented here map directly to parameters you can surface through a future API. Defaults resolve from the repo or from the `GRAM_CONNECT_*` environment variables.
 
 ---
 
@@ -12,8 +12,8 @@ Train the GradientBoosting classifier that scores volunteer-to-proposal compatib
 - `--pairs` **(required)**: CSV of labelled proposal-person pairs (`label|y|target`).  
 - `--out` (default `model.pkl`): Output bundle containing the classifier and embedding backends.  
 - `--model_name` (default `sentence-transformers/all-MiniLM-L6-v2`): Transformer to try before falling back to TF-IDF.  
-- `--village_locations` (default `...\village_locations.csv`): Master village list for proposal location parsing.  
-- `--village_distances` (default `...\village_distances.csv`): Pairwise village distances (km plus travel minutes).  
+- `--village_locations` (default resolved from repo/env): Master village list for proposal location parsing.  
+- `--village_distances` (default resolved from repo/env): Pairwise village distances (km plus travel minutes).  
 - `--distance_scale` (default `50.0` km): Normalisation scale so `distance_km / distance_scale` is clipped to `[0, 1]`.  
 - `--distance_decay` (default `30.0` km): Decay constant for the distance penalty `exp(-distance / distance_decay)` applied to willingness.
 
@@ -34,8 +34,8 @@ Build teams for a new proposal while respecting skills, willingness, geography, 
 - `--out` (default `teams_m3.csv`): Output CSV.  
 - `--tau` (default `0.35`): Coverage threshold for similarity metrics.  
 - `--task_start` **(required)** / `--task_end` **(required)**: ISO-8601 timestamps defining when the task runs.  
-- `--village_locations` (default `...\village_locations.csv`): Village list to locate the proposal.  
-- `--distance_csv` (default `...\village_distances.csv`): Distance table for travel penalties.  
+- `--village_locations` (default resolved from repo/env): Village list to locate the proposal.  
+- `--distance_csv` (default resolved from repo/env): Distance table for travel penalties.  
 - `--distance_scale` (default `50.0` km) / `--distance_decay` (default `30.0` km): Match the training settings.  
 - `--severity` (`LOW|NORMAL|HIGH`): Override the auto severity classifier (defaults to keyword inference).  
 - `--schedule_csv`: Existing volunteer schedule (`person_id,start,end[,hours]`) to avoid clashes.  
@@ -94,7 +94,7 @@ Map free-form proposal text to canonical Gram Sahayta skill phrases.
 ---
 
 ### Integration Notes
-- CLI flags are API-ready; no environment variables are consumed. Boolean flags are simple presence switches.  
+- CLI flags are API-ready. Path defaults can also be overridden with `GRAM_CONNECT_*` environment variables.  
 - Time arguments must be ISO-8601; the scheduler converts to UTC and keeps volunteers collision-free.  
 - Severity/availability penalties follow a fixed heuristic (HIGH penalises "generally" and "rarely"; NORMAL penalises "rarely"; LOW applies no penalty). Override `--severity` or adjust the source if policy changes.  
 - Distance penalties depend on the supplied village assets; point the CLI to different CSVs if you deploy in another geography.  

@@ -36,7 +36,9 @@ from collections import defaultdict
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from embeddings import embed_texts
 from embeddings import embed_with
+from path_utils import get_repo_paths
 
 from utils import (
     AVAILABILITY_LEVELS,
@@ -65,6 +67,23 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
 )
 logger = logging.getLogger("m3_recommend")
+
+# Backward-compatible alias used by older utilities and tests.
+sigmoid = robust_sigmoid
+
+
+class RuntimeFallbackClassifier:
+    def predict_proba(self, features: np.ndarray) -> np.ndarray:
+        scores = []
+        for row in features:
+            sim = float(row[0]) if len(row) > 0 else 0.0
+            weighted_sim = float(row[1]) if len(row) > 1 else sim
+            willingness = float(row[2]) if len(row) > 2 else 0.0
+            availability = float(row[5]) if len(row) > 5 else 0.5
+            score = (0.45 * sim) + (0.35 * weighted_sim) + (0.15 * willingness) + (0.05 * availability)
+            score = max(0.0, min(1.0, score))
+            scores.append([1.0 - score, score])
+        return np.asarray(scores, dtype=float)
 
 @dataclass
 class RecommendationConfig:
@@ -388,28 +407,44 @@ def run_recommender(config: RecommendationConfig) -> List[Dict[str, Any]]:
 
     village_names = load_village_names(config.village_locations)
     distance_lookup = load_distance_lookup(config.distance_csv)
-    
     proposal_location = config.proposal_location_override or extract_location(text, village_names)
-    
+
     if config.severity_override:
         severity_level = {"LOW": 0, "NORMAL": 1, "HIGH": 2}.get(config.severity_override, 1)
     else:
         severity_level = estimate_severity(text)
-    
+
     task_start = parse_datetime(config.task_start, "task_start")
     task_end = parse_datetime(config.task_end, "task_end")
     if task_end <= task_start:
         raise ValueError("task_end must be after task_start")
-    
+
     task_interval = (task_start, task_end)
     task_week_hours = split_hours_by_week(task_start, task_end)
     schedule_map = parse_schedule_csv(config.schedule_csv) if config.schedule_csv else {}
 
-    # 2. Load model bundle
+    # 2. Process Volunteers (People)
+    all_people = read_people(config.people)
+    if not all_people:
+        raise ValueError("No valid volunteers found in people data.")
+
+    # 3. Load model bundle or build a runtime fallback for fresh clones.
     if config.loaded_bundle:
         bundle = config.loaded_bundle
     elif not os.path.exists(config.model):
-        raise FileNotFoundError(f"Model file not found: {config.model}")
+        logger.warning("Model file not found at %s. Using runtime TF-IDF fallback.", config.model)
+        shared_model, _, _ = embed_texts(
+            [text] + [person["text"] for person in all_people],
+            model_name="tfidf-runtime-fallback",
+        )
+        bundle = {
+            "model": RuntimeFallbackClassifier(),
+            "backend": "tfidf",
+            "prop_model": shared_model,
+            "people_model": shared_model,
+            "distance_scale": config.distance_scale,
+            "distance_decay": config.distance_decay,
+        }
     else:
         with open(config.model, "rb") as f:
             bundle = pickle.load(f)
@@ -420,11 +455,6 @@ def run_recommender(config: RecommendationConfig) -> List[Dict[str, Any]]:
     distance_scale = bundle.get("distance_scale", config.distance_scale)
     distance_decay = bundle.get("distance_decay", config.distance_decay)
 
-    # 3. Process Volunteers (People)
-    all_people = read_people(config.people)
-    if not all_people:
-        raise ValueError("No valid volunteers found in people data.")
-    
     filtered_people: List[Dict[str, Any]] = []
     for person in all_people:
         sched_info = schedule_map.get(person["person_id"], {})
@@ -623,8 +653,7 @@ def main():
     ap.add_argument("--task_start", required=True)
     ap.add_argument("--task_end", required=True)
     
-    backend_dir = os.path.dirname(os.path.abspath(__file__))
-    default_root = os.path.join(backend_dir, "..", "data")
+    default_root = str(get_repo_paths().data_dir.resolve())
     ap.add_argument("--village_locations", default=os.path.join(default_root, "village_locations.csv"))
     ap.add_argument("--distance_csv", default=os.path.join(default_root, "village_distances.csv"))
     ap.add_argument("--distance_scale", type=float, default=50.0)

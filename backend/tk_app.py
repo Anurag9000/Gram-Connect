@@ -5,12 +5,19 @@ import csv
 import os
 
 from recommender_service import RecommenderService, RecommendationConfig
+from path_utils import (
+    get_repo_paths,
+    resolve_distance_csv,
+    resolve_model_path,
+    resolve_people_csv,
+    resolve_village_locations_csv,
+)
 
-DATASET_ROOT = os.path.join(os.path.dirname(__file__), "..", "data")
-DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pkl")
-DEFAULT_PEOPLE_CSV = os.path.join(DATASET_ROOT, "people.csv")
-DEFAULT_VILLAGE_LOCATIONS = os.path.join(DATASET_ROOT, "village_locations.csv")
-DEFAULT_DISTANCE_CSV = os.path.join(DATASET_ROOT, "village_distances.csv")
+DATASET_ROOT = str(get_repo_paths().data_dir.resolve())
+DEFAULT_MODEL_PATH = resolve_model_path()
+DEFAULT_PEOPLE_CSV = resolve_people_csv()
+DEFAULT_VILLAGE_LOCATIONS = resolve_village_locations_csv()
+DEFAULT_DISTANCE_CSV = resolve_distance_csv()
 
 # Initialize service globally or on app init
 recommender = RecommenderService(

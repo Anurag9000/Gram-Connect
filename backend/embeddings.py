@@ -13,14 +13,14 @@ def embed_texts(texts: List[str], model_name: str = "sentence-transformers/parap
     """
     texts = [t if isinstance(t, str) else "" for t in texts]
 
-    # Try sentence-transformers
-    try:
-        from sentence_transformers import SentenceTransformer
-        model = SentenceTransformer(model_name)
-        embs = np.asarray(model.encode(texts, convert_to_numpy=True, normalize_embeddings=True))
-        return model, embs, "sentence-transformers"
-    except Exception:
-        pass
+    if not model_name.lower().startswith("tfidf"):
+        try:
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer(model_name)
+            embs = np.asarray(model.encode(texts, convert_to_numpy=True, normalize_embeddings=True))
+            return model, embs, "sentence-transformers"
+        except Exception:
+            pass
 
     # Fallback: TF-IDF (shared vectorizer must be used consistently)
     from sklearn.feature_extraction.text import TfidfVectorizer

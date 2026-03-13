@@ -16,6 +16,16 @@ from recommender_service import RecommenderService
 from multimodal_service import transcribe_audio, analyze_image
 from notification_service import notify_team_assignment
 from mock_data import get_mock_problems, get_mock_volunteers, get_mock_volunteer_tasks
+from path_utils import (
+    ensure_runtime_dir,
+    get_repo_paths,
+    resolve_distance_csv,
+    resolve_model_path,
+    resolve_pairs_csv,
+    resolve_people_csv,
+    resolve_proposals_csv,
+    resolve_village_locations_csv,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,13 +33,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api_server")
 
-DATASET_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
-DEFAULT_MODEL_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "model.pkl"))
-DEFAULT_PEOPLE_CSV = os.path.join(DATASET_ROOT, "people.csv")
-DEFAULT_PROPOSALS_CSV = os.path.join(DATASET_ROOT, "proposals.csv")
-DEFAULT_PAIRS_CSV = os.path.join(DATASET_ROOT, "pairs.csv")
-DEFAULT_VILLAGE_LOCATIONS = os.path.join(DATASET_ROOT, "village_locations.csv")
-DEFAULT_DISTANCE_CSV = os.path.join(DATASET_ROOT, "village_distances.csv")
+PATHS = get_repo_paths()
+DATASET_ROOT = str(PATHS.data_dir.resolve())
+DEFAULT_MODEL_PATH = resolve_model_path()
+DEFAULT_PEOPLE_CSV = resolve_people_csv()
+DEFAULT_PROPOSALS_CSV = resolve_proposals_csv()
+DEFAULT_PAIRS_CSV = resolve_pairs_csv()
+DEFAULT_VILLAGE_LOCATIONS = resolve_village_locations_csv()
+DEFAULT_DISTANCE_CSV = resolve_distance_csv()
 
 # Initialize Service
 recommender_service = RecommenderService(
@@ -323,7 +334,7 @@ async def update_problem_status(problem_id: str, payload: Dict[str, str]):
 @app.post("/recommend", response_model=RecommendResponse)
 def recommend_endpoint(request: RecommendRequest):
     try:
-        results = recommender_service.generate_recommendations(request.dict())
+        results = recommender_service.generate_recommendations(request.model_dump())
         
         # Notify teams if recommendations were generated
         if results and results.get("teams"):
@@ -376,6 +387,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
         # 2. Persist to CSV
         with csv_lock:
             file_exists = os.path.exists(DEFAULT_PROPOSALS_CSV)
+            os.makedirs(os.path.dirname(DEFAULT_PROPOSALS_CSV), exist_ok=True)
             with open(DEFAULT_PROPOSALS_CSV, "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 if not file_exists:

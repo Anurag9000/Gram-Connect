@@ -60,5 +60,9 @@ def test_intervals_overlap():
     i3 = (datetime(2023, 1, 1, 13), datetime(2023, 1, 1, 14))
     assert m3_recommend.intervals_overlap([i1], i3) is False
 
+def test_parse_datetime_accepts_datetime_instance():
+    dt = datetime(2026, 1, 1, 10, 0, 0)
+    assert m3_recommend.parse_datetime(dt, "task_start") == dt
+
 if __name__ == "__main__":
     pytest.main([__file__])

@@ -13,8 +13,8 @@ This document summarises every input the frontend (or a future service) can supp
 - Optional overrides:
   - `out` *(path, default `model.pkl`)* – Destination for the trained model bundle.
   - `model_name` *(string, default `sentence-transformers/all-MiniLM-L6-v2`)* – Embedding model name.
-  - `village_locations` *(path, default `...\village_locations.csv`)* – Master list used to detect proposal villages.
-  - `village_distances` *(path, default `...\village_distances.csv`)* – Pairwise village distances (km + minutes).
+  - `village_locations` *(path, default resolved from repo/env)* – Master list used to detect proposal villages.
+  - `village_distances` *(path, default resolved from repo/env)* – Pairwise village distances (km + minutes).
   - `distance_scale` *(float, default `50.0` km)* – Normalisation factor for distance feature.
   - `distance_decay` *(float, default `30.0` km)* – Distance penalty decay constant (`exp(-d/decay)`).
 
@@ -50,8 +50,8 @@ Fairness & availability:
 - `schedule_csv` *(path)* – Existing schedule with columns `person_id,start,end[,hours]` to avoid clashes and track weekly hours.
 - `weekly_quota` *(float, default `5.0` hours)* – Weekly hour budget before overwork penalty.
 - `overwork_penalty` *(float, default `0.1`)* – Willingness deduction per hour above quota.
-- `village_locations` *(path, default `...\village_locations.csv`)* – Village list for proposal location inference.
-- `distance_csv` *(path, default `...\village_distances.csv`)* – Distance table for travel penalties.
+- `village_locations` *(path, default resolved from repo/env)* – Village list for proposal location inference.
+- `distance_csv` *(path, default resolved from repo/env)* – Distance table for travel penalties.
 - `distance_scale` *(float, default `50.0` km)* – Scale used when normalising distance.
 - `distance_decay` *(float, default `30.0` km)* – Decay constant for distance penalty.
 - `severity` *(enum: LOW|NORMAL|HIGH, optional)* – Manual override for automatic severity detection.

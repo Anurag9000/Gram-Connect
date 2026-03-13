@@ -181,10 +181,15 @@ def lookup_distance_km(origin: str, target: str, distance_lookup: Dict[Tuple[str
         return float(rec.get("distance", 0.0))
     return 0.0
 
-def parse_datetime(value: str, label: str) -> datetime:
+def parse_datetime(value: Any, label: str) -> datetime:
     if not value:
         raise ValueError(f"{label} is required.")
-    value = value.strip()
+    if isinstance(value, datetime):
+        dt = value
+        if dt.tzinfo:
+            dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+    value = str(value).strip()
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:

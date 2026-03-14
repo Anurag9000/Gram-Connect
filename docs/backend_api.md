@@ -75,6 +75,7 @@ Team construction:
   - Detected proposal village (or warning if not found).
   - Count of volunteers excluded due to schedule conflicts.
 - No secondary files are written. Volunteers are guaranteed to appear in at most one team for the specified time window; lower-ranked teams are recomputed if a member was already assigned.
+- If the configured `model` file does not exist in the API runtime path, the backend now falls back to a runtime TF-IDF bundle so `/recommend` can still return teams on a fresh clone.
 
 ---
 
@@ -116,3 +117,4 @@ Team construction:
 - Distance penalties depend on the Gram Sahayta village tables; point the CLI to alternative files if the geography changes.
 - Weekly workload fairness works by tracking hours in `schedule_csv`. Provide cumulative shifts to enforce the quota.
 - All weight parameters (`lambda_*`, `distance_*`, `overwork_penalty`, etc.) are safe knobs for A/B testing fairness and coverage trade-offs.
+- FastAPI request bodies pass parsed datetimes into the backend; the current backend accepts both ISO strings and native `datetime` values.

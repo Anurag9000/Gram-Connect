@@ -2,6 +2,19 @@
 
 Every script in this repository is a self-contained CLI tool. The flags documented here map directly to parameters you can surface through a future API. Defaults resolve from the repo or from the `GRAM_CONNECT_*` environment variables.
 
+For Linux + NVIDIA GPU setups, install PyTorch separately before `requirements.txt`:
+```bash
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+```
+
+The verified backend run flow is:
+```bash
+python -m pip install -r requirements.txt
+python -m pip install pytest
+python -m pytest tests -q
+python -m uvicorn api_server:app --host 127.0.0.1 --port 8011
+```
+
 ---
 
 ## `m3_trainer.py`
@@ -57,6 +70,8 @@ Runtime pipeline:
 7. Remove any volunteer who appears in multiple recommended teams; the lower-ranked team is recomputed without them so the final list is collision-free.
 
 Output columns include `team_size`, `goodness`, `coverage`, `k_robustness`, `redundancy`, `set_size`, `willingness_avg`, and `willingness_min`. Distance and severity effects are reflected in the aggregated willingness metrics and goodness scores.
+
+If the configured model path does not exist, the runtime API path falls back to a TF-IDF recommender instead of failing hard.
 
 ---
 

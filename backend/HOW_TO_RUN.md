@@ -1,48 +1,43 @@
-# How to Run the SocialCode Stack
+# Backend Run Guide
 
-This project now resolves dataset files from the repo automatically. You can still override every path with environment variables when needed.
-
-## Prerequisites
-- Linux shell
-- `python3`
-- `node`
-
-## Backend
+## Linux Setup
 ```bash
-cd backend
+cd /home/anurag-basistha/Projects/Done/Gram-Connect/backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-uvicorn api_server:app --reload --host 0.0.0.0 --port "${PORT:-8000}"
+python -m pip install --upgrade pip
+python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+python -m pip install -r requirements.txt
+python -m pip install pytest
 ```
 
-Optional path overrides:
+## Verification
 ```bash
-export GRAM_CONNECT_MODEL_PATH=/absolute/path/to/model.pkl
-export GRAM_CONNECT_PEOPLE_CSV=/absolute/path/to/people.csv
-export GRAM_CONNECT_PROPOSALS_CSV=/absolute/path/to/proposals.csv
-export GRAM_CONNECT_PAIRS_CSV=/absolute/path/to/pairs.csv
-export GRAM_CONNECT_VILLAGE_LOCATIONS_CSV=/absolute/path/to/village_locations.csv
-export GRAM_CONNECT_DISTANCE_CSV=/absolute/path/to/village_distances.csv
+python -m pytest tests -q
+python - <<'PY'
+from api_server import RecommendRequest, recommend_endpoint
+res = recommend_endpoint(RecommendRequest(
+    proposal_text='Urgent handpump repair needed in Village A',
+    task_start='2026-01-01T10:00:00',
+    task_end='2026-01-01T12:00:00',
+    team_size=2,
+    num_teams=1,
+    auto_extract=True,
+))
+print({
+    'severity': res.severity_detected,
+    'location': res.proposal_location,
+    'team_count': len(res.teams),
+})
+PY
 ```
 
-## Frontend
+## Run API
 ```bash
-cd frontend
-npm install
-printf 'VITE_API_BASE_URL=\nVITE_DEV_PROXY_TARGET=http://your-backend-origin\n' > .env
-npm run dev
+python -m uvicorn api_server:app --host 127.0.0.1 --port 8011
 ```
 
-If you deploy frontend and backend behind the same origin, `VITE_API_BASE_URL` can stay empty and the frontend will use relative URLs.
-
-## Retraining
-```bash
-cd backend
-python3 m3_trainer.py \
-  --proposals "${GRAM_CONNECT_PROPOSALS_CSV}" \
-  --people "${GRAM_CONNECT_PEOPLE_CSV}" \
-  --pairs "${GRAM_CONNECT_PAIRS_CSV}" \
-  --out "${GRAM_CONNECT_MODEL_PATH:-model.pkl}"
-```
+## Notes
+- If `model.pkl` is absent, the recommender uses the runtime TF-IDF fallback.
+- CSV inputs resolve from repo defaults or from `GRAM_CONNECT_*` environment variables.
+- If `8000` is already in use, keep using `8011` or choose another free port.

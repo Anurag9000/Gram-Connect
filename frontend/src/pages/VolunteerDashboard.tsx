@@ -71,7 +71,7 @@ export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardPro
                         You must be logged in as a Volunteer to view your assignments.
                     </p>
                     <button
-                        onClick={() => navigate('/')}
+                        onClick={() => onNavigate('home')}
                         className="w-full bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
                     >
                         Back to Home

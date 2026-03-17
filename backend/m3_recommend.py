@@ -36,6 +36,7 @@ from collections import defaultdict
 
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from embeddings import embed_texts
 from embeddings import embed_with
 
 from utils import (
@@ -65,6 +66,23 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
 )
 logger = logging.getLogger("m3_recommend")
+
+# Backward-compatible alias used by older utilities and tests.
+sigmoid = robust_sigmoid
+
+
+class RuntimeFallbackClassifier:
+    def predict_proba(self, features: np.ndarray) -> np.ndarray:
+        scores = []
+        for row in features:
+            sim = float(row[0]) if len(row) > 0 else 0.0
+            weighted_sim = float(row[1]) if len(row) > 1 else sim
+            willingness = float(row[2]) if len(row) > 2 else 0.0
+            availability = float(row[5]) if len(row) > 5 else 0.5
+            score = (0.45 * sim) + (0.35 * weighted_sim) + (0.15 * willingness) + (0.05 * availability)
+            score = max(0.0, min(1.0, score))
+            scores.append([1.0 - score, score])
+        return np.asarray(scores, dtype=float)
 
 @dataclass
 class RecommendationConfig:
@@ -409,7 +427,20 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
     if config.loaded_bundle:
         bundle = config.loaded_bundle
     elif not os.path.exists(config.model):
-        raise FileNotFoundError(f"Model file not found: {config.model}")
+        logger.warning("Model file not found at %s. Using runtime TF-IDF fallback.", config.model)
+        all_people = read_people(config.people)
+        shared_model, _, _ = embed_texts(
+            [text] + [person["text"] for person in all_people],
+            model_name="tfidf-runtime-fallback",
+        )
+        bundle = {
+            "model": RuntimeFallbackClassifier(),
+            "backend": "tfidf",
+            "prop_model": shared_model,
+            "people_model": shared_model,
+            "distance_scale": config.distance_scale,
+            "distance_decay": config.distance_decay,
+        }
     else:
         with open(config.model, "rb") as f:
             bundle = pickle.load(f)

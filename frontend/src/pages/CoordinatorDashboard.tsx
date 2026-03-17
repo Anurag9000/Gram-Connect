@@ -130,12 +130,12 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
     let individuals = [...allVolunteers];
     if (individualSearch) {
       individuals = individuals.filter(v =>
-        v.profile?.full_name.toLowerCase().includes(individualSearch.toLowerCase()) ||
+        (v.profile?.full_name ?? '').toLowerCase().includes(individualSearch.toLowerCase()) ||
         v.skills.join(' ').toLowerCase().includes(individualSearch.toLowerCase())
       );
     }
     if (individualSort === 'name') {
-      individuals.sort((a, b) => a.profile?.full_name.localeCompare(b.profile?.full_name || '') || 0);
+      individuals.sort((a, b) => (a.profile?.full_name ?? '').localeCompare(b.profile?.full_name ?? ''));
     } else if (individualSort === 'skills') {
       individuals.sort((a, b) => b.skills.length - a.skills.length);
     }
@@ -635,6 +635,5 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
     </div>
   );
 }
-
 
 

@@ -331,7 +331,7 @@ async def update_problem_status(problem_id: str, payload: Dict[str, str]):
 @app.post("/recommend", response_model=RecommendResponse)
 def recommend_endpoint(request: RecommendRequest):
     try:
-        results = recommender_service.generate_recommendations(request.dict())
+        results = recommender_service.generate_recommendations(request.model_dump())
         
         # Notify teams if recommendations were generated
         if results and results.get("teams"):

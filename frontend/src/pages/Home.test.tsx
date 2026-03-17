@@ -3,14 +3,13 @@ import { render, screen } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import Home from './Home';
 import { AuthProvider } from '../contexts/AuthContext';
-import React from 'react';
 
 describe('Home', () => {
     it('should render home page with main heading', () => {
         render(
             <BrowserRouter>
                 <AuthProvider>
-                    <Home />
+                    <Home onNavigate={() => {}} />
                 </AuthProvider>
             </BrowserRouter>
         );
@@ -23,7 +22,7 @@ describe('Home', () => {
         render(
             <BrowserRouter>
                 <AuthProvider>
-                    <Home />
+                    <Home onNavigate={() => {}} />
                 </AuthProvider>
             </BrowserRouter>
         );
@@ -36,7 +35,7 @@ describe('Home', () => {
         const { container } = render(
             <BrowserRouter>
                 <AuthProvider>
-                    <Home />
+                    <Home onNavigate={() => {}} />
                 </AuthProvider>
             </BrowserRouter>
         );

@@ -29,7 +29,9 @@ def send_sms_notification(to_phone: str, message: str) -> bool:
 def notify_team_assignment(teams: list, problem_title: str, village_name: str):
     """Notifies all teams about their assignment."""
     for team in teams:
-        members = team.get('members', [])
+        members = team.get('members', []) if isinstance(team, dict) else []
+        if not members and isinstance(team, dict) and ("profile" in team or "phone" in team or "name" in team):
+            members = [team]
         for member in members:
             # Recommender members have 'name' and 'person_id' directly
             # Fallback to 'profile' structure if present

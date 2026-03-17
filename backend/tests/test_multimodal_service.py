@@ -45,6 +45,7 @@ def test_analyze_image_success(mock_img_open, mock_exists, mock_get_clip):
         res = multimodal_service.analyze_image("fake.jpg", ["label1", "label2"])
         assert res["top_label"] == "label1"
         assert res["confidence"] > 0.9
+        assert res["tags"][0] == "label1"
 
 @patch('multimodal_service.get_clip')
 @patch('os.path.exists')
@@ -54,6 +55,7 @@ def test_analyze_image_no_clip(mock_exists, mock_get_clip):
     
     res = multimodal_service.analyze_image("fake.jpg")
     assert res["top_label"] == "N/A (CLIP Missing)"
+    assert res["tags"] == []
 
 if __name__ == "__main__":
     pytest.main([__file__])

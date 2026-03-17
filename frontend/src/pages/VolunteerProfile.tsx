@@ -26,6 +26,12 @@ const commonSkills = [
 
 import { api } from '../services/api';
 
+const availabilityStyles = {
+  available: 'border-green-600 bg-green-50',
+  busy: 'border-yellow-600 bg-yellow-50',
+  inactive: 'border-gray-500 bg-gray-50',
+} as const;
+
 export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) {
   const { profile } = useAuth();
   const [volunteer, setVolunteer] = useState<Volunteer | null>(null);
@@ -180,7 +186,7 @@ export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) 
                       type="button"
                       onClick={() => setAvailabilityStatus(status.value as typeof availabilityStatus)}
                       className={`p-3 rounded-lg border-2 transition ${availabilityStatus === status.value
-                        ? `border-${status.color}-600 bg-${status.color}-50`
+                        ? availabilityStyles[status.value as keyof typeof availabilityStyles]
                         : 'border-gray-200 hover:border-green-300'
                         }`}
                     >

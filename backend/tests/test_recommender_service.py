@@ -1,87 +1,113 @@
-import pytest
-import sys
 import os
-from unittest.mock import patch, MagicMock
 import pickle
+import sys
+from pathlib import Path
+from unittest.mock import patch
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import recommender_service
-from m3_recommend import RecommendationConfig
 
-def test_evaluate_team():
-    # Mock team_metrics and goodness
-    with patch('recommender_service.team_metrics') as mock_metrics:
-        with patch('recommender_service.goodness') as mock_good:
-            mock_metrics.return_value = {"coverage": 1.0, "k_robustness": 1.0, "redundancy": 0.0, "set_size": 0.5, "willingness_avg": 0.5}
-            mock_good.return_value = 0.95
-            
-            res = recommender_service._evaluate_team(
-                ["skill1"], [{"id": 1}], "backend", None, 0.35, 1, 1.0, 1.0, 0.5
-            )
-            assert res["score"] == 0.95
-            assert res["metrics"]["coverage"] == 1.0
+from recommender_service import RecommenderService
 
-def test_enforce_unique_members():
-    teams = [
-        {"team_ids": "p1;p2", "members": [{"person_id": "p1", "name": "A"}, {"person_id": "p2", "name": "B"}], "goodness": 0.8},
-        {"team_ids": "p2;p3", "members": [{"person_id": "p2", "name": "B"}, {"person_id": "p3", "name": "C"}], "goodness": 0.7}
-    ]
-    # p2 is in both, so second team should be modified
-    with patch('recommender_service._evaluate_team') as mock_eval:
-        mock_eval.return_value = {"score": 0.5, "metrics": {"coverage": 0.5, "k_robustness": 0.5, "redundancy": 0.1, "set_size": 0.1}}
-        
-        res = recommender_service._enforce_unique_members(
-            teams, ["skill1"], "backend", None, 0.35, 1, 1.0, 1.0, 0.5
-        )
-        
-        assert len(res) == 2
-        assert res[0]["team_ids"] == "p1;p2"
-        assert res[1]["team_ids"] == "p3" # p2 removed
 
-@patch('recommender_service.load_village_names')
-@patch('recommender_service.load_distance_lookup')
-@patch('recommender_service.read_people')
-@patch('recommender_service.embed_with')
-@patch('pickle.load')
-@patch('os.path.exists')
-@patch('builtins.open', create=True)
-def test_generate_recommendations_fusion(mock_open, mock_exists, mock_pickle, mock_embed, mock_people, mock_dist, mock_village):
-    # Mock data
-    mock_exists.return_value = True
-    mock_pickle.return_value = {
-        "model": MagicMock(),
-        "backend": "tfidf",
-        "prop_model": MagicMock(),
-        "people_model": MagicMock()
-    }
-    mock_people.return_value = [{"person_id": "p1", "text": "skills", "W": 1.0, "availability": "immediately available"}]
-    mock_embed.return_value = [[1.0]] # Sim matrix
-    
-    config = RecommendationConfig(
-        model="fake.pkl",
-        people="people.csv",
-        proposal_text="Original text",
-        transcription="Transcribed text",
-        visual_tags=["Tag1"],
-        task_start="2023-01-01T10:00:00",
-        task_end="2023-01-01T12:00:00"
+def test_service_skips_missing_model(tmp_path):
+    people_csv = tmp_path / "people.csv"
+    people_csv.write_text(
+        "person_id,name,text,willingness_eff,willingness_bias\n"
+        "p1,Alice,water quality assessment,0.8,0.7\n",
+        encoding="utf-8",
     )
-    
-    # We want to check if the text was fused
-    # Since generate_recommendations is large, we check the result or sub-calls
-    with patch('recommender_service.extract_location') as mock_loc:
-        mock_loc.return_value = "Village X"
-        with patch('recommender_service.estimate_severity') as mock_sev:
-            mock_sev.return_value = 1
-            res = recommender_service.generate_recommendations(config)
-            
-            # Check if text was passed to embed_with correctly (contains fused parts)
-            # The first call to embed_with is for the proposal P
-            args, kwargs = mock_embed.call_args_list[0]
-            fused_text = args[1][0]
-            assert "Original text" in fused_text
-            assert "[Transcribed Audio]: Transcribed text" in fused_text
-            assert "[Visual Tags]: Tag1" in fused_text
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+    service = RecommenderService(
+        model_path=str(tmp_path / "missing.pkl"),
+        people_csv=str(people_csv),
+        dataset_root=str(tmp_path),
+    )
+
+    assert service.model_bundle is None
+
+
+def test_service_generates_recommendations_without_model(tmp_path):
+    people_csv = tmp_path / "people.csv"
+    people_csv.write_text(
+        "person_id,name,text,willingness_eff,willingness_bias,availability,home_location\n"
+        "p1,Alice,water quality assessment; handpump repair,0.8,0.7,immediately available,Village A\n"
+        "p2,Bob,public health outreach; community planning,0.7,0.6,generally available,Village B\n",
+        encoding="utf-8",
+    )
+
+    service = RecommenderService(
+        model_path=str(tmp_path / "missing.pkl"),
+        people_csv=str(people_csv),
+        dataset_root=str(tmp_path),
+    )
+
+    result = service.generate_recommendations(
+        {
+            "proposal_text": "Urgent handpump repair needed in Village A",
+            "task_start": "2026-01-01T10:00:00",
+            "task_end": "2026-01-01T12:00:00",
+            "auto_extract": True,
+            "team_size": 1,
+            "num_teams": 1,
+        }
+    )
+
+    assert result["severity_detected"] == "HIGH"
+    assert result["teams"]
+    assert result["teams"][0]["members"][0]["person_id"] == "p1"
+
+
+@patch("recommender_service.run_recommender")
+def test_service_passes_optional_fields_to_core(mock_run, tmp_path):
+    people_csv = tmp_path / "people.csv"
+    people_csv.write_text(
+        "person_id,name,text,willingness_eff,willingness_bias\n"
+        "p1,Alice,water quality assessment,0.8,0.7\n",
+        encoding="utf-8",
+    )
+
+    service = RecommenderService(
+        model_path=str(tmp_path / "missing.pkl"),
+        people_csv=str(people_csv),
+        dataset_root=str(tmp_path),
+    )
+    mock_run.return_value = {
+        "severity_detected": "NORMAL",
+        "severity_source": "auto",
+        "proposal_location": "Village Z",
+        "teams": [],
+    }
+
+    service.generate_recommendations(
+        {
+            "proposal_text": "Need help in Village Z",
+            "village_name": "Village Z",
+            "task_start": "2026-01-01T10:00:00",
+            "task_end": "2026-01-01T12:00:00",
+            "team_size": 2,
+            "num_teams": 4,
+            "size_buckets": "small:1-2:4",
+            "schedule_csv": "/tmp/schedule.csv",
+            "distance_scale": 25,
+            "distance_decay": 12,
+            "overwork_penalty": 0.3,
+            "lambda_red": 1.2,
+            "lambda_size": 0.8,
+            "lambda_will": 0.9,
+            "topk_swap": 7,
+        }
+    )
+
+    cfg = mock_run.call_args.args[0]
+    assert cfg.proposal_location_override == "Village Z"
+    assert cfg.team_size == 2
+    assert cfg.num_teams == 4
+    assert cfg.size_buckets == "small:1-2:4"
+    assert cfg.schedule_csv == "/tmp/schedule.csv"
+    assert cfg.distance_scale == 25
+    assert cfg.distance_decay == 12
+    assert cfg.overwork_penalty == 0.3
+    assert cfg.lambda_red == 1.2
+    assert cfg.lambda_size == 0.8
+    assert cfg.lambda_will == 0.9
+    assert cfg.topk_swap == 7

@@ -4,13 +4,19 @@ from datetime import datetime, timedelta
 import csv
 import os
 
-from recommender_service import RecommendationConfig, generate_recommendations
+from recommender_service import RecommenderService
 
 DATASET_ROOT = os.path.join(os.path.dirname(__file__), "..", "data")
 DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pkl")
 DEFAULT_PEOPLE_CSV = os.path.join(DATASET_ROOT, "people.csv")
 DEFAULT_VILLAGE_LOCATIONS = os.path.join(DATASET_ROOT, "village_locations.csv")
 DEFAULT_DISTANCE_CSV = os.path.join(DATASET_ROOT, "village_distances.csv")
+
+recommender = RecommenderService(
+    model_path=DEFAULT_MODEL_PATH,
+    people_csv=DEFAULT_PEOPLE_CSV,
+    dataset_root=DATASET_ROOT,
+)
 
 class RecommendationApp(tk.Tk):
     def __init__(self):
@@ -110,31 +116,28 @@ class RecommendationApp(tk.Tk):
 
         end_dt = start_dt + timedelta(hours=duration_hours)
         severity = self.severity_var.get()
-        payload = RecommendationConfig(
-            model=self.model_var.get().strip() or DEFAULT_MODEL_PATH,
-            people=DEFAULT_PEOPLE_CSV,
-            proposal_text=problem,
-            proposal_location_override=self.village_var.get().strip() or None,
-            task_start=start_dt.isoformat(),
-            task_end=end_dt.isoformat(),
-            team_size=team_size,
-            num_teams=num_teams,
-            severity_override=None if severity == "AUTO" else severity,
-            schedule_csv=self.schedule_var.get().strip() or None,
-            weekly_quota=float(self.quota_var.get()),
-            overwork_penalty=float(self.penalty_var.get()),
-            auto_extract=True,
-            threshold=0.25,
-            lambda_red=1.0,
-            lambda_size=1.0,
-            lambda_will=0.5,
-            village_locations=DEFAULT_VILLAGE_LOCATIONS,
-            distance_csv=DEFAULT_DISTANCE_CSV,
-            distance_scale=50.0,
-            distance_decay=30.0,
-        )
+
+        payload = {
+            "proposal_text": problem,
+            "proposal_location_override": self.village_var.get().strip() or None,
+            "task_start": start_dt.isoformat(),
+            "task_end": end_dt.isoformat(),
+            "team_size": team_size,
+            "num_teams": num_teams,
+            "severity": None if severity == "AUTO" else severity,
+            "schedule_csv": self.schedule_var.get().strip() or None,
+            "weekly_quota": float(self.quota_var.get()),
+            "overwork_penalty": float(self.penalty_var.get()),
+            "auto_extract": True,
+            "threshold": 0.25,
+        }
+
+        current_model = self.model_var.get().strip()
+        if current_model and current_model != recommender.model_path:
+            recommender.set_model_path(current_model)
+
         try:
-            results = generate_recommendations(payload, write_output=False)
+            results = recommender.generate_recommendations(payload)
         except Exception as exc:
             messagebox.showerror("Recommendation error", str(exc))
             return
@@ -162,7 +165,7 @@ class RecommendationApp(tk.Tk):
             for member in members:
                 name = member.get("name") or member.get("person_id")
                 skills = ", ".join(member.get("skills", []))
-                self.output.insert("end", f"    - {name} | W={member.get('willingness')} | Dist={member.get('distance_km')} km | Overwork={member.get('overwork_hours')}h\n")
+                self.output.insert("end", f"    - {name} | W={member.get('W')} | Dist={member.get('distance_km')} km | Overwork={member.get('overwork_hours')}h\n")
                 if skills:
                     self.output.insert("end", f"      Skills: {skills}\n")
             self.output.insert("end", "\n")

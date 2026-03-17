@@ -62,6 +62,25 @@ export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardPro
         }
     };
 
+    if (!profile || profile.role !== 'volunteer') {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+                <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+                    <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+                    <p className="text-gray-600 mb-6">
+                        You must be logged in as a Volunteer to view your assignments.
+                    </p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="w-full bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
+                    >
+                        Back to Home
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     if (selectedTask) {
         return (
             <div className="min-h-screen bg-gray-50 py-12 px-4">

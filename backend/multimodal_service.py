@@ -57,7 +57,8 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
         return {
             "top_label": "N/A (CLIP Missing)",
             "confidence": 0.0,
-            "all_probs": {}
+            "all_probs": {},
+            "tags": []
         }
     
     import clip # Local import for tokenize
@@ -71,7 +72,8 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
         return {
             "top_label": "Error",
             "confidence": 0.0,
-            "all_probs": {"error": str(e)}
+            "all_probs": {"error": str(e)},
+            "tags": []
         }
     
     text_input = clip.tokenize(candidate_labels).to(device)
@@ -85,11 +87,16 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
     
     # Get top prediction
     top_label = max(results, key=results.get)
+    sorted_labels = sorted(results.items(), key=lambda item: item[1], reverse=True)
+    tags = [label for label, score in sorted_labels if score >= 0.15][:3]
+    if not tags and top_label:
+        tags = [top_label]
     
     return {
         "top_label": top_label,
         "confidence": results[top_label],
-        "all_probs": results
+        "all_probs": results,
+        "tags": tags,
     }
 
 if __name__ == "__main__":

@@ -2,10 +2,10 @@ import os
 import pickle
 import logging
 from typing import List, Dict, Any, Optional
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from m3_recommend import run_recommender, RecommendationConfig
-from utils import get_any, SEVERITY_LABELS
+from utils import get_any
 
 logger = logging.getLogger("recommender_service")
 
@@ -19,14 +19,24 @@ class RecommenderService:
         self.village_locations = os.path.join(dataset_root, "village_locations.csv")
         self.distance_csv = os.path.join(dataset_root, "village_distances.csv")
         
+        self.model_bundle = self._load_model_bundle(model_path)
+
+    def _load_model_bundle(self, model_path: str):
         if not os.path.exists(model_path):
             logger.warning(f"Model file not found at {model_path}. Optimization will be disabled until trained.")
-            self.model_bundle = None
-        else:
-            logger.info(f"Loading M3 Model from {model_path}...")
-            with open(model_path, "rb") as f:
-                self.model_bundle = pickle.load(f)
-            logger.info("Model loaded successfully.")
+            return None
+
+        logger.info(f"Loading M3 Model from {model_path}...")
+        with open(model_path, "rb") as f:
+            bundle = pickle.load(f)
+        logger.info("Model loaded successfully.")
+        return bundle
+
+    def set_model_path(self, model_path: str) -> None:
+        if model_path == self.model_path:
+            return
+        self.model_path = model_path
+        self.model_bundle = self._load_model_bundle(model_path)
 
     def generate_recommendations(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -53,27 +63,47 @@ class RecommenderService:
         else:
             task_end = config.get("task_end", task_start)
 
+        model_path = config.get("model_path") or self.model_path
+        people_csv = config.get("people_csv") or self.people_csv
+        village_locations = config.get("village_locations") or self.village_locations
+        distance_csv = config.get("distance_csv") or self.distance_csv
+
+        loaded_bundle = self.model_bundle if model_path == self.model_path else None
+
         # Prepare RecommendationConfig for the core engine
         m3_cfg = RecommendationConfig(
-            model=self.model_path,
-            people=self.people_csv,
+            model=model_path,
+            people=people_csv,
             proposal_text=proposal_text,
             transcription=transcription,
             visual_tags=visual_tags,
             task_start=task_start,
             task_end=task_end,
-            village_locations=self.village_locations,
-            distance_csv=self.distance_csv,
+            proposal_location_override=config.get("proposal_location_override") or config.get("village_name"),
+            village_locations=village_locations,
+            distance_csv=distance_csv,
             # Pass through other optional parameters if present in config
             required_skills=config.get("required_skills"),
+            skills_json=config.get("skills_json"),
             auto_extract=config.get("auto_extract", True),
             threshold=float(config.get("threshold", 0.25)),
             tau=float(config.get("tau", 0.35)),
             weekly_quota=float(config.get("weekly_quota", 5.0)),
+            overwork_penalty=float(config.get("overwork_penalty", 0.1)),
             soft_cap=int(config.get("soft_cap", 6)),
+            topk_swap=int(config.get("topk_swap", 10)),
             k_robust=int(config.get("k_robust", 1)),
+            lambda_red=float(config.get("lambda_red", 1.0)),
+            lambda_size=float(config.get("lambda_size", 1.0)),
+            lambda_will=float(config.get("lambda_will", 0.5)),
+            size_buckets=config.get("size_buckets"),
+            team_size=config.get("team_size"),
+            num_teams=config.get("num_teams"),
             severity_override=config.get("severity"),
-            loaded_bundle=self.model_bundle
+            schedule_csv=config.get("schedule_csv"),
+            distance_scale=float(config.get("distance_scale", 50.0)),
+            distance_decay=float(config.get("distance_decay", 30.0)),
+            loaded_bundle=loaded_bundle,
         )
 
         try:

@@ -388,7 +388,7 @@ def _auto_extract_skills(text: str, threshold: float) -> List[str]:
 
 # ------------------------ main ---------------------
 
-def run_recommender(config: RecommendationConfig) -> List[Dict[str, Any]]:
+def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
     # 1. Validation & Setup
     if not config.proposal_text and not (config.proposal_file and os.path.exists(config.proposal_file)):
         raise ValueError("Provide proposal_text or a valid proposal_file")
@@ -591,7 +591,9 @@ def run_recommender(config: RecommendationConfig) -> List[Dict[str, Any]]:
     dedup = {(r['team_ids'], r['team_names']): r for r in recs}.values()
     sorted_recs = sorted(dedup, key=lambda r: (r["goodness"], r["coverage"]), reverse=True)
     buckets = parse_size_buckets(config.size_buckets)
-    final = select_top_teams_by_size(sorted_recs, buckets) or sorted_recs[:10]
+    requested_limit = max(1, int(config.num_teams)) if config.num_teams else 10
+    final = select_top_teams_by_size(sorted_recs, buckets) or sorted_recs[:requested_limit]
+    final = final[:requested_limit]
 
     # Enforce unique volunteers across recommendations
     assigned_global = set()

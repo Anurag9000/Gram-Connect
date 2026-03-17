@@ -1,7 +1,8 @@
 import os
 import logging
 import csv
-from datetime import datetime, timedelta
+import json
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException, File, UploadFile
@@ -88,7 +89,7 @@ class ProblemRequest(BaseModel):
     village_name: str
     village_address: Optional[str] = None
     coordinator_id: str
-    visual_tags: Optional[List[str]] = []
+    visual_tags: List[str] = Field(default_factory=list)
     has_audio: Optional[bool] = False
 
 
@@ -143,6 +144,23 @@ async def health():
 PROBLEMS: List[Dict[str, Any]] = []
 VOLUNTEERS: List[Dict[str, Any]] = []
 
+
+def _coerce_visual_tags(value: Any) -> List[str]:
+    if isinstance(value, list):
+        return [str(tag).strip() for tag in value if str(tag).strip()]
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return []
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(tag).strip() for tag in parsed if str(tag).strip()]
+        return [part.strip() for part in stripped.split(",") if part.strip()]
+    return []
+
 def load_initial_data():
     """Loads mock data and combines it with CSV data."""
     global PROBLEMS, VOLUNTEERS
@@ -169,8 +187,11 @@ def load_initial_data():
                         "villager_id": "anon-villager",
                         "title": row.get("title", "Untitled Issue") if "title" in row else row.get("text", "Issue").split(":")[0],
                         "description": row.get("text", ""),
-                        "category": "others", # Default
+                        "category": row.get("category", "others"),
                         "village_name": row.get("village", "Unknown"),
+                        "village_address": row.get("village_address") or None,
+                        "visual_tags": _coerce_visual_tags(row.get("visual_tags")),
+                        "has_audio": str(row.get("has_audio", "")).strip().lower() in {"1", "true", "yes"},
                         "status": "pending",
                         "lat": 0.0,
                         "lng": 0.0,
@@ -283,7 +304,7 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
 
     volunteer = next((v for v in VOLUNTEERS if v["id"] == volunteer_id or v["user_id"] == volunteer_id), None)
     if not volunteer:
-        print(f"Volunteer {volunteer_id} not found in memory, continuing with mock data...")
+        logger.warning("Volunteer %s not found in memory, continuing with fallback data.", volunteer_id)
         # In a real app we'd error, but here we might just construct a mock match for robustness
         volunteer = {
             "id": volunteer_id,
@@ -307,7 +328,7 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
     problem["matches"].append(match)
     
     # Update problem status to in_progress if it was pending
-    if problem["status"] == "pending":
+    if problem.get("status") == "pending":
         problem["status"] = "in_progress"
 
     return {"status": "success", "match": match}
@@ -370,6 +391,9 @@ async def submit_problem_endpoint(request: ProblemRequest):
             "description": request.description,
             "category": request.category,
             "village_name": request.village_name,
+            "village_address": request.village_address,
+            "visual_tags": request.visual_tags or [],
+            "has_audio": bool(request.has_audio),
             "status": "pending",
             "lat": 0.0, 
             "lng": 0.0,
@@ -391,11 +415,20 @@ async def submit_problem_endpoint(request: ProblemRequest):
             with open(DEFAULT_PROPOSALS_CSV, "a", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
                 if not file_exists:
-                    writer.writerow(["proposal_id", "text", "village"])
+                    writer.writerow(["proposal_id", "title", "text", "village", "village_address", "category", "visual_tags", "has_audio"])
                 
                 text_content = f"{request.title}: {request.description} ({request.category})"
                 text_content = text_content.replace("\n", " ").replace("\r", "")
-                writer.writerow([new_id, text_content, request.village_name])
+                writer.writerow([
+                    new_id,
+                    request.title,
+                    text_content,
+                    request.village_name,
+                    request.village_address or "",
+                    request.category,
+                    json.dumps(request.visual_tags or [], ensure_ascii=False),
+                    "true" if request.has_audio else "false",
+                ])
             
         logger.info(f"Problem submitted and saved: {request.title} in {request.village_name}")
         return {"status": "success", "id": new_id}
@@ -406,7 +439,8 @@ async def submit_problem_endpoint(request: ProblemRequest):
 @app.post("/transcribe")
 def transcribe_endpoint(file: UploadFile = File(...)):
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as tmp:
+        suffix = os.path.splitext(file.filename or "")[1] or ".wav"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
         

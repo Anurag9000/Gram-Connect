@@ -37,6 +37,14 @@ interface AITeam {
   combinedSkills: string[];
 }
 
+function normalizePositiveInt(value: string, fallback: number, min: number, max: number) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, parsed));
+}
+
 export default function CoordinatorDashboard() {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -240,6 +248,25 @@ export default function CoordinatorDashboard() {
       console.error("Failed to update status:", err);
     }
   };
+
+  if (!profile || profile.role !== 'coordinator') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+          <p className="text-gray-600 mb-6">
+            You must be logged in as a Coordinator to view the dashboard.
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -506,7 +533,7 @@ export default function CoordinatorDashboard() {
                           min="1"
                           max="10"
                           value={teamSize}
-                          onChange={(e) => setTeamSize(parseInt(e.target.value))}
+                          onChange={(e) => setTeamSize(normalizePositiveInt(e.target.value, 2, 1, 10))}
                           className="w-full border border-gray-300 rounded p-2"
                         />
                       </div>
@@ -517,7 +544,7 @@ export default function CoordinatorDashboard() {
                           min="1"
                           max="20"
                           value={numTeamsToShow}
-                          onChange={(e) => setNumTeamsToShow(parseInt(e.target.value))}
+                          onChange={(e) => setNumTeamsToShow(normalizePositiveInt(e.target.value, 3, 1, 20))}
                           className="w-full border border-gray-300 rounded p-2"
                         />
                       </div>

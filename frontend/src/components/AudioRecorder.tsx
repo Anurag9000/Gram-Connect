@@ -18,6 +18,12 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
     const startRecording = async () => {
         setError(null);
         try {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                throw new Error('This browser does not support audio capture.');
+            }
+            if (typeof MediaRecorder === 'undefined') {
+                throw new Error('This browser does not support audio recording.');
+            }
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder.current = new MediaRecorder(stream);
             audioChunks.current = [];
@@ -35,7 +41,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
             setIsRecording(true);
         } catch (err) {
             console.error("Error accessing microphone:", err);
-            setError("Could not access microphone.");
+            setError(err instanceof Error ? err.message : "Could not access microphone.");
         }
     };
 

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { api } from './api';
+import { API_BASE_URL } from '../config';
 
 describe('api service', () => {
   beforeEach(() => {
@@ -34,7 +35,7 @@ describe('api service', () => {
     await api.assignTask('prob-1', 'vol-1');
 
     expect(fetchMock).toHaveBeenCalledWith(
-      '/problems/prob-1/assign',
+      `${API_BASE_URL}/problems/prob-1/assign`,
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ volunteer_id: 'vol-1' }),

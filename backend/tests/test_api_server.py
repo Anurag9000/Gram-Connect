@@ -74,11 +74,18 @@ def test_submit_problem_writes_csv(tmp_path):
                     description="Needs urgent repair",
                     category="water",
                     village_name="Bhavani Kheda",
+                    village_address="Near the school",
                     coordinator_id="coord-1",
+                    visual_tags=["water", "repair"],
+                    has_audio=True,
                 )
             )
         )
         assert response["status"] == "success"
         assert Path(api_server.DEFAULT_PROPOSALS_CSV).exists()
+        stored_problem = next(problem for problem in api_server.PROBLEMS if problem["id"] == response["id"])
+        assert stored_problem["village_address"] == "Near the school"
+        assert stored_problem["visual_tags"] == ["water", "repair"]
+        assert stored_problem["has_audio"] is True
     finally:
         api_server.DEFAULT_PROPOSALS_CSV = original_csv

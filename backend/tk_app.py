@@ -77,8 +77,7 @@ class RecommendationApp(tk.Tk):
         # Re-initialize service if model path changed in UI
         current_model = self.model_var.get().strip()
         if current_model and current_model != recommender.model_path:
-             recommender.model_path = current_model
-             # Force reload bundle logic would be needed in service, but let's just update path.
+             recommender.set_model_path(current_model)
 
         try:
             results = recommender.generate_recommendations(payload)
@@ -109,7 +108,7 @@ class RecommendationApp(tk.Tk):
             for member in members:
                 name = member.get("name") or member.get("person_id")
                 skills = ", ".join(member.get("skills", []))
-                self.output.insert("end", f"    - {name} | W={member.get('willingness')} | Dist={member.get('distance_km')} km | Overwork={member.get('overwork_hours')}h\n")
+                self.output.insert("end", f"    - {name} | W={member.get('W')} | Dist={member.get('distance_km')} km | Overwork={member.get('overwork_hours')}h\n")
                 if skills:
                     self.output.insert("end", f"      Skills: {skills}\n")
             self.output.insert("end", "\n")

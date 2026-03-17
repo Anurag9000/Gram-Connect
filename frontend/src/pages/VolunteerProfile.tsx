@@ -57,7 +57,11 @@ export default function VolunteerProfile({ onNavigate }: VolunteerProfileProps) 
       if (data) {
         setVolunteer(data);
         setSkills(data.skills || []);
-        setAvailabilityStatus(data.availability_status);
+        setAvailabilityStatus(
+          data.availability_status === 'busy' || data.availability_status === 'inactive'
+            ? data.availability_status
+            : 'available'
+        );
       } else {
         setIsEditing(true);
       }

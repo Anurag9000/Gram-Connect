@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, CheckCircle, Clock, AlertCircle, Users, X, Cpu, UserCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +6,7 @@ import ProblemMap from '../components/ProblemMap';
 import LanguageToggle from '../components/LanguageToggle';
 import type { Database } from '../lib/database.types';
 
-import { api } from '../services/api';
+import { api, type ProblemRecord, type TeamMember, type VolunteerRecord } from '../services/api';
 
 type Problem = Database['public']['Tables']['problems']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -20,13 +20,13 @@ interface VolunteerWithProfile extends Volunteer {
 interface ProblemWithDetails extends Problem {
   villager?: Profile;
   matches?: (Match & { volunteer?: VolunteerWithProfile })[];
+  visual_tags?: string[];
 }
 
-// --- NEW TYPE for Mock AI Teams ---
 interface AITeam {
   id: string;
   name: string;
-  members: any[];
+  members: TeamMember[];
   goodness: number;
   coverage: number;
   kRobustness: number;
@@ -73,41 +73,34 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
   const [numTeamsToShow, setNumTeamsToShow] = useState(10);
   const [aiTeams, setAiTeams] = useState<AITeam[]>([]);
 
-  useEffect(() => {
-    if (profile) {
-      loadData();
-    }
-  }, [profile]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [problems, statusFilter, categoryFilter, searchTerm]);
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const problemsData = await api.getProblems();
       const volunteersData = await api.getVolunteers();
 
-      const problemsWithMatches = problemsData.map((problem: any) => ({
+      const problemsWithMatches: ProblemWithDetails[] = problemsData.map((problem: ProblemRecord) => ({
         ...problem,
         villager: problem.profiles,
-        matches: problem.matches?.map((m: any) => ({
+        matches: problem.matches?.map((m) => ({
           ...m,
           volunteer: m.volunteers,
         })) || [],
       }));
 
       setProblems(problemsWithMatches);
-      setAllVolunteers(volunteersData);
+      setAllVolunteers(volunteersData.map((volunteer: VolunteerRecord) => ({
+        ...volunteer,
+        profile: volunteer.profiles ?? volunteer.profile,
+      })));
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
-  function applyFilters() {
+  const applyFilters = useCallback(() => {
     let filtered = [...problems];
     if (statusFilter !== 'all') {
       filtered = filtered.filter((p) => p.status === statusFilter);
@@ -124,7 +117,17 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
       );
     }
     setFilteredProblems(filtered);
-  }
+  }, [categoryFilter, problems, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    if (profile) {
+      loadData();
+    }
+  }, [loadData, profile]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const getFilteredAndSortedVolunteers = () => {
     let individuals = [...allVolunteers];
@@ -175,7 +178,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
         location: data.proposal_location || undefined,
       });
 
-      const teams = (data.teams || []).map((team: any, index: number) => ({
+      const teams = (data.teams || []).map((team, index: number) => ({
         id: team.team_ids || `team-${index + 1}`,
         name: team.team_names || `Team ${index + 1}`,
         goodness: team.goodness,
@@ -184,7 +187,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
         willingnessAvg: team.willingness_avg || 0,
         members: team.members || [],
         mockScore: Math.round(team.goodness * 100),
-        combinedSkills: Array.from(new Set(team.members?.flatMap((m: any) => m.skills || []) || [])) as string[]
+        combinedSkills: Array.from(new Set(team.members?.flatMap((member) => member.skills || []) || [])) as string[]
       }));
 
       setAiTeams(teams);
@@ -395,7 +398,7 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
                       </div>
                       {problem.matches && problem.matches.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {problem.matches.map((match: any) => (
+                          {problem.matches.map((match) => (
                             <span
                               key={match.id}
                               className="inline-flex items-center bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm"
@@ -635,5 +638,3 @@ export default function CoordinatorDashboard({ onNavigate }: CoordinatorDashboar
     </div>
   );
 }
-
-

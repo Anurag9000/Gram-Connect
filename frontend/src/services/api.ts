@@ -1,4 +1,10 @@
 import { API_BASE_URL } from '../config';
+import type { Database } from '../lib/database.types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
+type Volunteer = Database['public']['Tables']['volunteers']['Row'];
+type Match = Database['public']['Tables']['matches']['Row'];
+type Problem = Database['public']['Tables']['problems']['Row'];
 
 export interface RecommendationRequest {
     proposal_text: string;
@@ -33,24 +39,40 @@ export interface TeamMember {
     person_id: string;
     name: string;
     skills: string[];
-    W: number;
+    W?: number;
     availability: string;
     home_location: string;
-    dist_km: number;
-    score: number;
-    rank: number;
+    distance_km?: number;
+    dist_km?: number;
+    score?: number;
+    rank?: number;
+    id?: string;
+    profile?: {
+        full_name?: string | null;
+        phone?: string | null;
+    };
+}
+
+export interface RecommendedTeam {
+    rank?: number;
+    team_ids: string;
+    team_names: string;
+    team_size: number;
+    goodness: number;
+    coverage: number;
+    k_robustness: number;
+    redundancy: number;
+    set_size: number;
+    willingness_avg: number;
+    willingness_min: number;
+    members: TeamMember[];
 }
 
 export interface RecommendationResponse {
     severity_detected: string;
     severity_source: string;
     proposal_location: string | null;
-    teams: {
-        team_members: TeamMember[];
-        goodness: number;
-        team_size: number;
-        metrics: Record<string, number>;
-    }[];
+    teams: RecommendedTeam[];
 }
 
 export interface ProblemSubmission {
@@ -62,6 +84,52 @@ export interface ProblemSubmission {
     coordinator_id: string;
     visual_tags?: string[];
     has_audio?: boolean;
+}
+
+export interface VolunteerRecord extends Volunteer {
+    profile?: Profile;
+    profiles?: Profile;
+}
+
+export interface MatchRecord extends Match {
+    volunteer?: VolunteerRecord;
+    volunteers?: VolunteerRecord;
+}
+
+export interface ProblemRecord extends Problem {
+    profiles?: Profile;
+    matches?: MatchRecord[];
+    visual_tags?: string[];
+    village_address?: string;
+}
+
+export interface VolunteerTask {
+    id: string;
+    title: string;
+    village: string;
+    location: string;
+    status: string;
+    description: string;
+    assigned_at: string;
+}
+
+export interface UpdateVolunteerRequest {
+    id?: string;
+    user_id: string;
+    skills: string[];
+    availability_status: string;
+}
+
+export interface UpdateVolunteerResponse {
+    status: string;
+    data: VolunteerRecord;
+}
+
+export interface ImageAnalysisResponse {
+    top_label: string;
+    confidence: number;
+    all_probs?: Record<string, number | string>;
+    tags?: string[];
 }
 
 export const api = {
@@ -82,7 +150,7 @@ export const api = {
         return data.text;
     },
 
-    async analyzeImage(file: File, labels?: string[]): Promise<any> {
+    async analyzeImage(file: File, labels?: string[]): Promise<ImageAnalysisResponse> {
         const formData = new FormData();
         formData.append('file', file);
         if (labels) {
@@ -134,7 +202,7 @@ export const api = {
         return await response.json();
     },
 
-    async getProblems(): Promise<any[]> {
+    async getProblems(): Promise<ProblemRecord[]> {
         const response = await fetch(`${API_BASE_URL}/problems`);
         if (!response.ok) {
             throw new Error('Failed to fetch problems');
@@ -142,7 +210,7 @@ export const api = {
         return await response.json();
     },
 
-    async getVolunteers(): Promise<any[]> {
+    async getVolunteers(): Promise<VolunteerRecord[]> {
         const response = await fetch(`${API_BASE_URL}/volunteers`);
         if (!response.ok) {
             throw new Error('Failed to fetch volunteers');
@@ -150,7 +218,7 @@ export const api = {
         return await response.json();
     },
 
-    async getVolunteerTasks(volunteerId: string): Promise<any[]> {
+    async getVolunteerTasks(volunteerId: string): Promise<VolunteerTask[]> {
         const response = await fetch(`${API_BASE_URL}/volunteer-tasks?volunteer_id=${volunteerId}`);
         if (!response.ok) {
             throw new Error('Failed to fetch volunteer tasks');
@@ -158,7 +226,7 @@ export const api = {
         return await response.json();
     },
 
-    async getVolunteer(volunteerId: string): Promise<any> {
+    async getVolunteer(volunteerId: string): Promise<VolunteerRecord> {
         const response = await fetch(`${API_BASE_URL}/volunteer/${volunteerId}`);
         if (!response.ok) {
             throw new Error('Failed to fetch volunteer profile');
@@ -166,7 +234,7 @@ export const api = {
         return await response.json();
     },
 
-    async updateVolunteer(volunteer: any): Promise<any> {
+    async updateVolunteer(volunteer: UpdateVolunteerRequest): Promise<UpdateVolunteerResponse> {
         const response = await fetch(`${API_BASE_URL}/volunteer`, {
             method: 'POST',
             headers: {

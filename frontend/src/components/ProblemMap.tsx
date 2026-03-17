@@ -1,4 +1,3 @@
-import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -7,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-let DefaultIcon = L.icon({
+const DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
     iconSize: [25, 41],
@@ -17,12 +16,19 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 interface ProblemMapProps {
-    problems: any[];
+    problems: {
+        id: string;
+        title: string;
+        village_name: string;
+        status: string;
+        lat: number;
+        lng: number;
+    }[];
     center?: [number, number];
     zoom?: number;
 }
 
-const ProblemMap: React.FC<ProblemMapProps> = ({ problems, center = [20.5937, 78.9629], zoom = 5 }) => {
+export default function ProblemMap({ problems, center = [20.5937, 78.9629], zoom = 5 }: ProblemMapProps) {
     return (
         <div className="h-full w-full rounded-xl overflow-hidden border border-gray-200 shadow-inner">
             <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }}>
@@ -48,6 +54,4 @@ const ProblemMap: React.FC<ProblemMapProps> = ({ problems, center = [20.5937, 78
             </MapContainer>
         </div>
     );
-};
-
-export default ProblemMap;
+}

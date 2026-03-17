@@ -4,8 +4,23 @@ import { useEffect } from 'react';
 
 // Declare the google global object for TypeScript
 declare global {
+  interface GoogleTranslateLayout {
+    SIMPLE: string;
+  }
+
+  interface GoogleTranslateConstructor {
+    InlineLayout: GoogleTranslateLayout;
+    new (options: { pageLanguage: string; layout: string; includedLanguages: string }, elementId: string): unknown;
+  }
+
+  interface GoogleTranslateNamespace {
+    TranslateElement: GoogleTranslateConstructor;
+  }
+
   interface Window {
-    google: any;
+    google?: {
+      translate?: GoogleTranslateNamespace;
+    };
     googleTranslateElementInit: () => void;
   }
 }
@@ -34,14 +49,16 @@ export default function Navigation({ currentPage, onNavigate }: NavigationProps)
       document.body.appendChild(script);
 
       window.googleTranslateElementInit = () => {
-        new window.google.translate.TranslateElement(
-          {
-            pageLanguage: 'en',
-            layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
-            includedLanguages: 'en,hi,bn,ta,te,mr,pa,gu,kn'
-          },
-          'google_translate_element'
-        );
+        if (window.google && window.google.translate) {
+          new window.google.translate.TranslateElement(
+            {
+              pageLanguage: 'en',
+              layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
+              includedLanguages: 'en,hi,bn,ta,te,mr,pa,gu,kn'
+            },
+            'google_translate_element'
+          );
+        }
       };
     } else {
       if (window.google && window.google.translate && window.googleTranslateElementInit) {

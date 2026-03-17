@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     CheckCircle, Clock, Camera, MapPin,
     ChevronRight, ArrowLeft, Loader2
@@ -6,7 +6,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../components/LanguageToggle';
-import { api } from '../services/api';
+import { api, type VolunteerTask } from '../services/api';
 
 interface VolunteerDashboardProps {
     onNavigate: (page: string) => void;
@@ -15,20 +15,14 @@ interface VolunteerDashboardProps {
 export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardProps) {
     const { profile } = useAuth();
     const { t } = useTranslation();
-    const [tasks, setTasks] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<VolunteerTask[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedTask, setSelectedTask] = useState<any | null>(null);
+    const [selectedTask, setSelectedTask] = useState<VolunteerTask | null>(null);
     const [beforeImage, setBeforeImage] = useState<string | null>(null);
     const [afterImage, setAfterImage] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        if (profile) {
-            loadTasks();
-        }
-    }, [profile]);
-
-    async function loadTasks() {
+    const loadTasks = useCallback(async () => {
         if (!profile) return;
         setLoading(true);
         try {
@@ -39,7 +33,13 @@ export default function VolunteerDashboard({ onNavigate }: VolunteerDashboardPro
         } finally {
             setLoading(false);
         }
-    }
+    }, [profile]);
+
+    useEffect(() => {
+        if (profile) {
+            loadTasks();
+        }
+    }, [loadTasks, profile]);
 
     const handleComplete = async () => {
         if (!afterImage) {

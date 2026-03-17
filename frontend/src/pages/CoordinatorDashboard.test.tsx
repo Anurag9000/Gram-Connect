@@ -6,6 +6,7 @@ const navigateMock = vi.fn();
 const getProblemsMock = vi.fn();
 const getVolunteersMock = vi.fn();
 const getRecommendationsMock = vi.fn();
+const assignTaskMock = vi.fn();
 const mockProfile = {
   id: 'coord-1',
   full_name: 'Test Coordinator',
@@ -23,7 +24,7 @@ vi.mock('../services/api', () => ({
     getProblems: (...args: unknown[]) => getProblemsMock(...args),
     getVolunteers: (...args: unknown[]) => getVolunteersMock(...args),
     getRecommendations: (...args: unknown[]) => getRecommendationsMock(...args),
-    assignTask: vi.fn(),
+    assignTask: (...args: unknown[]) => assignTaskMock(...args),
     updateProblemStatus: vi.fn(),
   },
 }));
@@ -39,6 +40,8 @@ vi.mock('react-router-dom', async () => {
 describe('CoordinatorDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubGlobal('alert', vi.fn());
+    assignTaskMock.mockResolvedValue({ status: 'success', match: { id: 'match-1' } });
     getProblemsMock.mockResolvedValue([
       {
         id: 'problem-1',
@@ -111,5 +114,25 @@ describe('CoordinatorDashboard', () => {
     expect(await screen.findByText(/Robustness: 0.77/)).toBeInTheDocument();
     expect(screen.getByText(/Severity: HIGH/)).toBeInTheDocument();
     expect(screen.getByText(/Loc: Test Village/)).toBeInTheDocument();
+  });
+
+  it('assigns every member when an AI team is selected', async () => {
+    render(<CoordinatorDashboard />);
+
+    await screen.findByText('Broken Well Pump');
+
+    fireEvent.click(await screen.findByRole('button', { name: /Assign Team/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Generate Optimal Teams/i }));
+
+    await waitFor(() => {
+      expect(getRecommendationsMock).toHaveBeenCalled();
+    });
+
+    const assignButtons = await screen.findAllByRole('button', { name: /^Assign Team$/i });
+    fireEvent.click(assignButtons[assignButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(assignTaskMock).toHaveBeenCalledWith('problem-1', 'vol-1');
+    });
   });
 });

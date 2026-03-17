@@ -20,6 +20,17 @@ export default function VolunteerDashboard() {
     const [afterImage, setAfterImage] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    useEffect(() => {
+        return () => {
+            if (beforeImage) {
+                URL.revokeObjectURL(beforeImage);
+            }
+            if (afterImage) {
+                URL.revokeObjectURL(afterImage);
+            }
+        };
+    }, [afterImage, beforeImage]);
+
     const loadTasks = useCallback(async () => {
         if (!profile) return;
         setLoading(true);
@@ -44,13 +55,23 @@ export default function VolunteerDashboard() {
             alert("Please upload an 'After' photo as proof of work.");
             return;
         }
+        if (!selectedTask) {
+            return;
+        }
+        const taskId = selectedTask.id;
         setIsSubmitting(true);
         try {
-            // Real simulation would upload proof images
-            await new Promise(res => setTimeout(res, 2000));
+            await api.updateProblemStatus(taskId, 'completed');
             alert("Impact verified! Thank you for your service.");
             setSelectedTask(null);
-            // In a real app, refresh tasks
+            if (beforeImage) {
+                URL.revokeObjectURL(beforeImage);
+            }
+            if (afterImage) {
+                URL.revokeObjectURL(afterImage);
+            }
+            setBeforeImage(null);
+            setAfterImage(null);
             loadTasks();
         } catch (err) {
             console.error("Task completion failed:", err);

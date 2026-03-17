@@ -66,6 +66,7 @@ def test_analyze_image_endpoint(mock_analyze):
 def test_submit_problem_writes_csv(tmp_path):
     original_csv = api_server.DEFAULT_PROPOSALS_CSV
     api_server.DEFAULT_PROPOSALS_CSV = str(tmp_path / "proposals.csv")
+    created_id = None
     try:
         response = asyncio.run(
             api_server.submit_problem_endpoint(
@@ -81,6 +82,7 @@ def test_submit_problem_writes_csv(tmp_path):
                 )
             )
         )
+        created_id = response["id"]
         assert response["status"] == "success"
         assert Path(api_server.DEFAULT_PROPOSALS_CSV).exists()
         stored_problem = next(problem for problem in api_server.PROBLEMS if problem["id"] == response["id"])
@@ -88,4 +90,62 @@ def test_submit_problem_writes_csv(tmp_path):
         assert stored_problem["visual_tags"] == ["water", "repair"]
         assert stored_problem["has_audio"] is True
     finally:
+        if created_id:
+            api_server.PROBLEMS[:] = [problem for problem in api_server.PROBLEMS if problem["id"] != created_id]
         api_server.DEFAULT_PROPOSALS_CSV = original_csv
+
+
+def test_update_volunteer_creates_normalized_record():
+    try:
+        response = asyncio.run(
+            api_server.update_volunteer(
+                {
+                    "user_id": "new-volunteer",
+                    "skills": ["Teaching"],
+                    "availability_status": "available",
+                }
+            )
+        )
+        assert response["status"] == "success"
+        assert response["data"]["id"] == "vol-new-volunteer"
+        assert response["data"]["profiles"]["full_name"] == "Volunteer"
+    finally:
+        api_server.VOLUNTEERS[:] = [
+            volunteer for volunteer in api_server.VOLUNTEERS if volunteer.get("user_id") != "new-volunteer"
+        ]
+
+
+def test_assign_task_is_idempotent_and_tasks_follow_problem_status():
+    problem = {
+        "id": "problem-dedup",
+        "title": "Need electrician",
+        "description": "Repair street light",
+        "category": "infrastructure",
+        "village_name": "Test Village",
+        "status": "pending",
+        "matches": [],
+        "created_at": "2026-01-01T10:00:00",
+        "updated_at": "2026-01-01T10:00:00",
+    }
+    volunteer = {
+        "id": "vol-dedup",
+        "user_id": "user-dedup",
+        "skills": ["Electrical Work"],
+        "availability_status": "available",
+        "profiles": {"full_name": "Electrician Alice"},
+    }
+    api_server.PROBLEMS.append(problem)
+    api_server.VOLUNTEERS.append(volunteer)
+    try:
+        first = asyncio.run(api_server.assign_task("problem-dedup", {"volunteer_id": "vol-dedup"}))
+        second = asyncio.run(api_server.assign_task("problem-dedup", {"volunteer_id": "vol-dedup"}))
+        assert first["match"]["id"] == second["match"]["id"]
+        assert len(problem["matches"]) == 1
+
+        asyncio.run(api_server.update_problem_status("problem-dedup", {"status": "completed"}))
+        tasks = asyncio.run(api_server.get_volunteer_tasks("user-dedup"))
+        assert tasks[0]["status"] == "completed"
+        assert problem["matches"][0]["completed_at"] is not None
+    finally:
+        api_server.PROBLEMS.remove(problem)
+        api_server.VOLUNTEERS.remove(volunteer)

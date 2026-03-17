@@ -215,8 +215,8 @@ export default function CoordinatorDashboard() {
 
   const handleAssignIndividual = async (problemId: string, volunteer: VolunteerWithProfile) => {
     try {
-      await api.assignTask(problemId, volunteer.id);
-      alert(`Assigned to ${volunteer.profile?.full_name}!`);
+      await api.assignTask(problemId, volunteer.id || volunteer.user_id);
+      alert(`Assigned to ${volunteer.profile?.full_name || 'Volunteer'}!`);
       setShowAssignModal(false);
       loadDashboardData();
     } catch {
@@ -226,15 +226,17 @@ export default function CoordinatorDashboard() {
 
   const handleAssignTeam = async (problemId: string, team: AITeam) => {
     try {
-      // Assign the lead (first member for now, or use specific lead logic)
-      // In a real scenario, we might assign all members to the task.
-      const lead = team.members[0];
-      if (lead) {
-        await api.assignTask(problemId, lead.person_id || lead.id || '');
-        alert(`Team ${team.name} assigned! Lead: ${lead.profile?.full_name || lead.name}`);
-        setShowAssignModal(false);
-        loadDashboardData();
+      const memberIds = Array.from(
+        new Set(team.members.map((member) => member.person_id || member.id).filter(Boolean))
+      ) as string[];
+      if (memberIds.length === 0) {
+        throw new Error("No valid team members to assign.");
       }
+
+      await Promise.all(memberIds.map((memberId) => api.assignTask(problemId, memberId)));
+      alert(`Team ${team.name} assigned with ${memberIds.length} volunteer${memberIds.length === 1 ? '' : 's'}.`);
+      setShowAssignModal(false);
+      loadDashboardData();
     } catch {
       alert("Failed to assign team.");
     }
@@ -592,7 +594,7 @@ export default function CoordinatorDashboard() {
                             onClick={() => handleAssignTeam(selectedProblem.id, team)}
                             className="text-blue-600 font-semibold text-sm hover:bg-blue-50 px-3 py-1 rounded"
                           >
-                            Assign Info
+                            Assign Team
                           </button>
                         </div>
                         <div className="space-y-2">

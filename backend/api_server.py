@@ -165,6 +165,19 @@ def _coerce_visual_tags(value: Any) -> List[str]:
     return []
 
 
+def _now_iso() -> str:
+    return datetime.now().isoformat()
+
+
+def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
+    volunteer = match.get("volunteers", {})
+    return (
+        match.get("volunteer_id") == volunteer_id
+        or volunteer.get("user_id") == volunteer_id
+        or volunteer.get("id") == volunteer_id
+    )
+
+
 def load_initial_data():
     """Loads mock data and combines it with CSV data."""
     global PROBLEMS, VOLUNTEERS
@@ -196,8 +209,8 @@ def load_initial_data():
                         "status": "pending",
                         "lat": 0.0,
                         "lng": 0.0,
-                        "created_at": datetime.now().isoformat(),
-                        "updated_at": datetime.now().isoformat(),
+                        "created_at": _now_iso(),
+                        "updated_at": _now_iso(),
                         "profiles": {
                             "id": "anon-villager",
                             "full_name": "Community Member",
@@ -255,39 +268,67 @@ async def get_volunteer(volunteer_id: str):
         "user_id": volunteer_id,
         "skills": ["Teaching", "Digital Literacy"],
         "availability_status": "available",
-        "created_at": datetime.now().isoformat(),
+        "created_at": _now_iso(),
     }
 
 @app.post("/volunteer")
 async def update_volunteer(data: Dict[str, Any]):
     logger.info(f"Volunteer profile updated for {data.get('user_id')}")
     user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+
+    timestamp = _now_iso()
     for volunteer in VOLUNTEERS:
-        if volunteer["user_id"] == user_id:
+        if volunteer.get("user_id") == user_id:
             volunteer.update(data)
+            volunteer.setdefault("id", data.get("id") or f"vol-{user_id}")
+            volunteer.setdefault("created_at", timestamp)
+            volunteer["updated_at"] = timestamp
             return {"status": "success", "data": volunteer}
 
-    VOLUNTEERS.append(data)
-    return {"status": "success", "data": data}
+    new_volunteer = {
+        "id": data.get("id") or f"vol-{user_id}",
+        "user_id": user_id,
+        "skills": list(data.get("skills") or []),
+        "availability_status": data.get("availability_status") or "available",
+        "created_at": timestamp,
+        "updated_at": timestamp,
+        "profiles": data.get("profiles") or {
+            "id": user_id,
+            "full_name": data.get("full_name") or "Volunteer",
+            "email": data.get("email"),
+            "phone": data.get("phone"),
+            "role": "volunteer",
+            "created_at": timestamp,
+        },
+    }
+    VOLUNTEERS.append(new_volunteer)
+    return {"status": "success", "data": new_volunteer}
 
 @app.get("/volunteer-tasks")
 async def get_volunteer_tasks(volunteer_id: str):
-    tasks = []
+    tasks_by_problem: Dict[str, Dict[str, Any]] = {}
     for problem in PROBLEMS:
         if not problem.get("matches"):
             continue
         for match in problem["matches"]:
-            if match.get("volunteer_id") == volunteer_id or match.get("volunteers", {}).get("user_id") == volunteer_id:
-                tasks.append({
-                    "id": problem["id"],
-                    "title": problem["title"],
-                    "village": problem["village_name"],
-                    "location": problem.get("village_address") or problem["village_name"],
-                    "status": "assigned",
-                    "description": problem["description"],
-                    "assigned_at": match.get("assigned_at", datetime.now().isoformat()),
-                })
-    return tasks
+            if not _match_targets_volunteer(match, volunteer_id):
+                continue
+            existing = tasks_by_problem.get(problem["id"])
+            assigned_at = match.get("assigned_at", _now_iso())
+            if existing and existing["assigned_at"] >= assigned_at:
+                continue
+            tasks_by_problem[problem["id"]] = {
+                "id": problem["id"],
+                "title": problem["title"],
+                "village": problem["village_name"],
+                "location": problem.get("village_address") or problem["village_name"],
+                "status": problem.get("status", "assigned"),
+                "description": problem["description"],
+                "assigned_at": assigned_at,
+            }
+    return sorted(tasks_by_problem.values(), key=lambda task: task["assigned_at"], reverse=True)
 
 @app.post("/problems/{problem_id}/assign")
 async def assign_task(problem_id: str, payload: Dict[str, str]):
@@ -308,11 +349,18 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
             "email": "volunteer@example.com",
         }
 
+    existing_match = next(
+        (match for match in problem.get("matches", []) if _match_targets_volunteer(match, volunteer_id)),
+        None,
+    )
+    if existing_match:
+        return {"status": "success", "match": existing_match}
+
     match = {
         "id": f"match-{len(problem.get('matches', [])) + 1}-{int(datetime.now().timestamp())}",
         "problem_id": problem_id,
         "volunteer_id": volunteer_id,
-        "assigned_at": datetime.now().isoformat(),
+        "assigned_at": _now_iso(),
         "completed_at": None,
         "notes": "Assigned via Coordinator Dashboard",
         "volunteers": volunteer,
@@ -324,6 +372,7 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
 
     if problem.get("status") == "pending":
         problem["status"] = "in_progress"
+    problem["updated_at"] = _now_iso()
 
     return {"status": "success", "match": match}
 
@@ -333,12 +382,22 @@ async def update_problem_status(problem_id: str, payload: Dict[str, str]):
     new_status = payload.get("status")
     if not new_status:
         raise HTTPException(status_code=400, detail="status is required")
+    if new_status not in {"pending", "in_progress", "completed"}:
+        raise HTTPException(status_code=400, detail="status must be pending, in_progress, or completed")
 
     problem = next((p for p in PROBLEMS if p["id"] == problem_id), None)
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
 
     problem["status"] = new_status
+    problem["updated_at"] = _now_iso()
+    if new_status == "completed":
+        completed_at = _now_iso()
+        for match in problem.get("matches", []):
+            match["completed_at"] = match.get("completed_at") or completed_at
+    elif new_status in {"pending", "in_progress"}:
+        for match in problem.get("matches", []):
+            match["completed_at"] = None
     return {"status": "success", "problem": problem}
 
 
@@ -383,8 +442,8 @@ async def submit_problem_endpoint(request: ProblemRequest):
             "status": "pending",
             "lat": 0.0,
             "lng": 0.0,
-            "created_at": datetime.now().isoformat(),
-            "updated_at": datetime.now().isoformat(),
+            "created_at": _now_iso(),
+            "updated_at": _now_iso(),
             "profiles": {
                 "id": request.coordinator_id or "anon",
                 "full_name": "Coordinator",

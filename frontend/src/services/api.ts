@@ -49,6 +49,7 @@ export interface TeamMember {
     id?: string;
     profile?: {
         full_name?: string | null;
+        phone?: string | null;
     };
 }
 

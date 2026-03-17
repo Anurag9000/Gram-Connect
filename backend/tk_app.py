@@ -2,12 +2,10 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 from datetime import datetime, timedelta
 import csv
-import os
 
-from recommender_service import RecommenderService, RecommendationConfig
+from recommender_service import RecommenderService
 from path_utils import (
     get_repo_paths,
-    resolve_distance_csv,
     resolve_model_path,
     resolve_people_csv,
     resolve_village_locations_csv,
@@ -17,27 +15,108 @@ DATASET_ROOT = str(get_repo_paths().data_dir.resolve())
 DEFAULT_MODEL_PATH = resolve_model_path()
 DEFAULT_PEOPLE_CSV = resolve_people_csv()
 DEFAULT_VILLAGE_LOCATIONS = resolve_village_locations_csv()
-DEFAULT_DISTANCE_CSV = resolve_distance_csv()
-
-# Initialize service globally or on app init
 recommender = RecommenderService(
     model_path=DEFAULT_MODEL_PATH,
     people_csv=DEFAULT_PEOPLE_CSV,
-    dataset_root=DATASET_ROOT
+    dataset_root=DATASET_ROOT,
 )
 
-class RecommendationApp(tk.Tk):
-    # ... (init stays same) ...
 
-    # ... (skipping to run_recommendation) ...
+class RecommendationApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("SocialCode Team Recommender")
+        self.geometry("900x700")
+        self._build_ui()
+
+    def _build_ui(self):
+        main = ttk.Frame(self, padding=12)
+        main.pack(fill="both", expand=True)
+
+        ttk.Label(main, text="Problem statement:").grid(row=0, column=0, sticky="w")
+        self.problem_text = tk.Text(main, height=6, width=70)
+        self.problem_text.grid(row=1, column=0, columnspan=3, sticky="we", pady=4)
+
+        ttk.Label(main, text="Village (Gram):").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self.village_var = tk.StringVar()
+        village_values = self._load_villages()
+        self.village_combo = ttk.Combobox(
+            main,
+            textvariable=self.village_var,
+            values=village_values,
+            state="readonly",
+            width=40,
+        )
+        self.village_combo.grid(row=3, column=0, sticky="w")
+        if village_values:
+            self.village_combo.current(0)
+
+        ttk.Label(main, text="Team size (volunteers per team):").grid(row=2, column=1, sticky="w", pady=(8, 0))
+        self.team_size_var = tk.IntVar(value=4)
+        ttk.Entry(main, textvariable=self.team_size_var, width=10).grid(row=3, column=1, sticky="w")
+
+        ttk.Label(main, text="Number of teams:").grid(row=2, column=2, sticky="w", pady=(8, 0))
+        self.num_teams_var = tk.IntVar(value=5)
+        ttk.Entry(main, textvariable=self.num_teams_var, width=10).grid(row=3, column=2, sticky="w")
+
+        ttk.Label(main, text="Task start (YYYY-MM-DD HH:MM):").grid(row=4, column=0, sticky="w", pady=(8, 0))
+        default_start = datetime.now().replace(second=0, microsecond=0).strftime("%Y-%m-%d %H:%M")
+        self.start_var = tk.StringVar(value=default_start)
+        ttk.Entry(main, textvariable=self.start_var, width=20).grid(row=5, column=0, sticky="w")
+
+        ttk.Label(main, text="Duration (hours):").grid(row=4, column=1, sticky="w", pady=(8, 0))
+        self.duration_var = tk.DoubleVar(value=4.0)
+        ttk.Entry(main, textvariable=self.duration_var, width=10).grid(row=5, column=1, sticky="w")
+
+        ttk.Label(main, text="Severity override:").grid(row=4, column=2, sticky="w", pady=(8, 0))
+        self.severity_var = tk.StringVar(value="AUTO")
+        ttk.Combobox(
+            main,
+            textvariable=self.severity_var,
+            values=["AUTO", "LOW", "NORMAL", "HIGH"],
+            state="readonly",
+            width=10,
+        ).grid(row=5, column=2, sticky="w")
+
+        ttk.Label(main, text="Weekly quota (hours):").grid(row=6, column=0, sticky="w", pady=(8, 0))
+        self.quota_var = tk.DoubleVar(value=5.0)
+        ttk.Entry(main, textvariable=self.quota_var, width=10).grid(row=7, column=0, sticky="w")
+
+        ttk.Label(main, text="Overwork penalty:").grid(row=6, column=1, sticky="w", pady=(8, 0))
+        self.penalty_var = tk.DoubleVar(value=0.1)
+        ttk.Entry(main, textvariable=self.penalty_var, width=10).grid(row=7, column=1, sticky="w")
+
+        ttk.Label(main, text="Schedule CSV (optional):").grid(row=6, column=2, sticky="w", pady=(8, 0))
+        self.schedule_var = tk.StringVar()
+        ttk.Entry(main, textvariable=self.schedule_var, width=30).grid(row=7, column=2, sticky="w")
+
+        ttk.Label(main, text="Model path:").grid(row=8, column=0, sticky="w", pady=(8, 0))
+        self.model_var = tk.StringVar(value=DEFAULT_MODEL_PATH)
+        ttk.Entry(main, textvariable=self.model_var, width=40).grid(row=9, column=0, sticky="w")
+
+        run_button = ttk.Button(main, text="Generate Teams", command=self.run_recommendation)
+        run_button.grid(row=9, column=1, pady=12, sticky="w")
+
+        self.output = scrolledtext.ScrolledText(main, wrap=tk.WORD, width=100, height=20)
+        self.output.grid(row=10, column=0, columnspan=3, pady=(10, 0), sticky="nsew")
+
+        main.rowconfigure(10, weight=1)
+        main.columnconfigure(0, weight=1)
+
+    def _load_villages(self):
+        try:
+            with open(DEFAULT_VILLAGE_LOCATIONS, newline="", encoding="utf-8") as handle:
+                reader = csv.DictReader(handle)
+                return [row.get("village_name", "").strip() for row in reader if row.get("village_name")]
+        except FileNotFoundError:
+            messagebox.showwarning("Dataset missing", f"Could not find {DEFAULT_VILLAGE_LOCATIONS}")
+            return []
 
     def run_recommendation(self):
         problem = self.problem_text.get("1.0", "end").strip()
         if not problem:
             messagebox.showerror("Input error", "Please enter a problem statement.")
             return
-        
-        # ... (date parsing logic stays same) ...
         try:
             start_dt = datetime.strptime(self.start_var.get().strip(), "%Y-%m-%d %H:%M")
         except ValueError:
@@ -53,8 +132,7 @@ class RecommendationApp(tk.Tk):
 
         end_dt = start_dt + timedelta(hours=duration_hours)
         severity = self.severity_var.get()
-        
-        # Construct dict payload directly for the Service
+
         payload = {
             "proposal_text": problem,
             "proposal_location_override": self.village_var.get().strip() or None,
@@ -68,16 +146,11 @@ class RecommendationApp(tk.Tk):
             "overwork_penalty": float(self.penalty_var.get()),
             "auto_extract": True,
             "threshold": 0.25,
-            # Pass globals if needed, but Service has defaults. 
-            # We explicitly pass model path from UI if changed? 
-            # The service was init with defaults. If we want dynamic model path, we'd need to re-init service.
-            # For this fix, let's assume the UI model path is informative only or correctly set at startup.
         }
-        
-        # Re-initialize service if model path changed in UI
+
         current_model = self.model_var.get().strip()
         if current_model and current_model != recommender.model_path:
-             recommender.set_model_path(current_model)
+            recommender.set_model_path(current_model)
 
         try:
             results = recommender.generate_recommendations(payload)

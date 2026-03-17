@@ -2,6 +2,7 @@ import os
 import logging
 import csv
 import json
+import threading
 from datetime import datetime
 from typing import List, Optional, Dict, Any
 
@@ -16,7 +17,7 @@ from m3_recommend import RecommendationConfig
 from recommender_service import RecommenderService
 from multimodal_service import transcribe_audio, analyze_image
 from notification_service import notify_team_assignment
-from mock_data import get_mock_problems, get_mock_volunteers, get_mock_volunteer_tasks
+from mock_data import get_mock_problems, get_mock_volunteers
 from path_utils import (
     ensure_runtime_dir,
     get_repo_paths,
@@ -42,6 +43,7 @@ DEFAULT_PROPOSALS_CSV = resolve_proposals_csv()
 DEFAULT_PAIRS_CSV = resolve_pairs_csv()
 DEFAULT_VILLAGE_LOCATIONS = resolve_village_locations_csv()
 DEFAULT_DISTANCE_CSV = resolve_distance_csv()
+ensure_runtime_dir()
 
 # Initialize Service
 recommender_service = RecommenderService(
@@ -143,6 +145,7 @@ async def health():
 
 PROBLEMS: List[Dict[str, Any]] = []
 VOLUNTEERS: List[Dict[str, Any]] = []
+csv_lock = threading.Lock()
 
 
 def _coerce_visual_tags(value: Any) -> List[str]:
@@ -161,27 +164,25 @@ def _coerce_visual_tags(value: Any) -> List[str]:
         return [part.strip() for part in stripped.split(",") if part.strip()]
     return []
 
+
 def load_initial_data():
     """Loads mock data and combines it with CSV data."""
     global PROBLEMS, VOLUNTEERS
-    
+
     # Load foundational mocks
     PROBLEMS = get_mock_problems()
     VOLUNTEERS = get_mock_volunteers()
-    
+
     # Load persisted proposals from CSV
     if os.path.exists(DEFAULT_PROPOSALS_CSV):
         try:
             with open(DEFAULT_PROPOSALS_CSV, "r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    # Check if already exists (mock data might duplicate IDs if not careful, 
-                    # but here we assume CSV has user-submitted ones with unique IDs)
                     p_id = row.get("proposal_id")
-                    if any(p["id"] == p_id for p in PROBLEMS):
+                    if not p_id or any(problem["id"] == p_id for problem in PROBLEMS):
                         continue
-                        
-                    # Convert CSV row to Problem structure
+
                     PROBLEMS.append({
                         "id": p_id,
                         "villager_id": "anon-villager",
@@ -204,8 +205,8 @@ def load_initial_data():
                         },
                         "matches": []
                     })
-        except Exception as e:
-            logger.error(f"Failed to load CSV data: {e}")
+        except Exception as exc:
+            logger.error("Failed to load CSV data: %s", exc)
 
 # Load data on startup (or module import)
 load_initial_data()
@@ -237,7 +238,6 @@ def train_endpoint(request: TrainRequest):
 
 @app.get("/problems")
 async def get_problems():
-    # Return the current in-memory state
     return PROBLEMS
 
 @app.get("/volunteers")
@@ -246,11 +246,10 @@ async def get_volunteers():
 
 @app.get("/volunteer/{volunteer_id}")
 async def get_volunteer(volunteer_id: str):
-    # Find in in-memory list
-    for v in VOLUNTEERS:
-        if v["user_id"] == volunteer_id or v["id"] == volunteer_id:
-            return v
-    # Fallback / Mock
+    for volunteer in VOLUNTEERS:
+        if volunteer["user_id"] == volunteer_id or volunteer["id"] == volunteer_id:
+            return volunteer
+
     return {
         "id": "vol-profile-id",
         "user_id": volunteer_id,
@@ -262,33 +261,31 @@ async def get_volunteer(volunteer_id: str):
 @app.post("/volunteer")
 async def update_volunteer(data: Dict[str, Any]):
     logger.info(f"Volunteer profile updated for {data.get('user_id')}")
-    # Update in-memory
     user_id = data.get("user_id")
-    for v in VOLUNTEERS:
-        if v["user_id"] == user_id:
-            v.update(data)
-            return {"status": "success", "data": v}
-            
-    # If not found, create new
+    for volunteer in VOLUNTEERS:
+        if volunteer["user_id"] == user_id:
+            volunteer.update(data)
+            return {"status": "success", "data": volunteer}
+
     VOLUNTEERS.append(data)
     return {"status": "success", "data": data}
 
 @app.get("/volunteer-tasks")
 async def get_volunteer_tasks(volunteer_id: str):
-    # Filter problems where matches contain this volunteer
     tasks = []
-    for p in PROBLEMS:
-        if not p.get("matches"): continue
-        for m in p["matches"]:
-            if m.get("volunteer_id") == volunteer_id or m.get("volunteers", {}).get("user_id") == volunteer_id:
-                 tasks.append({
-                    "id": p["id"],
-                    "title": p["title"],
-                    "village": p["village_name"],
-                    "location": p.get("village_address") or p["village_name"],
+    for problem in PROBLEMS:
+        if not problem.get("matches"):
+            continue
+        for match in problem["matches"]:
+            if match.get("volunteer_id") == volunteer_id or match.get("volunteers", {}).get("user_id") == volunteer_id:
+                tasks.append({
+                    "id": problem["id"],
+                    "title": problem["title"],
+                    "village": problem["village_name"],
+                    "location": problem.get("village_address") or problem["village_name"],
                     "status": "assigned",
-                    "description": p["description"],
-                    "assigned_at": m.get("assigned_at", datetime.now().isoformat()),
+                    "description": problem["description"],
+                    "assigned_at": match.get("assigned_at", datetime.now().isoformat()),
                 })
     return tasks
 
@@ -305,14 +302,12 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
     volunteer = next((v for v in VOLUNTEERS if v["id"] == volunteer_id or v["user_id"] == volunteer_id), None)
     if not volunteer:
         logger.warning("Volunteer %s not found in memory, continuing with fallback data.", volunteer_id)
-        # In a real app we'd error, but here we might just construct a mock match for robustness
         volunteer = {
             "id": volunteer_id,
-            "full_name": "Assigned Volunteer", 
-            "email": "volunteer@example.com"
+            "full_name": "Assigned Volunteer",
+            "email": "volunteer@example.com",
         }
 
-    # Add match
     match = {
         "id": f"match-{len(problem.get('matches', [])) + 1}-{int(datetime.now().timestamp())}",
         "problem_id": problem_id,
@@ -320,14 +315,13 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
         "assigned_at": datetime.now().isoformat(),
         "completed_at": None,
         "notes": "Assigned via Coordinator Dashboard",
-        "volunteers": volunteer
+        "volunteers": volunteer,
     }
-    
+
     if "matches" not in problem:
         problem["matches"] = []
     problem["matches"].append(match)
-    
-    # Update problem status to in_progress if it was pending
+
     if problem.get("status") == "pending":
         problem["status"] = "in_progress"
 
@@ -338,17 +332,13 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
 async def update_problem_status(problem_id: str, payload: Dict[str, str]):
     new_status = payload.get("status")
     if not new_status:
-         raise HTTPException(status_code=400, detail="status is required")
-         
+        raise HTTPException(status_code=400, detail="status is required")
+
     problem = next((p for p in PROBLEMS if p["id"] == problem_id), None)
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
-        
+
     problem["status"] = new_status
-    if new_status == "completed":
-        # Mark matches as completed? Optional logic
-        pass
-        
     return {"status": "success", "problem": problem}
 
 
@@ -374,10 +364,6 @@ def recommend_endpoint(request: RecommendRequest):
         logger.exception("Recommendation failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
-# Global lock for CSV writing to ensure thread safety
-import threading
-csv_lock = threading.Lock()
-
 @app.post("/submit-problem")
 async def submit_problem_endpoint(request: ProblemRequest):
     try:
@@ -395,7 +381,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
             "visual_tags": request.visual_tags or [],
             "has_audio": bool(request.has_audio),
             "status": "pending",
-            "lat": 0.0, 
+            "lat": 0.0,
             "lng": 0.0,
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
@@ -404,7 +390,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
                 "full_name": "Coordinator",
                 "role": "coordinator"
             },
-            "matches": []
+            "matches": [],
         }
         PROBLEMS.append(new_problem)
 
@@ -446,7 +432,6 @@ def transcribe_endpoint(file: UploadFile = File(...)):
         
         try:
             text = transcribe_audio(tmp_path)
-            # Auto-cleanup temp file is handled by finally
             return {"text": text}
         finally:
             if os.path.exists(tmp_path):
@@ -480,7 +465,6 @@ def analyze_image_endpoint(file: UploadFile = File(...), labels: Optional[str] =
 
 if __name__ == "__main__":
     import uvicorn
-    # Clean startup log
     print("Starting SocialCode Backend Server...")
     print(f"Loading data from: {DATASET_ROOT}")
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -1,4 +1,3 @@
-import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -29,7 +28,7 @@ interface ProblemMapProps {
     zoom?: number;
 }
 
-const ProblemMap: React.FC<ProblemMapProps> = ({ problems, center = [20.5937, 78.9629], zoom = 5 }) => {
+export default function ProblemMap({ problems, center = [20.5937, 78.9629], zoom = 5 }: ProblemMapProps) {
     return (
         <div className="h-full w-full rounded-xl overflow-hidden border border-gray-200 shadow-inner">
             <MapContainer center={center} zoom={zoom} style={{ height: '100%', width: '100%' }}>
@@ -55,6 +54,4 @@ const ProblemMap: React.FC<ProblemMapProps> = ({ problems, center = [20.5937, 78
             </MapContainer>
         </div>
     );
-};
-
-export default ProblemMap;
+}

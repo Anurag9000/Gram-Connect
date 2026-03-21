@@ -66,6 +66,7 @@ export default function CoordinatorLogin() {
             <input
               type="email"
               required
+              data-testid="coordinator-email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
@@ -80,6 +81,7 @@ export default function CoordinatorLogin() {
             <input
               type="password"
               required
+              data-testid="coordinator-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"

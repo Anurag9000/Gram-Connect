@@ -7,6 +7,7 @@ fastapi
 python-multipart
 uvicorn
 openai-whisper
+imageio-ffmpeg
 pillow
 ftfy
 regex

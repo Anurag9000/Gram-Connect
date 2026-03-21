@@ -11,9 +11,13 @@ The verified backend run flow is:
 ```bash
 python -m pip install -r requirements.txt
 python -m pip install pytest
-python -m pytest tests -q
+python generate_canonical_dataset.py
+python -m pytest -q tests test_suite.py
+python run_full_verification.py
 python -m uvicorn api_server:app --host 127.0.0.1 --port 8011
 ```
+
+The canonical dataset generator writes `people.csv`, `proposals.csv`, `pairs.csv`, `village_locations.csv`, `village_distances.csv`, `schedule.csv`, and `runtime_profiles.csv` into the repo `data/` directory. The API runtime seeds from those files and persists live state to `backend/runtime_data/app_state.json`.
 
 ---
 
@@ -72,6 +76,8 @@ Runtime pipeline:
 Output columns include `team_size`, `goodness`, `coverage`, `k_robustness`, `redundancy`, `set_size`, `willingness_avg`, and `willingness_min`. Distance and severity effects are reflected in the aggregated willingness metrics and goodness scores.
 
 If the configured model path does not exist, the runtime API path falls back to a TF-IDF recommender instead of failing hard.
+
+The repository also includes `run_full_verification.py`, which performs a real training run, validates seeded data integrity, verifies schedule-aware inference, and exercises `/recommend`, `/analyze-image`, and `/transcribe` using repo fixtures.
 
 ---
 

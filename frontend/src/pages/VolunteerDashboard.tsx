@@ -135,7 +135,7 @@ export default function VolunteerDashboard() {
                                                 <span className="text-xs text-gray-500">Capture/Upload</span>
                                             </>
                                         )}
-                                        <input type="file" className="hidden" accept="image/*" onChange={(e) => setBeforeImage(e.target.files?.[0] ? URL.createObjectURL(e.target.files[0]) : null)} />
+                                        <input data-testid="before-photo-input" type="file" className="hidden" accept="image/*" onChange={(e) => setBeforeImage(e.target.files?.[0] ? URL.createObjectURL(e.target.files[0]) : null)} />
                                     </label>
                                 </div>
 
@@ -150,7 +150,7 @@ export default function VolunteerDashboard() {
                                                 <span className="text-xs text-green-600 font-bold">Verify Completion</span>
                                             </>
                                         )}
-                                        <input type="file" className="hidden" accept="image/*" onChange={(e) => setAfterImage(e.target.files?.[0] ? URL.createObjectURL(e.target.files[0]) : null)} />
+                                        <input data-testid="after-photo-input" type="file" className="hidden" accept="image/*" onChange={(e) => setAfterImage(e.target.files?.[0] ? URL.createObjectURL(e.target.files[0]) : null)} />
                                     </label>
                                 </div>
                             </div>
@@ -201,6 +201,7 @@ export default function VolunteerDashboard() {
                         tasks.map(task => (
                             <div
                                 key={task.id}
+                                data-testid={`task-card-${task.id}`}
                                 className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex justify-between items-center group"
                                 onClick={() => setSelectedTask(task)}
                             >

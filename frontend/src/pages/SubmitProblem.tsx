@@ -189,6 +189,7 @@ export default function SubmitProblem() {
               <input
                 type="text"
                 required
+                data-testid="village-name-input"
                 value={villageName}
                 onChange={(e) => setVillageName(e.target.value)}
                 placeholder={t('submit.village_name')}
@@ -205,6 +206,7 @@ export default function SubmitProblem() {
               <input
                 type="text"
                 required
+                data-testid="village-address-input"
                 value={villageAddress}
                 onChange={(e) => setVillageAddress(e.target.value)}
                 placeholder="E.g., 45, Gandhi Road"
@@ -219,6 +221,7 @@ export default function SubmitProblem() {
               <input
                 type="text"
                 required
+                data-testid="problem-title-input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={t('submit.problem_title')}
@@ -265,6 +268,7 @@ export default function SubmitProblem() {
 
               <textarea
                 required
+                data-testid="problem-description-input"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder={t('submit.description')}
@@ -286,6 +290,7 @@ export default function SubmitProblem() {
                   type="file"
                   className="hidden"
                   accept="image/*"
+                  data-testid="problem-image-input"
                   onChange={handleFileChange}
                 />
               </label>
@@ -296,7 +301,7 @@ export default function SubmitProblem() {
                 </div>
               )}
               {visualTags.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap gap-2" data-testid="image-analysis-tags">
                   <span className="text-xs font-semibold text-gray-500">AI Detected:</span>
                   {visualTags.map(tag => (
                     <span key={tag} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">#{tag}</span>

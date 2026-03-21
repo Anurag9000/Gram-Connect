@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -28,6 +30,7 @@
     "@eslint/js": "^9.9.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
+    "@playwright/test": "^1.58.2",
     "@types/leaflet": "^1.9.21",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",

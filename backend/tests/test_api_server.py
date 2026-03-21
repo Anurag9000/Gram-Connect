@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from fastapi import UploadFile
 from fastapi.exceptions import HTTPException
 
@@ -63,9 +64,9 @@ def test_analyze_image_endpoint(mock_analyze):
     assert response["top_label"] == "Infrastructure"
 
 
-def test_submit_problem_writes_csv(tmp_path):
-    original_csv = api_server.DEFAULT_PROPOSALS_CSV
-    api_server.DEFAULT_PROPOSALS_CSV = str(tmp_path / "proposals.csv")
+def test_submit_problem_persists_runtime_state(tmp_path):
+    original_state_path = api_server.RUNTIME_STATE_JSON
+    api_server.RUNTIME_STATE_JSON = str(tmp_path / "app_state.json")
     created_id = None
     try:
         response = asyncio.run(
@@ -84,7 +85,7 @@ def test_submit_problem_writes_csv(tmp_path):
         )
         created_id = response["id"]
         assert response["status"] == "success"
-        assert Path(api_server.DEFAULT_PROPOSALS_CSV).exists()
+        assert Path(api_server.RUNTIME_STATE_JSON).exists()
         stored_problem = next(problem for problem in api_server.PROBLEMS if problem["id"] == response["id"])
         assert stored_problem["village_address"] == "Near the school"
         assert stored_problem["visual_tags"] == ["water", "repair"]
@@ -92,7 +93,7 @@ def test_submit_problem_writes_csv(tmp_path):
     finally:
         if created_id:
             api_server.PROBLEMS[:] = [problem for problem in api_server.PROBLEMS if problem["id"] != created_id]
-        api_server.DEFAULT_PROPOSALS_CSV = original_csv
+        api_server.RUNTIME_STATE_JSON = original_state_path
 
 
 def test_update_volunteer_creates_normalized_record():
@@ -113,6 +114,12 @@ def test_update_volunteer_creates_normalized_record():
         api_server.VOLUNTEERS[:] = [
             volunteer for volunteer in api_server.VOLUNTEERS if volunteer.get("user_id") != "new-volunteer"
         ]
+
+
+def test_get_missing_volunteer_raises_not_found():
+    with pytest.raises(HTTPException) as exc_info:
+        asyncio.run(api_server.get_volunteer("missing-volunteer"))
+    assert exc_info.value.status_code == 404
 
 
 def test_assign_task_is_idempotent_and_tasks_follow_problem_status():

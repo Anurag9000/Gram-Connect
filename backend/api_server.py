@@ -17,7 +17,6 @@ from m3_recommend import RecommendationConfig
 from recommender_service import RecommenderService
 from multimodal_service import transcribe_audio, analyze_image
 from notification_service import notify_team_assignment
-from mock_data import get_mock_problems, get_mock_volunteers
 from path_utils import (
     ensure_runtime_dir,
     get_repo_paths,
@@ -28,6 +27,7 @@ from path_utils import (
     resolve_proposals_csv,
     resolve_village_locations_csv,
 )
+from utils import get_any, read_csv_norm
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,6 +44,8 @@ DEFAULT_PAIRS_CSV = resolve_pairs_csv()
 DEFAULT_VILLAGE_LOCATIONS = resolve_village_locations_csv()
 DEFAULT_DISTANCE_CSV = resolve_distance_csv()
 ensure_runtime_dir()
+RUNTIME_STATE_JSON = str((PATHS.runtime_dir / "app_state.json").resolve())
+RUNTIME_PROFILES_CSV = str((PATHS.data_dir / "runtime_profiles.csv").resolve())
 
 # Initialize Service
 recommender_service = RecommenderService(
@@ -169,6 +171,147 @@ def _now_iso() -> str:
     return datetime.now().isoformat()
 
 
+def _split_items(value: Any, separator: str = ";") -> List[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    if separator in raw:
+        return [item.strip() for item in raw.split(separator) if item.strip()]
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _seed_timestamp(index: int) -> str:
+    return datetime(2026, 3, 1, 9, 0, 0).replace(hour=9 + (index % 8)).isoformat()
+
+
+def _load_profile_directory() -> Dict[str, Dict[str, Any]]:
+    if not os.path.exists(RUNTIME_PROFILES_CSV):
+        return {}
+    profiles: Dict[str, Dict[str, Any]] = {}
+    for row in read_csv_norm(RUNTIME_PROFILES_CSV):
+        profile_id = get_any(row, ["id"])
+        if not profile_id:
+            continue
+        profiles[profile_id] = {
+            "id": profile_id,
+            "email": get_any(row, ["email"]),
+            "full_name": get_any(row, ["full_name", "name"], "User"),
+            "phone": get_any(row, ["phone"]),
+            "role": get_any(row, ["role"], "volunteer"),
+            "created_at": _now_iso(),
+        }
+    return profiles
+
+
+def _build_seed_volunteers(profile_directory: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    volunteers: List[Dict[str, Any]] = []
+    for index, row in enumerate(read_csv_norm(DEFAULT_PEOPLE_CSV)):
+        volunteer_id = get_any(row, ["person_id", "student_id", "id"])
+        if not volunteer_id:
+            continue
+        user_id = get_any(row, ["user_id"], volunteer_id)
+        profile = profile_directory.get(user_id, {
+            "id": user_id,
+            "email": get_any(row, ["email"]),
+            "full_name": get_any(row, ["name"], volunteer_id),
+            "phone": get_any(row, ["phone"]),
+            "role": "volunteer",
+            "created_at": _seed_timestamp(index),
+        })
+        volunteers.append({
+            "id": volunteer_id,
+            "user_id": user_id,
+            "skills": _split_items(get_any(row, ["skills", "text"], "")),
+            "availability_status": get_any(row, ["availability_status"], "available"),
+            "availability": get_any(row, ["availability"], ""),
+            "home_location": get_any(row, ["home_location", "location", "village"], ""),
+            "created_at": _seed_timestamp(index),
+            "updated_at": _seed_timestamp(index),
+            "profiles": profile,
+        })
+    return volunteers
+
+
+def _build_seed_problems(
+    profile_directory: Dict[str, Dict[str, Any]],
+    volunteers_by_id: Dict[str, Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    coordinator_profile = profile_directory.get("mock-coordinator-uuid", {
+        "id": "mock-coordinator-uuid",
+        "email": "coordinator@test.com",
+        "full_name": "Test Coordinator",
+        "phone": "0987654321",
+        "role": "coordinator",
+        "created_at": _now_iso(),
+    })
+    village_coords = {
+        "Sundarpur": (21.1458, 79.0882),
+        "Nirmalgaon": (20.9504, 78.9671),
+        "Lakshmipur": (23.2156, 77.0854),
+        "Devnagar": (23.0105, 77.4212),
+        "Riverbend": (21.2514, 81.6296),
+    }
+    problems: List[Dict[str, Any]] = []
+    for index, row in enumerate(read_csv_norm(DEFAULT_PROPOSALS_CSV)):
+        problem_id = get_any(row, ["proposal_id", "id"])
+        if not problem_id:
+            continue
+        status = get_any(row, ["status"], "pending")
+        created_at = _seed_timestamp(index)
+        village_name = get_any(row, ["village", "village_name"], "Unknown")
+        lat, lng = village_coords.get(village_name, (0.0, 0.0))
+        matches = []
+        for match_index, volunteer_id in enumerate(_split_items(get_any(row, ["seed_assignees"], ""))):
+            volunteer = volunteers_by_id.get(volunteer_id)
+            if not volunteer:
+                continue
+            assigned_at = _seed_timestamp(index + match_index + 1)
+            matches.append({
+                "id": f"seed-match-{problem_id}-{match_index + 1}",
+                "problem_id": problem_id,
+                "volunteer_id": volunteer_id,
+                "assigned_at": assigned_at,
+                "completed_at": assigned_at if status == "completed" else None,
+                "notes": "Seeded canonical assignment",
+                "volunteers": volunteer,
+            })
+        problems.append({
+            "id": problem_id,
+            "villager_id": coordinator_profile["id"],
+            "title": get_any(row, ["title"], "Untitled Issue"),
+            "description": get_any(row, ["text", "description"], ""),
+            "category": get_any(row, ["category"], "others"),
+            "village_name": village_name,
+            "village_address": get_any(row, ["village_address"]),
+            "visual_tags": _coerce_visual_tags(get_any(row, ["visual_tags"], "")),
+            "has_audio": str(get_any(row, ["has_audio"], "")).strip().lower() in {"1", "true", "yes"},
+            "status": status,
+            "lat": lat,
+            "lng": lng,
+            "created_at": created_at,
+            "updated_at": created_at,
+            "profiles": coordinator_profile,
+            "matches": matches,
+        })
+    return problems
+
+
+def persist_runtime_state() -> None:
+    with csv_lock:
+        with open(RUNTIME_STATE_JSON, "w", encoding="utf-8") as handle:
+            json.dump(
+                {
+                    "problems": PROBLEMS,
+                    "volunteers": VOLUNTEERS,
+                },
+                handle,
+                ensure_ascii=False,
+                indent=2,
+            )
+
+
 def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
     volunteer = match.get("volunteers", {})
     return (
@@ -178,48 +321,37 @@ def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
     )
 
 
-def load_initial_data():
-    """Loads mock data and combines it with CSV data."""
+def load_initial_data(force_seed: bool = False):
+    """Loads seeded runtime state backed by canonical CSV data."""
     global PROBLEMS, VOLUNTEERS
 
-    # Load foundational mocks
-    PROBLEMS = get_mock_problems()
-    VOLUNTEERS = get_mock_volunteers()
-
-    # Load persisted proposals from CSV
-    if os.path.exists(DEFAULT_PROPOSALS_CSV):
+    if os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
         try:
-            with open(DEFAULT_PROPOSALS_CSV, "r", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    p_id = row.get("proposal_id")
-                    if not p_id or any(problem["id"] == p_id for problem in PROBLEMS):
-                        continue
-
-                    PROBLEMS.append({
-                        "id": p_id,
-                        "villager_id": "anon-villager",
-                        "title": row.get("title", "Untitled Issue") if "title" in row else row.get("text", "Issue").split(":")[0],
-                        "description": row.get("text", ""),
-                        "category": row.get("category", "others"),
-                        "village_name": row.get("village", "Unknown"),
-                        "village_address": row.get("village_address") or None,
-                        "visual_tags": _coerce_visual_tags(row.get("visual_tags")),
-                        "has_audio": str(row.get("has_audio", "")).strip().lower() in {"1", "true", "yes"},
-                        "status": "pending",
-                        "lat": 0.0,
-                        "lng": 0.0,
-                        "created_at": _now_iso(),
-                        "updated_at": _now_iso(),
-                        "profiles": {
-                            "id": "anon-villager",
-                            "full_name": "Community Member",
-                            "role": "villager",
-                        },
-                        "matches": []
-                    })
+            with open(RUNTIME_STATE_JSON, "r", encoding="utf-8") as handle:
+                state = json.load(handle)
+            PROBLEMS = list(state.get("problems", []))
+            VOLUNTEERS = list(state.get("volunteers", []))
+            if PROBLEMS and VOLUNTEERS:
+                return
         except Exception as exc:
-            logger.error("Failed to load CSV data: %s", exc)
+            logger.warning("Failed to load runtime state, rebuilding from canonical dataset: %s", exc)
+
+    try:
+        profile_directory = _load_profile_directory()
+        VOLUNTEERS = _build_seed_volunteers(profile_directory)
+        volunteers_by_id = {volunteer["id"]: volunteer for volunteer in VOLUNTEERS}
+        PROBLEMS = _build_seed_problems(profile_directory, volunteers_by_id)
+        persist_runtime_state()
+    except Exception as exc:
+        logger.error("Failed to load canonical seed data: %s", exc)
+        PROBLEMS = []
+        VOLUNTEERS = []
+
+
+def reset_runtime_state() -> None:
+    if os.path.exists(RUNTIME_STATE_JSON):
+        os.remove(RUNTIME_STATE_JSON)
+    load_initial_data(force_seed=True)
 
 # Load data on startup (or module import)
 load_initial_data()
@@ -263,13 +395,7 @@ async def get_volunteer(volunteer_id: str):
         if volunteer["user_id"] == volunteer_id or volunteer["id"] == volunteer_id:
             return volunteer
 
-    return {
-        "id": "vol-profile-id",
-        "user_id": volunteer_id,
-        "skills": ["Teaching", "Digital Literacy"],
-        "availability_status": "available",
-        "created_at": _now_iso(),
-    }
+    raise HTTPException(status_code=404, detail="Volunteer profile not found")
 
 @app.post("/volunteer")
 async def update_volunteer(data: Dict[str, Any]):
@@ -285,6 +411,7 @@ async def update_volunteer(data: Dict[str, Any]):
             volunteer.setdefault("id", data.get("id") or f"vol-{user_id}")
             volunteer.setdefault("created_at", timestamp)
             volunteer["updated_at"] = timestamp
+            persist_runtime_state()
             return {"status": "success", "data": volunteer}
 
     new_volunteer = {
@@ -304,6 +431,7 @@ async def update_volunteer(data: Dict[str, Any]):
         },
     }
     VOLUNTEERS.append(new_volunteer)
+    persist_runtime_state()
     return {"status": "success", "data": new_volunteer}
 
 @app.get("/volunteer-tasks")
@@ -373,6 +501,7 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
     if problem.get("status") == "pending":
         problem["status"] = "in_progress"
     problem["updated_at"] = _now_iso()
+    persist_runtime_state()
 
     return {"status": "success", "match": match}
 
@@ -398,6 +527,7 @@ async def update_problem_status(problem_id: str, payload: Dict[str, str]):
     elif new_status in {"pending", "in_progress"}:
         for match in problem.get("matches", []):
             match["completed_at"] = None
+    persist_runtime_state()
     return {"status": "success", "problem": problem}
 
 
@@ -427,8 +557,15 @@ def recommend_endpoint(request: RecommendRequest):
 async def submit_problem_endpoint(request: ProblemRequest):
     try:
         new_id = f"prob-{int(datetime.now().timestamp())}"
+        coordinator_profile = _load_profile_directory().get(request.coordinator_id, {
+            "id": request.coordinator_id or "anon",
+            "full_name": "Coordinator",
+            "role": "coordinator",
+            "email": None,
+            "phone": None,
+            "created_at": _now_iso(),
+        })
         
-        # 1. Update in-memory state
         new_problem = {
             "id": new_id,
             "villager_id": request.coordinator_id or "anon",
@@ -444,37 +581,11 @@ async def submit_problem_endpoint(request: ProblemRequest):
             "lng": 0.0,
             "created_at": _now_iso(),
             "updated_at": _now_iso(),
-            "profiles": {
-                "id": request.coordinator_id or "anon",
-                "full_name": "Coordinator",
-                "role": "coordinator"
-            },
+            "profiles": coordinator_profile,
             "matches": [],
         }
         PROBLEMS.append(new_problem)
-
-        # 2. Persist to CSV
-        with csv_lock:
-            file_exists = os.path.exists(DEFAULT_PROPOSALS_CSV)
-            os.makedirs(os.path.dirname(DEFAULT_PROPOSALS_CSV), exist_ok=True)
-            with open(DEFAULT_PROPOSALS_CSV, "a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                if not file_exists:
-                    writer.writerow(["proposal_id", "title", "text", "village", "village_address", "category", "visual_tags", "has_audio"])
-                
-                text_content = f"{request.title}: {request.description} ({request.category})"
-                text_content = text_content.replace("\n", " ").replace("\r", "")
-                writer.writerow([
-                    new_id,
-                    request.title,
-                    text_content,
-                    request.village_name,
-                    request.village_address or "",
-                    request.category,
-                    json.dumps(request.visual_tags or [], ensure_ascii=False),
-                    "true" if request.has_audio else "false",
-                ])
-            
+        persist_runtime_state()
         logger.info(f"Problem submitted and saved: {request.title} in {request.village_name}")
         return {"status": "success", "id": new_id}
     except Exception as exc:

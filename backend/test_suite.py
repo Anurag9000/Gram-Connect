@@ -2,6 +2,7 @@ import pytest
 import os
 from fastapi.testclient import TestClient
 from api_server import app
+from generate_canonical_dataset import main as generate_canonical_dataset
 import multimodal_service
 from recommender_service import RecommenderService
 
@@ -28,9 +29,8 @@ def test_multimodal_service_logic():
         multimodal_service.analyze_image("non_existent.jpg")
 
 def test_recommendation_logic_fusion():
+    generate_canonical_dataset()
     people_csv = os.path.join(DATA_DIR, "people.csv")
-    if not os.path.exists(people_csv):
-        pytest.skip("people.csv not found, skipping recommender smoke test")
 
     service = RecommenderService(
         model_path=MODEL_PATH,
@@ -54,6 +54,7 @@ def test_recommendation_logic_fusion():
     assert "teams" in results
 
 def test_api_recommend_endpoint():
+    generate_canonical_dataset()
     # Test the API wrapper
     payload = {
         "proposal_text": "Need help with digital literacy in Gram Puram",
@@ -65,7 +66,7 @@ def test_api_recommend_endpoint():
     }
     
     response = client.post("/recommend", json=payload)
-    assert response.status_code in [200, 400, 500]
+    assert response.status_code == 200
 
 def test_notification_service():
     from notification_service import send_sms_notification

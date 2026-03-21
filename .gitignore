@@ -32,11 +32,21 @@ yarn-debug.log*
 yarn-error.log*
 .eslintcache
 .vscode/
+frontend/test-results/
+frontend/playwright-report/
 
 # Datasets & Models
 backend/model.pkl
+backend/runtime_data/
 data/*.csv
 !data/availability_legend.csv
+!data/people.csv
+!data/proposals.csv
+!data/pairs.csv
+!data/village_locations.csv
+!data/village_distances.csv
+!data/schedule.csv
+!data/runtime_profiles.csv
 
 # OS
 .DS_Store

@@ -347,6 +347,7 @@ export default function CoordinatorDashboard() {
             <input
               type="text"
               placeholder="Search problems..."
+              data-testid="problem-search-input"
               className="px-3 py-2 outline-none w-full md:w-64"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -389,7 +390,7 @@ export default function CoordinatorDashboard() {
         ) : (
           <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
             {filteredProblems.map((problem) => (
-              <div key={problem.id} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group">
+              <div key={problem.id} data-testid={`problem-card-${problem.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group">
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${problem.status === 'pending' ? 'bg-red-100 text-red-700' :
@@ -554,6 +555,7 @@ export default function CoordinatorDashboard() {
                     <button
                       onClick={runAiAlgo}
                       disabled={aiLoading}
+                      data-testid="generate-optimal-teams"
                       className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-300 flex justify-center gap-2 items-center"
                     >
                       {aiLoading ? <span className="animate-spin">⌛</span> : <Cpu size={18} />}
@@ -592,6 +594,7 @@ export default function CoordinatorDashboard() {
                           </div>
                           <button
                             onClick={() => handleAssignTeam(selectedProblem.id, team)}
+                            data-testid={`assign-ai-team-${idx + 1}`}
                             className="text-blue-600 font-semibold text-sm hover:bg-blue-50 px-3 py-1 rounded"
                           >
                             Assign Team

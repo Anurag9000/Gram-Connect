@@ -6,7 +6,13 @@ SocialCode is a FastAPI + Vite application for matching community problems to vo
 - `backend/`: FastAPI service, recommender logic, multimodal helpers, tests
 - `frontend/`: Vite + React + TypeScript UI
 - `data/`: canonical seeded dataset assets and media fixtures
-- `docs/`: backend contract notes
+- `docs/`: backend contract notes and architecture diagrams
+
+## System Architecture
+
+![Gram-Connect Architecture](docs/architecture_diagram.png)
+
+The project follows a modern decoupled architecture with a FastAPI backend and a Vite+React frontend. It integrates multimodal AI services (CLIP for vision, Whisper for audio) and a custom hybrid recommendation engine (M3).
 
 ## Canonical Seeded Data
 - `backend/generate_canonical_dataset.py` is the source of truth for the repo's synthetic dataset.

@@ -1,4 +1,5 @@
 import csv
+import re
 from pathlib import Path
 from typing import Iterable
 
@@ -13,7 +14,7 @@ VILLAGES = [
     ("Riverbend", "Raipur", "Chhattisgarh"),
 ]
 
-VOLUNTEERS = [
+BASE_VOLUNTEERS = [
     {
         "person_id": "VOL-001",
         "user_id": "mock-volunteer-uuid",
@@ -128,7 +129,7 @@ VOLUNTEERS = [
     },
 ]
 
-PROPOSALS = [
+BASE_PROPOSALS = [
     {
         "proposal_id": "PROB-001",
         "title": "Broken Handpump Near School",
@@ -203,6 +204,152 @@ PROPOSALS = [
     },
 ]
 
+VOLUNTEER_VARIANTS_PER_SOURCE = 12
+PROPOSAL_VARIANTS_PER_SOURCE = 12
+
+VOLUNTEER_EXTRA_SKILLS = {
+    "VOL-001": ["excel dashboards", "mobile data collection and dashboards", "household survey and enumeration"],
+    "VOL-002": ["pump wiring", "pipe fitting", "mechanical systems (pumps/filtration)"],
+    "VOL-003": ["street lighting installation and maintenance", "rural electrification safety and earthing", "field maintenance"],
+    "VOL-004": ["risk communication and community engagement", "community outreach", "public health outreach"],
+    "VOL-005": ["sanitation drives", "drinking water source protection", "water quality assessment"],
+    "VOL-006": ["gis and remote sensing", "data analysis and reporting", "asset mapping and village information systems"],
+    "VOL-007": ["culvert and causeway design", "rural road maintenance and culvert repair", "drainage design and de-silting"],
+    "VOL-008": ["drip and sprinkler irrigation setup", "watershed management", "soil testing and fertility management"],
+}
+
+PROPOSAL_EXTRA_TERMS = {
+    "PROB-001": ["urgent infrastructure response", "pump repair crew", "school access reliability"],
+    "PROB-002": ["digital inclusion", "self-help group bookkeeping", "smartphone literacy"],
+    "PROB-003": ["water testing", "field survey", "sanitation awareness"],
+    "PROB-004": ["monsoon drainage", "road patching", "public market access"],
+    "PROB-005": ["irrigation audit", "farm advisory", "water conservation planning"],
+    "PROB-006": ["school wash inspection", "hygiene awareness", "safe drinking water"],
+}
+
+AVAILABILITY_TO_STATUS = {
+    "immediately available": "available",
+    "generally available": "available",
+    "rarely available": "busy",
+}
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+
+
+def _cycle(items: list[str], index: int) -> str:
+    return items[index % len(items)]
+
+
+def _unique_phone(base_phone: str, source_index: int, variant_index: int) -> str:
+    if variant_index == 0 and base_phone:
+        return base_phone
+    return f"{9000000000 + source_index * 100 + variant_index:010d}"
+
+
+def _expand_volunteers() -> list[dict]:
+    villages = [village_name for village_name, _, _ in VILLAGES]
+    availability_cycle = ["immediately available", "generally available", "rarely available"]
+    text_variants = [
+        "covers follow-up visits, documentation, and on-ground support.",
+        "coordinates practical field work and supports the local team.",
+        "focuses on rapid response and reliable handover.",
+        "helps with reporting, coordination, and resident communication.",
+        "works across village sites with a strong field orientation.",
+    ]
+
+    volunteers: list[dict] = []
+    for source_index, base in enumerate(BASE_VOLUNTEERS):
+        base_skills = [skill.strip() for skill in base["skills"].split(";") if skill.strip()]
+        source_id = base["person_id"]
+        extras = VOLUNTEER_EXTRA_SKILLS.get(source_id, [])
+        for variant_index in range(VOLUNTEER_VARIANTS_PER_SOURCE):
+            if variant_index == 0:
+                volunteers.append({**base, "source_person_id": source_id})
+                continue
+
+            variant_id = f"{source_id}-{variant_index:02d}"
+            variant_name = f"{base['name']} {variant_index:02d}"
+            village = _cycle(villages, source_index + variant_index)
+            availability = _cycle(availability_cycle, source_index + variant_index)
+            status = AVAILABILITY_TO_STATUS[availability]
+            extra_skill = extras[variant_index % len(extras)] if extras else base_skills[-1]
+            skill_blob = list(dict.fromkeys(base_skills + [extra_skill]))
+            willingness_eff = round(0.58 + ((source_index * 0.07 + variant_index * 0.03) % 0.31), 2)
+            willingness_bias = round(0.41 + ((source_index * 0.05 + variant_index * 0.02) % 0.29), 2)
+            email_local = base["email"].split("@", 1)[0]
+            volunteers.append({
+                "person_id": variant_id,
+                "source_person_id": source_id,
+                "user_id": f"{_slug(base['user_id'])}-{variant_index:02d}",
+                "name": variant_name,
+                "email": f"{email_local}+{variant_index:02d}@test.com",
+                "phone": _unique_phone(base["phone"], source_index, variant_index),
+                "skills": ";".join(skill_blob),
+                "text": (
+                    f"{base['text']} Variant {variant_index:02d} {text_variants[variant_index % len(text_variants)]} "
+                    f"Based in {village} and available for {availability} work."
+                ),
+                "willingness_eff": willingness_eff,
+                "willingness_bias": willingness_bias,
+                "availability": availability,
+                "home_location": village,
+                "availability_status": status,
+            })
+    return volunteers
+
+
+def _expand_proposals() -> list[dict]:
+    villages = [village_name for village_name, _, _ in VILLAGES]
+    status_cycle = ["pending", "in_progress", "completed", "pending"]
+    category_cycle = ["education", "health", "infrastructure", "digital", "others"]
+    text_variants = [
+        "The work needs a coordinated field visit and a practical follow-up plan.",
+        "Local residents need a rapid, hands-on response from an experienced volunteer team.",
+        "The issue is affecting daily village operations and needs action-backed support.",
+        "The panchayat is looking for a team that can inspect, document, and resolve the issue.",
+        "A small team with both technical and community outreach support would help most.",
+    ]
+
+    proposals: list[dict] = []
+    for source_index, base in enumerate(BASE_PROPOSALS):
+        source_id = base["proposal_id"]
+        positive_assignees = [volunteer_id for volunteer_id in POSITIVE_RULES[source_id]]
+        extras = PROPOSAL_EXTRA_TERMS.get(source_id, [])
+        for variant_index in range(PROPOSAL_VARIANTS_PER_SOURCE):
+            if variant_index == 0:
+                proposal = {**base, "source_proposal_id": source_id}
+                if not proposal.get("seed_assignees"):
+                    proposal["seed_assignees"] = ";".join(positive_assignees[:2])
+                proposals.append(proposal)
+                continue
+
+            variant_id = f"{source_id}-{variant_index:02d}"
+            village = _cycle(villages, source_index + variant_index)
+            address = f"{base['village_address']} - Block {variant_index:02d}"
+            status = _cycle(status_cycle, source_index + variant_index)
+            category = _cycle(category_cycle, source_index + variant_index)
+            text_extra = extras[variant_index % len(extras)] if extras else text_variants[variant_index % len(text_variants)]
+            seed_assignees = ";".join(positive_assignees[:2])
+            proposals.append({
+                "proposal_id": variant_id,
+                "source_proposal_id": source_id,
+                "title": f"{base['title']} #{variant_index:02d}",
+                "text": (
+                    f"{base['text']} Variant {variant_index:02d}. {text_extra} "
+                    f"This request is centered in {village}."
+                ),
+                "village": village,
+                "village_address": address,
+                "category": category,
+                "status": status,
+                "seed_assignees": seed_assignees,
+                "visual_tags": base["visual_tags"] if variant_index % 3 else f'["{category}","{_slug(village)}"]',
+                "has_audio": "true" if variant_index % 4 == 0 else base["has_audio"],
+            })
+    return proposals
+
 SCHEDULE_ROWS = [
     {
         "person_id": "VOL-002",
@@ -264,13 +411,15 @@ def _write_csv(path: Path, fieldnames: Iterable[str], rows: Iterable[dict]) -> N
         writer.writerows(rows)
 
 
-def build_pairs() -> list[dict]:
+def build_pairs(proposals: list[dict], volunteers: list[dict]) -> list[dict]:
     rows: list[dict] = []
-    for proposal in PROPOSALS:
+    for proposal in proposals:
         proposal_id = proposal["proposal_id"]
-        positives = POSITIVE_RULES[proposal_id]
-        for volunteer in VOLUNTEERS:
-            label = 1 if volunteer["person_id"] in positives else 0
+        source_proposal_id = proposal.get("source_proposal_id", proposal_id)
+        positives = POSITIVE_RULES[source_proposal_id]
+        for volunteer in volunteers:
+            source_person_id = volunteer.get("source_person_id", volunteer["person_id"])
+            label = 1 if source_person_id in positives else 0
             rows.append(
                 {
                     "proposal_id": proposal_id,
@@ -297,11 +446,14 @@ def build_distances() -> list[dict]:
 
 def main() -> None:
     data_dir = get_repo_paths().data_dir
+    volunteers = _expand_volunteers()
+    proposals = _expand_proposals()
 
     _write_csv(
         data_dir / "people.csv",
         [
             "person_id",
+            "source_person_id",
             "user_id",
             "name",
             "email",
@@ -314,12 +466,13 @@ def main() -> None:
             "home_location",
             "availability_status",
         ],
-        VOLUNTEERS,
+        volunteers,
     )
     _write_csv(
         data_dir / "proposals.csv",
         [
             "proposal_id",
+            "source_proposal_id",
             "title",
             "text",
             "village",
@@ -330,12 +483,12 @@ def main() -> None:
             "visual_tags",
             "has_audio",
         ],
-        PROPOSALS,
+        proposals,
     )
     _write_csv(
         data_dir / "pairs.csv",
         ["proposal_id", "person_id", "label"],
-        build_pairs(),
+        build_pairs(proposals, volunteers),
     )
     _write_csv(
         data_dir / "village_locations.csv",

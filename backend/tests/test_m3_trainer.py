@@ -10,7 +10,7 @@ import m3_trainer
 @patch('m3_trainer.read_csv_norm')
 @patch('m3_trainer.embed_texts')
 @patch('os.path.exists')
-def test_train_model_flow(mock_exists, mock_embed, mock_read):
+def test_train_model_flow(mock_exists, mock_embed, mock_read, tmp_path):
     # Mock exists check
     mock_exists.return_value = True
     
@@ -29,7 +29,7 @@ def test_train_model_flow(mock_exists, mock_embed, mock_read):
         proposals="prop.csv",
         people="people.csv",
         pairs="pairs.csv",
-        out="test_model.pkl"
+        out=str(tmp_path / "canonical_model.pkl")
     )
     
     with patch('pickle.dump') as mock_dump:

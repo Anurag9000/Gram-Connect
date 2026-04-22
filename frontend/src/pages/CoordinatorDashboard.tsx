@@ -5,9 +5,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import LanguageToggle from '../components/LanguageToggle';
-import { api, type ProblemRecord, type TeamMember, type VolunteerRecord } from '../services/api';
+import { api, type MediaRecord, type ProblemRecord, type ProofRecord, type TeamMember, type VolunteerRecord } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import type { Database } from '../lib/database.types';
+import ProblemMap from '../components/ProblemMap';
 
 type Problem = Database['public']['Tables']['problems']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -23,6 +24,8 @@ interface ProblemWithDetails extends Problem {
   matches?: (Match & { volunteer?: VolunteerWithProfile })[];
   visual_tags?: string[];
   village_address?: string;
+  media_assets?: MediaRecord[];
+  proof?: ProofRecord;
 }
 
 interface AITeam {
@@ -340,6 +343,35 @@ export default function CoordinatorDashboard() {
           </div>
         </div>
 
+        <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)]">
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Live problem map</h2>
+                <p className="text-sm text-gray-500">Markers are driven by the persisted backend records.</p>
+              </div>
+              <button
+                onClick={() => navigate('/map')}
+                className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 hover:bg-green-100"
+              >
+                Open full view
+              </button>
+            </div>
+            <div className="h-[420px] overflow-hidden rounded-xl">
+              <ProblemMap problems={filteredProblems.length > 0 ? filteredProblems : problems} zoom={6} />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-bold text-gray-900 mb-3">Map notes</h3>
+            <div className="space-y-3 text-sm text-gray-600">
+              <p>• Villager reports are stored with persistent profile and media records.</p>
+              <p>• Completed tasks keep proof attachments on the same case record.</p>
+              <p>• The map can be filtered by status using the controls below.</p>
+            </div>
+          </div>
+        </div>
+
         {/* Filters and Actions */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div className="flex items-center bg-white rounded-lg shadow-sm border border-gray-200 p-1 w-full md:w-auto">
@@ -415,6 +447,19 @@ export default function CoordinatorDashboard() {
                     {problem.visual_tags?.slice(0, 3).map((tag: string) => (
                       <span key={tag} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">#{tag}</span>
                     ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mb-4">
+                    {problem.media_assets?.length ? (
+                      <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700 border border-blue-100">
+                        {problem.media_assets.length} media item{problem.media_assets.length === 1 ? '' : 's'}
+                      </span>
+                    ) : null}
+                    {problem.proof?.media_ids?.length ? (
+                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700 border border-emerald-100">
+                        proof stored
+                      </span>
+                    ) : null}
                   </div>
 
                   {/* Action Footer */}

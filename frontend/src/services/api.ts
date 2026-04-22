@@ -6,6 +6,31 @@ type Volunteer = Database['public']['Tables']['volunteers']['Row'];
 type Match = Database['public']['Tables']['matches']['Row'];
 type Problem = Database['public']['Tables']['problems']['Row'];
 
+export interface MediaRecord {
+    id: string;
+    kind: string;
+    problem_id?: string | null;
+    volunteer_id?: string | null;
+    label?: string | null;
+    filename?: string | null;
+    stored_filename?: string | null;
+    mime_type?: string | null;
+    size_bytes?: number | null;
+    sha256?: string | null;
+    path?: string | null;
+    url?: string | null;
+    created_at: string;
+}
+
+export interface ProofRecord {
+    volunteer_id: string;
+    before_media_id?: string | null;
+    after_media_id?: string | null;
+    media_ids?: string[];
+    notes?: string | null;
+    submitted_at?: string | null;
+}
+
 export interface RecommendationRequest {
     proposal_text: string;
     village_name?: string;
@@ -81,9 +106,23 @@ export interface ProblemSubmission {
     category: string;
     village_name: string;
     village_address?: string;
-    coordinator_id: string;
+    coordinator_id?: string;
+    villager_id?: string;
+    reporter_name?: string;
+    reporter_phone?: string;
     visual_tags?: string[];
     has_audio?: boolean;
+    transcript?: string;
+    media_ids?: string[];
+}
+
+export interface ProfileSubmission {
+    id?: string;
+    email?: string;
+    full_name: string;
+    phone?: string;
+    role?: 'villager' | 'volunteer' | 'coordinator';
+    village_name?: string;
 }
 
 export interface VolunteerRecord extends Volunteer {
@@ -101,6 +140,10 @@ export interface ProblemRecord extends Problem {
     matches?: MatchRecord[];
     visual_tags?: string[];
     village_address?: string;
+    media_ids?: string[];
+    media_assets?: MediaRecord[];
+    proof?: ProofRecord;
+    transcript?: string | null;
 }
 
 export interface VolunteerTask {
@@ -111,6 +154,9 @@ export interface VolunteerTask {
     status: string;
     description: string;
     assigned_at: string;
+    media_assets?: MediaRecord[];
+    proof?: ProofRecord;
+    proof_assets?: MediaRecord[];
 }
 
 export interface UpdateVolunteerRequest {
@@ -190,6 +236,78 @@ export const api = {
 
         if (!response.ok) {
             throw new Error('Problem submission failed');
+        }
+
+        return await response.json();
+    },
+
+    async upsertProfile(profile: ProfileSubmission): Promise<{ status: string; profile: Profile }> {
+        const response = await fetch(`${API_BASE_URL}/profile`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(profile),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to save profile');
+        }
+
+        return await response.json();
+    },
+
+    async uploadMedia(
+        file: Blob | File,
+        options: {
+            kind: string;
+            problemId?: string;
+            volunteerId?: string;
+            label?: string;
+            filename?: string;
+        },
+    ): Promise<{ status: string; media: MediaRecord }> {
+        const formData = new FormData();
+        formData.append('file', file, options.filename || (file instanceof File ? file.name : 'upload.bin'));
+        formData.append('kind', options.kind);
+        if (options.problemId) {
+            formData.append('problem_id', options.problemId);
+        }
+        if (options.volunteerId) {
+            formData.append('volunteer_id', options.volunteerId);
+        }
+        if (options.label) {
+            formData.append('label', options.label);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/media`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok) {
+            throw new Error('Media upload failed');
+        }
+
+        return await response.json();
+    },
+
+    async submitProof(problemId: string, payload: {
+        volunteer_id: string;
+        before_media_id?: string;
+        after_media_id?: string;
+        notes?: string;
+    }): Promise<{ status: string; problem: ProblemRecord; proof: ProofRecord }> {
+        const response = await fetch(`${API_BASE_URL}/problems/${problemId}/proof`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to submit proof');
         }
 
         return await response.json();

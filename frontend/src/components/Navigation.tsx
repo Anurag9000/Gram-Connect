@@ -1,4 +1,4 @@
-import { Home, FileText, UserPlus, LayoutDashboard, LogOut, LogIn } from 'lucide-react';
+import { Home, FileText, UserPlus, LayoutDashboard, LogOut, LogIn, MapPinned } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -121,6 +121,17 @@ export default function Navigation() {
               </button>
             )}
 
+            {(!profile || profile.role === 'villager') && (
+              <button
+                onClick={() => navigate('/villager-onboarding')}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${isActive('/villager-onboarding') ? 'bg-green-700' : 'hover:bg-green-700'
+                  }`}
+              >
+                <UserPlus size={20} />
+                <span className="hidden sm:inline">Report Issue</span>
+              </button>
+            )}
+
             {profile?.role === 'volunteer' && (
               <>
                 <button
@@ -135,7 +146,7 @@ export default function Navigation() {
                   onClick={() => navigate('/profile')}
                   className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${isActive('/profile') ? 'bg-green-700' : 'hover:bg-green-700'
                     }`}
-                >
+                  >
                   <UserPlus size={20} />
                   <span className="hidden sm:inline">Profile</span>
                 </button>
@@ -152,6 +163,15 @@ export default function Navigation() {
                 <span className="hidden sm:inline">Dashboard</span>
               </button>
             )}
+
+            <button
+              onClick={() => navigate('/map')}
+              className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${isActive('/map') ? 'bg-green-700' : 'hover:bg-green-700'
+                }`}
+            >
+              <MapPinned size={20} />
+              <span className="hidden sm:inline">Map</span>
+            </button>
 
             {profile ? (
               <button

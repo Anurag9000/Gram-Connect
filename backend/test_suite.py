@@ -1,8 +1,10 @@
 import pytest
 import os
 from fastapi.testclient import TestClient
+import api_server
 from api_server import app
 from generate_canonical_dataset import main as generate_canonical_dataset
+from demo_bootstrap import ensure_trained_model, ensure_canonical_dataset
 import multimodal_service
 from recommender_service import RecommenderService
 
@@ -10,7 +12,20 @@ client = TestClient(app)
 
 # Mock some data paths for testing
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pkl")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "runtime_data", "canonical_model.pkl")
+
+
+def ensure_canonical_model() -> str:
+    ensure_canonical_dataset()
+    return ensure_trained_model(
+        model_path=MODEL_PATH,
+        proposals=api_server.DEFAULT_PROPOSALS_CSV,
+        people=api_server.DEFAULT_PEOPLE_CSV,
+        pairs=api_server.DEFAULT_PAIRS_CSV,
+        village_locations=api_server.DEFAULT_VILLAGE_LOCATIONS,
+        village_distances=api_server.DEFAULT_DISTANCE_CSV,
+        force=False,
+    )
 
 def test_health():
     response = client.get("/health")
@@ -30,6 +45,7 @@ def test_multimodal_service_logic():
 
 def test_recommendation_logic_fusion():
     generate_canonical_dataset()
+    ensure_canonical_model()
     people_csv = os.path.join(DATA_DIR, "people.csv")
 
     service = RecommenderService(
@@ -55,6 +71,7 @@ def test_recommendation_logic_fusion():
 
 def test_api_recommend_endpoint():
     generate_canonical_dataset()
+    ensure_canonical_model()
     # Test the API wrapper
     payload = {
         "proposal_text": "Need help with digital literacy in Gram Puram",

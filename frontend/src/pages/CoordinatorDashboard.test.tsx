@@ -29,6 +29,10 @@ vi.mock('../services/api', () => ({
   },
 }));
 
+vi.mock('../components/ProblemMap', () => ({
+  default: () => <div data-testid="problem-map" />,
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {

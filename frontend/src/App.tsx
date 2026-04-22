@@ -3,6 +3,8 @@ import { useAuth } from './contexts/auth-shared';
 import Navigation from './components/Navigation';
 import Home from './pages/Home';
 import SubmitProblem from './pages/SubmitProblem';
+import VillagerOnboarding from './pages/VillagerOnboarding';
+import MapView from './pages/MapView';
 import VolunteerProfile from './pages/VolunteerProfile';
 import CoordinatorDashboard from './pages/CoordinatorDashboard';
 import VolunteerLogin from './pages/VolunteerLogin';
@@ -31,7 +33,9 @@ function AppContent() {
         <Navigation />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/villager-onboarding" element={<VillagerOnboarding />} />
           <Route path="/submit" element={<SubmitProblem />} />
+          <Route path="/map" element={<MapView />} />
           <Route path="/profile" element={<VolunteerProfile />} />
           <Route path="/dashboard" element={<CoordinatorDashboard />} />
           <Route path="/volunteer-login" element={<VolunteerLogin />} />

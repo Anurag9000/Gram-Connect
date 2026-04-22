@@ -14,6 +14,10 @@ SocialCode is a FastAPI + Vite application for matching community problems to vo
 
 The project follows a modern decoupled architecture with a FastAPI backend and a Vite+React frontend. It integrates multimodal AI services (CLIP for vision, Whisper for audio) and a custom hybrid recommendation engine (M3).
 
+## Model Spec
+
+The persisted recommender architecture, feature stack, early-stopping policy, and runtime behavior are documented in [docs/model_spec.md](docs/model_spec.md).
+
 ## Canonical Seeded Data
 - `backend/generate_canonical_dataset.py` is the source of truth for the repo's synthetic dataset.
 - Running it regenerates:
@@ -25,6 +29,7 @@ The project follows a modern decoupled architecture with a FastAPI backend and a
   - `data/schedule.csv`
   - `data/runtime_profiles.csv`
 - The backend now seeds its runtime state from those files and persists live app state under `backend/runtime_data/app_state.json`.
+- The trained demo model is persisted at `backend/runtime_data/canonical_model.pkl` and is the only default model path used by the backend runtime.
 
 ## Verified Linux Setup
 
@@ -45,8 +50,8 @@ python -m uvicorn api_server:app --host 127.0.0.1 --port 8011
 
 Notes:
 - PyTorch is intentionally installed from the official CUDA wheel index first.
-- `run_full_verification.py` trains a real model bundle at `backend/runtime_data/canonical_model.pkl`, verifies recommendation inference, schedule filtering, CLIP image analysis, and Whisper transcription.
-- If `backend/model.pkl` is missing, `/recommend` still works using the runtime TF-IDF fallback.
+- `run_full_verification.py` trains and persists `backend/runtime_data/canonical_model.pkl`, verifies recommendation inference, schedule filtering, CLIP image analysis, and Whisper transcription.
+- The backend runtime fails closed if the trained bundle is missing. In normal demo flow, `backend/start_e2e_backend.py` or the FastAPI startup bootstrap trains it first.
 - Dataset paths auto-resolve from the repo or from `GRAM_CONNECT_*` environment variables.
 - The backend default runtime state is seeded from canonical CSVs, not hand-written demo records.
 
@@ -65,6 +70,15 @@ npm run dev
 ```
 
 Open the URL printed by Vite, usually `http://127.0.0.1:5173`.
+
+### Primary Demo Routes
+- `/` home and entry points
+- `/villager-onboarding` public villager profile setup
+- `/submit` problem submission with audio/image persistence
+- `/dashboard` coordinator dashboard with AI assignment and live map embed
+- `/map` full-screen geospatial view
+- `/volunteer-dashboard` volunteer tasks and proof upload flow
+- `/profile` volunteer profile editor
 
 ## Test Credentials
 - Coordinator: `coordinator@test.com` / `password`
@@ -105,12 +119,6 @@ That runs:
 - frontend browser integration tests
 
 ## Path Overrides
-Optional backend overrides:
-```bash
-export GRAM_CONNECT_MODEL_PATH=/absolute/path/to/model.pkl
-export GRAM_CONNECT_PEOPLE_CSV=/absolute/path/to/people.csv
-export GRAM_CONNECT_PROPOSALS_CSV=/absolute/path/to/proposals.csv
-export GRAM_CONNECT_PAIRS_CSV=/absolute/path/to/pairs.csv
-export GRAM_CONNECT_VILLAGE_LOCATIONS_CSV=/absolute/path/to/village_locations.csv
-export GRAM_CONNECT_DISTANCE_CSV=/absolute/path/to/village_distances.csv
-```
+The canonical trained model is always served from `backend/runtime_data/canonical_model.pkl`.
+Optional dataset overrides remain available for regeneration and experiments:
+`GRAM_CONNECT_PEOPLE_CSV`, `GRAM_CONNECT_PROPOSALS_CSV`, `GRAM_CONNECT_PAIRS_CSV`, `GRAM_CONNECT_VILLAGE_LOCATIONS_CSV`, and `GRAM_CONNECT_DISTANCE_CSV`.

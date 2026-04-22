@@ -63,12 +63,17 @@ class RecommenderService:
         else:
             task_end = config.get("task_end", task_start)
 
-        model_path = config.get("model_path") or self.model_path
+        model_path = self.model_path
         people_csv = config.get("people_csv") or self.people_csv
         village_locations = config.get("village_locations") or self.village_locations
         distance_csv = config.get("distance_csv") or self.distance_csv
 
-        loaded_bundle = self.model_bundle if model_path == self.model_path else None
+        loaded_bundle = self.model_bundle
+        if not loaded_bundle and not os.path.exists(model_path):
+            raise FileNotFoundError(
+                f"Trained model bundle not found at {model_path}. "
+                "Run the canonical training bootstrap before serving recommendations."
+            )
 
         # Prepare RecommendationConfig for the core engine
         m3_cfg = RecommendationConfig(

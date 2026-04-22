@@ -39,6 +39,8 @@ frontend/playwright-report/
 backend/model.pkl
 backend/runtime_data/
 data/*.csv
+!frontend/src/lib/
+!frontend/src/lib/database.types.ts
 !data/availability_legend.csv
 !data/people.csv
 !data/proposals.csv

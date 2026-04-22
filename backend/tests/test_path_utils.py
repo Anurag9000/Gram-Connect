@@ -1,14 +1,23 @@
-import os
 from pathlib import Path
 
 import path_utils
 
 
-def test_env_path_expands_home(monkeypatch):
-    monkeypatch.setenv("GRAM_CONNECT_MODEL_PATH", "~/models/model.pkl")
-    resolved = path_utils.resolve_model_path()
-    assert resolved.endswith("models/model.pkl")
-    assert resolved.startswith(str(Path.home()))
+def test_resolve_model_path_defaults_to_runtime_bundle(monkeypatch, tmp_path):
+    fake_backend = tmp_path / "backend"
+    fake_backend.mkdir()
+    monkeypatch.setattr(
+        path_utils,
+        "get_repo_paths",
+        lambda: path_utils.RepoPaths(
+            repo_root=tmp_path,
+            backend_dir=fake_backend,
+            data_dir=tmp_path / "data",
+            runtime_dir=fake_backend / "runtime_data",
+        ),
+    )
+
+    assert path_utils.resolve_model_path() == str((fake_backend / "runtime_data" / "canonical_model.pkl").resolve())
 
 
 def test_resolve_people_csv_prefers_existing_repo_file(monkeypatch, tmp_path):

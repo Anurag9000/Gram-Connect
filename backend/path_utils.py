@@ -42,10 +42,7 @@ def _env_path(*names: str) -> Optional[str]:
 
 def resolve_model_path() -> str:
     paths = get_repo_paths()
-    env_value = _env_path("GRAM_CONNECT_MODEL_PATH", "MODEL_PATH")
-    if env_value:
-        return env_value
-    return str((paths.backend_dir / "model.pkl").resolve())
+    return str((paths.runtime_dir / "canonical_model.pkl").resolve())
 
 
 def resolve_people_csv() -> str:

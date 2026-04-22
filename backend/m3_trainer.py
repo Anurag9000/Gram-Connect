@@ -3,10 +3,12 @@ import argparse
 import csv
 import os
 import pickle
+import copy
 import math
 import re
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 from collections import defaultdict
 
@@ -44,12 +46,21 @@ class TrainingConfig:
     proposals: str
     people: str
     pairs: str
-    out: str = "model.pkl"
+    out: str = str((get_repo_paths().runtime_dir / "canonical_model.pkl").resolve())
     model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     village_locations: Optional[str] = None
     village_distances: Optional[str] = None
     distance_scale: float = 50.0
     distance_decay: float = 30.0
+    n_estimators: int = 600
+    learning_rate: float = 0.03
+    subsample: float = 0.85
+    max_depth: int = 3
+    validation_fraction: float = 0.2
+    n_iter_no_change: int = 20
+    tol: float = 1e-4
+    resume_from_checkpoint: bool = True
+    checkpoint_every: int = 1
 
 def as2d(v):
     """Ensure a single sample row is 2D for cosine_similarity."""
@@ -59,6 +70,27 @@ def as2d(v):
         return v  # already 2D row in sparse format
     v = np.asarray(v)
     return v.reshape(1, -1) if v.ndim == 1 else v
+
+
+def _checkpoint_paths(out_path: str) -> Dict[str, Path]:
+    base = Path(out_path).resolve()
+    return {
+        "progress": base.with_name(f"{base.stem}.progress.pkl"),
+        "best": base.with_name(f"{base.stem}.best.pkl"),
+    }
+
+
+def _save_pickle(path: Path, payload: Dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "wb") as handle:
+        pickle.dump(payload, handle)
+
+
+def _load_pickle(path: Path) -> Optional[Dict[str, object]]:
+    if not path.exists():
+        return None
+    with open(path, "rb") as handle:
+        return pickle.load(handle)
 
 # -------------- core builder -------------
 
@@ -251,26 +283,134 @@ def train_model(config: TrainingConfig) -> float:
     Xtr, ytr = X[tr], y[tr]
     Xva, yva = X[va], y[va]
 
-    logger.info("Training GradientBoostingClassifier")
-    clf = GradientBoostingClassifier(random_state=42)
-    clf.fit(Xtr, ytr)
+    checkpoint_paths = _checkpoint_paths(config.out)
+    max_estimators = max(1, int(config.n_estimators))
+    patience_limit = max(1, int(config.n_iter_no_change))
+    start_stage = 1
+    best_stage = 0
+    best_score = float("-inf")
+    best_model = None
+    clf = None
 
-    if len(Xva) and len(np.unique(yva)) > 1:
-        va_pred = clf.predict_proba(Xva)[:, 1]
-        auc = roc_auc_score(yva, va_pred)
-    else:
-        auc = float("nan")
+    if config.resume_from_checkpoint:
+        resume_bundle = _load_pickle(checkpoint_paths["best"]) or _load_pickle(checkpoint_paths["progress"])
+        if resume_bundle:
+            clf = resume_bundle.get("model")
+            if clf is not None:
+                clf.set_params(warm_start=True)
+                best_stage = int(resume_bundle.get("best_stage", resume_bundle.get("stage", 0)))
+                best_score = float(resume_bundle.get("best_score", float("-inf")))
+                best_model = copy.deepcopy(resume_bundle.get("best_model", clf))
+                start_stage = max(1, int(resume_bundle.get("stage", best_stage)) + 1)
+                logger.info(
+                    "Resuming training from checkpoint %s at stage %d (best stage %d, best score %.4f)",
+                    checkpoint_paths["best"] if checkpoint_paths["best"].exists() else checkpoint_paths["progress"],
+                    start_stage,
+                    best_stage,
+                    best_score,
+                )
+
+    if clf is None:
+        clf = GradientBoostingClassifier(
+            random_state=42,
+            warm_start=True,
+            n_estimators=1,
+            learning_rate=config.learning_rate,
+            subsample=config.subsample,
+            max_depth=config.max_depth,
+        )
+
+    logger.info("Training GradientBoostingClassifier with manual early stopping and checkpoints")
+    no_improve = 0
+    latest_stage = start_stage - 1
+    for stage in range(start_stage, max_estimators + 1):
+        clf.set_params(n_estimators=stage, warm_start=True)
+        clf.fit(Xtr, ytr)
+        latest_stage = stage
+
+        if len(Xva) and len(np.unique(yva)) > 1:
+            stage_pred = clf.predict_proba(Xva)[:, 1]
+            stage_score = roc_auc_score(yva, stage_pred)
+        else:
+            stage_score = float(clf.score(Xtr, ytr))
+
+        current_bundle = {
+            "model": clf,
+            "backend": backend,
+            "distance_scale": config.distance_scale,
+            "distance_decay": config.distance_decay,
+            "stage": stage,
+            "best_stage": best_stage,
+            "best_score": best_score,
+            "train_config": {
+                "n_estimators": config.n_estimators,
+                "learning_rate": config.learning_rate,
+                "subsample": config.subsample,
+                "max_depth": config.max_depth,
+                "validation_fraction": config.validation_fraction,
+                "n_iter_no_change": config.n_iter_no_change,
+                "tol": config.tol,
+                "resume_from_checkpoint": config.resume_from_checkpoint,
+            },
+        }
+        if config.checkpoint_every and stage % max(1, int(config.checkpoint_every)) == 0:
+            _save_pickle(checkpoint_paths["progress"], current_bundle)
+
+        if stage_score > best_score + config.tol:
+            best_score = float(stage_score)
+            best_stage = stage
+            best_model = copy.deepcopy(clf)
+            best_bundle = dict(current_bundle)
+            best_bundle["model"] = best_model
+            best_bundle["best_model"] = best_model
+            best_bundle["best_stage"] = best_stage
+            best_bundle["best_score"] = best_score
+            _save_pickle(checkpoint_paths["best"], best_bundle)
+            no_improve = 0
+            logger.info("Stage %d improved validation score to %.4f", stage, stage_score)
+        else:
+            no_improve += 1
+            logger.info("Stage %d validation score %.4f (best %.4f at stage %d)", stage, stage_score, best_score, best_stage)
+
+        if no_improve >= patience_limit:
+            logger.info("Early stopping triggered after %d consecutive non-improving stages", no_improve)
+            break
+
+    if best_model is None:
+        best_model = copy.deepcopy(clf)
+        best_stage = latest_stage
+        if len(Xva) and len(np.unique(yva)) > 1:
+            best_score = float(roc_auc_score(yva, best_model.predict_proba(Xva)[:, 1]))
+        else:
+            best_score = float(best_model.score(Xtr, ytr))
+
+    auc = best_score if math.isfinite(best_score) else float("nan")
     logger.info("Validation AUC: %.3f (backend=%s)", auc, backend)
 
     logger.info("Saving model bundle to %s", config.out)
     with open(config.out, "wb") as f:
         pickle.dump({
-            "model": clf,
+            "model": best_model,
             "backend": backend,
             "prop_model": prop_model,
             "people_model": people_model,
             "distance_scale": config.distance_scale,
             "distance_decay": config.distance_decay,
+            "n_estimators_used": int(getattr(best_model, "n_estimators_", best_stage)),
+            "best_stage": best_stage,
+            "best_score": float(auc),
+            "checkpoint_paths": {key: str(value) for key, value in checkpoint_paths.items()},
+            "train_config": {
+                "n_estimators": config.n_estimators,
+                "learning_rate": config.learning_rate,
+                "subsample": config.subsample,
+                "max_depth": config.max_depth,
+                "validation_fraction": config.validation_fraction,
+                "n_iter_no_change": config.n_iter_no_change,
+                "tol": config.tol,
+                "resume_from_checkpoint": config.resume_from_checkpoint,
+                "checkpoint_every": config.checkpoint_every,
+            },
         }, f)
     logger.info("Training run complete")
     return float(auc)
@@ -280,13 +420,23 @@ def main():
     ap.add_argument("--proposals", required=True)
     ap.add_argument("--people", required=True)
     ap.add_argument("--pairs", required=True)
-    ap.add_argument("--out", default="model.pkl")
+    ap.add_argument("--out", default=str((get_repo_paths().runtime_dir / "canonical_model.pkl").resolve()))
     ap.add_argument("--model_name", default="sentence-transformers/all-MiniLM-L6-v2")
     default_dataset_root = str(get_repo_paths().data_dir.resolve())
     ap.add_argument("--village_locations", default=os.path.join(default_dataset_root, "village_locations.csv"))
     ap.add_argument("--village_distances", default=os.path.join(default_dataset_root, "village_distances.csv"))
     ap.add_argument("--distance_scale", type=float, default=50.0, help="Distance in km mapped to 1.0 in features")
     ap.add_argument("--distance_decay", type=float, default=30.0, help="Decay constant (km) for distance penalty exp(-d/decay)")
+    ap.add_argument("--n_estimators", type=int, default=600)
+    ap.add_argument("--learning_rate", type=float, default=0.03)
+    ap.add_argument("--subsample", type=float, default=0.85)
+    ap.add_argument("--max_depth", type=int, default=3)
+    ap.add_argument("--validation_fraction", type=float, default=0.2)
+    ap.add_argument("--n_iter_no_change", type=int, default=20)
+    ap.add_argument("--tol", type=float, default=1e-4)
+    ap.add_argument("--resume_from_checkpoint", action="store_true", default=True)
+    ap.add_argument("--no-resume_from_checkpoint", dest="resume_from_checkpoint", action="store_false")
+    ap.add_argument("--checkpoint_every", type=int, default=1)
     args = ap.parse_args()
 
     config = TrainingConfig(
@@ -299,6 +449,15 @@ def main():
         village_distances=args.village_distances,
         distance_scale=args.distance_scale,
         distance_decay=args.distance_decay,
+        n_estimators=args.n_estimators,
+        learning_rate=args.learning_rate,
+        subsample=args.subsample,
+        max_depth=args.max_depth,
+        validation_fraction=args.validation_fraction,
+        n_iter_no_change=args.n_iter_no_change,
+        tol=args.tol,
+        resume_from_checkpoint=args.resume_from_checkpoint,
+        checkpoint_every=args.checkpoint_every,
     )
     train_model(config)
 

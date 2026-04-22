@@ -16,20 +16,34 @@ export default function VolunteerDashboard() {
     const [tasks, setTasks] = useState<VolunteerTask[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedTask, setSelectedTask] = useState<VolunteerTask | null>(null);
-    const [beforeImage, setBeforeImage] = useState<string | null>(null);
-    const [afterImage, setAfterImage] = useState<string | null>(null);
+    const [beforeImageFile, setBeforeImageFile] = useState<File | null>(null);
+    const [afterImageFile, setAfterImageFile] = useState<File | null>(null);
+    const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
+    const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const revokeProofDraftUrls = () => {
+        if (beforeImagePreview) {
+            URL.revokeObjectURL(beforeImagePreview);
+        }
+        if (afterImagePreview) {
+            URL.revokeObjectURL(afterImagePreview);
+        }
+    };
+
+    const clearProofDraft = () => {
+        revokeProofDraftUrls();
+        setBeforeImageFile(null);
+        setAfterImageFile(null);
+        setBeforeImagePreview(null);
+        setAfterImagePreview(null);
+    };
 
     useEffect(() => {
         return () => {
-            if (beforeImage) {
-                URL.revokeObjectURL(beforeImage);
-            }
-            if (afterImage) {
-                URL.revokeObjectURL(afterImage);
-            }
+            revokeProofDraftUrls();
         };
-    }, [afterImage, beforeImage]);
+    }, [afterImagePreview, beforeImagePreview]);
 
     const loadTasks = useCallback(async () => {
         if (!profile) return;
@@ -51,27 +65,50 @@ export default function VolunteerDashboard() {
     }, [loadTasks, profile]);
 
     const handleComplete = async () => {
-        if (!afterImage) {
+        if (!afterImageFile) {
             alert("Please upload an 'After' photo as proof of work.");
             return;
         }
         if (!selectedTask) {
             return;
         }
+        if (!profile) {
+            alert('Your volunteer profile is required to complete a task.');
+            return;
+        }
         const taskId = selectedTask.id;
         setIsSubmitting(true);
         try {
-            await api.updateProblemStatus(taskId, 'completed');
+            let beforeMediaId: string | undefined;
+            let afterMediaId: string | undefined;
+
+            if (beforeImageFile) {
+                const beforeUpload = await api.uploadMedia(beforeImageFile, {
+                    kind: 'proof_before',
+                    problemId: taskId,
+                    volunteerId: profile.id,
+                    label: `${selectedTask.title} before`,
+                });
+                beforeMediaId = beforeUpload.media.id;
+            }
+
+            const afterUpload = await api.uploadMedia(afterImageFile, {
+                kind: 'proof_after',
+                problemId: taskId,
+                volunteerId: profile.id,
+                label: `${selectedTask.title} after`,
+            });
+            afterMediaId = afterUpload.media.id;
+
+            await api.submitProof(taskId, {
+                volunteer_id: profile.id,
+                before_media_id: beforeMediaId,
+                after_media_id: afterMediaId,
+                notes: 'Volunteer submitted completion proof',
+            });
             alert("Impact verified! Thank you for your service.");
             setSelectedTask(null);
-            if (beforeImage) {
-                URL.revokeObjectURL(beforeImage);
-            }
-            if (afterImage) {
-                URL.revokeObjectURL(afterImage);
-            }
-            setBeforeImage(null);
-            setAfterImage(null);
+            clearProofDraft();
             loadTasks();
         } catch (err) {
             console.error("Task completion failed:", err);
@@ -105,7 +142,10 @@ export default function VolunteerDashboard() {
             <div className="min-h-screen bg-gray-50 py-12 px-4">
                 <div className="max-w-2xl mx-auto">
                     <button
-                        onClick={() => setSelectedTask(null)}
+                        onClick={() => {
+                            setSelectedTask(null);
+                            clearProofDraft();
+                        }}
                         className="flex items-center gap-2 text-green-700 font-semibold mb-6"
                     >
                         <ArrowLeft size={20} /> Back to My Tasks
@@ -120,6 +160,50 @@ export default function VolunteerDashboard() {
                             <span>{selectedTask.village}, {selectedTask.location}</span>
                         </div>
 
+                        {(selectedTask.media_assets?.length || selectedTask.proof_assets?.length) ? (
+                            <div className="space-y-4 mb-8">
+                                {selectedTask.media_assets?.length ? (
+                                    <div>
+                                        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Problem media</h3>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {selectedTask.media_assets.map((asset) => (
+                                                <div key={asset.id} className="rounded-xl border border-gray-200 p-3">
+                                                    {asset.mime_type?.startsWith('image/') && asset.url ? (
+                                                        <img src={asset.url} alt={asset.filename || asset.label || 'Uploaded media'} className="h-28 w-full rounded-lg object-cover mb-2" />
+                                                    ) : (
+                                                        <div className="h-28 w-full rounded-lg bg-gray-100 flex items-center justify-center text-xs text-gray-500 mb-2">
+                                                            {asset.kind}
+                                                        </div>
+                                                    )}
+                                                    <p className="text-xs font-medium text-gray-700 truncate">{asset.filename || asset.label || asset.kind}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+
+                                {selectedTask.proof_assets?.length ? (
+                                    <div>
+                                        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Stored proof</h3>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {selectedTask.proof_assets.map((asset) => (
+                                                <div key={asset.id} className="rounded-xl border border-emerald-200 p-3 bg-emerald-50/40">
+                                                    {asset.mime_type?.startsWith('image/') && asset.url ? (
+                                                        <img src={asset.url} alt={asset.filename || asset.label || 'Proof media'} className="h-28 w-full rounded-lg object-cover mb-2" />
+                                                    ) : (
+                                                        <div className="h-28 w-full rounded-lg bg-emerald-100 flex items-center justify-center text-xs text-emerald-700 mb-2">
+                                                            {asset.kind}
+                                                        </div>
+                                                    )}
+                                                    <p className="text-xs font-medium text-gray-700 truncate">{asset.filename || asset.label || asset.kind}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+
                         <div className="space-y-8">
                             <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Verification Proof (Before & After)</h3>
 
@@ -127,37 +211,63 @@ export default function VolunteerDashboard() {
                                 <div className="space-y-2">
                                     <p className="text-sm font-medium text-gray-700">Before Photo</p>
                                     <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 bg-gray-50 object-cover overflow-hidden">
-                                        {beforeImage ? (
-                                            <img src={beforeImage} className="w-full h-full object-cover" />
+                                        {beforeImagePreview ? (
+                                            <img src={beforeImagePreview} className="w-full h-full object-cover" />
                                         ) : (
                                             <>
                                                 <Camera size={32} className="text-gray-400 mb-2" />
                                                 <span className="text-xs text-gray-500">Capture/Upload</span>
                                             </>
                                         )}
-                                        <input data-testid="before-photo-input" type="file" className="hidden" accept="image/*" onChange={(e) => setBeforeImage(e.target.files?.[0] ? URL.createObjectURL(e.target.files[0]) : null)} />
+                                        <input
+                                            data-testid="before-photo-input"
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0] ?? null;
+                                                if (beforeImagePreview) {
+                                                    URL.revokeObjectURL(beforeImagePreview);
+                                                }
+                                                setBeforeImageFile(file);
+                                                setBeforeImagePreview(file ? URL.createObjectURL(file) : null);
+                                            }}
+                                        />
                                     </label>
                                 </div>
 
                                 <div className="space-y-2">
                                     <p className="text-sm font-medium text-gray-700">After Photo (Required)</p>
                                     <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 bg-gray-50 object-cover overflow-hidden">
-                                        {afterImage ? (
-                                            <img src={afterImage} className="w-full h-full object-cover" />
+                                        {afterImagePreview ? (
+                                            <img src={afterImagePreview} className="w-full h-full object-cover" />
                                         ) : (
                                             <>
                                                 <Camera size={32} className="text-green-600 mb-2" />
                                                 <span className="text-xs text-green-600 font-bold">Verify Completion</span>
                                             </>
                                         )}
-                                        <input data-testid="after-photo-input" type="file" className="hidden" accept="image/*" onChange={(e) => setAfterImage(e.target.files?.[0] ? URL.createObjectURL(e.target.files[0]) : null)} />
+                                        <input
+                                            data-testid="after-photo-input"
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0] ?? null;
+                                                if (afterImagePreview) {
+                                                    URL.revokeObjectURL(afterImagePreview);
+                                                }
+                                                setAfterImageFile(file);
+                                                setAfterImagePreview(file ? URL.createObjectURL(file) : null);
+                                            }}
+                                        />
                                     </label>
                                 </div>
                             </div>
 
                             <button
                                 onClick={handleComplete}
-                                disabled={isSubmitting || !afterImage}
+                                disabled={isSubmitting || !afterImageFile}
                                 className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition disabled:bg-gray-400 flex items-center justify-center gap-3"
                             >
                                 {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle />}

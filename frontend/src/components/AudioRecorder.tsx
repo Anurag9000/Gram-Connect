@@ -5,9 +5,10 @@ import { api } from '../services/api';
 
 interface AudioRecorderProps {
     onTranscription: (text: string) => void;
+    onCapturedAudio?: (blob: Blob) => void;
 }
 
-const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
+const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription, onCapturedAudio }) => {
     const { t } = useTranslation();
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -34,6 +35,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription }) => {
 
             mediaRecorder.current.onstop = async () => {
                 const audioBlob = new Blob(audioChunks.current, { type: 'audio/wav' });
+                onCapturedAudio?.(audioBlob);
                 await handleTranscription(audioBlob);
             };
 

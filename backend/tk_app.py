@@ -90,9 +90,8 @@ class RecommendationApp(tk.Tk):
         self.schedule_var = tk.StringVar()
         ttk.Entry(main, textvariable=self.schedule_var, width=30).grid(row=7, column=2, sticky="w")
 
-        ttk.Label(main, text="Model path:").grid(row=8, column=0, sticky="w", pady=(8, 0))
-        self.model_var = tk.StringVar(value=DEFAULT_MODEL_PATH)
-        ttk.Entry(main, textvariable=self.model_var, width=40).grid(row=9, column=0, sticky="w")
+        ttk.Label(main, text="Model bundle:").grid(row=8, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(main, text=DEFAULT_MODEL_PATH).grid(row=9, column=0, sticky="w")
 
         run_button = ttk.Button(main, text="Generate Teams", command=self.run_recommendation)
         run_button.grid(row=9, column=1, pady=12, sticky="w")
@@ -147,10 +146,6 @@ class RecommendationApp(tk.Tk):
             "auto_extract": True,
             "threshold": 0.25,
         }
-
-        current_model = self.model_var.get().strip()
-        if current_model and current_model != recommender.model_path:
-            recommender.set_model_path(current_model)
 
         try:
             results = recommender.generate_recommendations(payload)

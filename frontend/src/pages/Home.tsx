@@ -45,6 +45,17 @@ export default function Home() {
                     {t('common.submit_problem')} <ArrowRight className="ml-2" size={20} />
                   </div>
                 </div>
+
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer md:col-span-2" onClick={() => navigate('/map')}>
+                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">
+                    <Map className="text-purple-600" size={24} />
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Live Map View</h2>
+                  <p className="text-gray-600 mb-6">Inspect the live spatial distribution of problems, progress, and completed work across the network.</p>
+                  <div className="flex items-center text-purple-600 font-semibold">
+                    Open Map <ArrowRight className="ml-2" size={20} />
+                  </div>
+                </div>
               </>
             ) : (
               <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/volunteer-dashboard')}>
@@ -115,7 +126,16 @@ export default function Home() {
               Start Volunteering
               <ArrowRight className="ml-2 group-hover:translate-x-1 transition" size={20} />
             </button>
-            <button className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-green-600 hover:text-green-600 transition">
+            <button
+              onClick={() => navigate('/villager-onboarding')}
+              className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-green-600 hover:text-green-600 transition"
+            >
+              Report a Problem
+            </button>
+            <button
+              onClick={() => navigate('/map')}
+              className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-green-600 hover:text-green-600 transition"
+            >
               Explore Projects
             </button>
           </div>

@@ -2,7 +2,7 @@
 
 ## Linux Setup
 ```bash
-cd /home/anurag-basistha/Projects/Done/Gram-Connect/backend
+cd /home/anurag-basistha/Projects/TODO/Gram-Connect/backend
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
@@ -13,6 +13,7 @@ python -m pip install pytest
 
 ## Verification
 ```bash
+python generate_canonical_dataset.py
 python -m pytest tests -q
 python - <<'PY'
 from api_server import RecommendRequest, recommend_endpoint
@@ -38,6 +39,7 @@ python -m uvicorn api_server:app --host 127.0.0.1 --port 8011
 ```
 
 ## Notes
-- If `model.pkl` is absent, the recommender uses the runtime TF-IDF fallback.
+- The trained demo model persists at `backend/runtime_data/canonical_model.pkl`.
+- If that bundle is absent, run `python run_full_verification.py` or start the demo backend once so it is trained and persisted before serving.
 - CSV inputs resolve from repo defaults or from `GRAM_CONNECT_*` environment variables.
 - If `8000` is already in use, keep using `8011` or choose another free port.

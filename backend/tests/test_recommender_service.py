@@ -6,7 +6,54 @@ from unittest.mock import patch
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from m3_trainer import TrainingConfig, train_model
 from recommender_service import RecommenderService
+
+
+def _train_tiny_bundle(tmp_path: Path) -> tuple[Path, Path]:
+    proposals_csv = tmp_path / "proposals.csv"
+    people_csv = tmp_path / "people.csv"
+    pairs_csv = tmp_path / "pairs.csv"
+    model_path = tmp_path / "model.pkl"
+
+    proposals_csv.write_text(
+        "proposal_id,text\n"
+        "pr1,Urgent handpump repair needed in Village A\n"
+        "pr2,Community health outreach needed in Village B\n",
+        encoding="utf-8",
+    )
+    people_csv.write_text(
+        "person_id,name,text,willingness_eff,willingness_bias,availability,home_location\n"
+        "p1,Alice,water quality assessment; handpump repair,0.8,0.7,immediately available,Village A\n"
+        "p2,Bob,public health outreach; community planning,0.7,0.6,generally available,Village B\n"
+        "p3,Chandra,education and digital literacy,0.4,0.5,rarely available,Village C\n",
+        encoding="utf-8",
+    )
+    pairs_csv.write_text(
+        "proposal_id,person_id,label\n"
+        "pr1,p1,1\n"
+        "pr1,p2,0\n"
+        "pr1,p3,0\n"
+        "pr2,p1,0\n"
+        "pr2,p2,1\n"
+        "pr2,p3,0\n",
+        encoding="utf-8",
+    )
+
+    train_model(
+        TrainingConfig(
+            proposals=str(proposals_csv),
+            people=str(people_csv),
+            pairs=str(pairs_csv),
+            out=str(model_path),
+            model_name="tfidf",
+            n_estimators=8,
+            n_iter_no_change=3,
+            checkpoint_every=1,
+            resume_from_checkpoint=False,
+        )
+    )
+    return model_path, people_csv
 
 
 def test_service_skips_missing_model(tmp_path):
@@ -26,17 +73,11 @@ def test_service_skips_missing_model(tmp_path):
     assert service.model_bundle is None
 
 
-def test_service_generates_recommendations_without_model(tmp_path):
-    people_csv = tmp_path / "people.csv"
-    people_csv.write_text(
-        "person_id,name,text,willingness_eff,willingness_bias,availability,home_location\n"
-        "p1,Alice,water quality assessment; handpump repair,0.8,0.7,immediately available,Village A\n"
-        "p2,Bob,public health outreach; community planning,0.7,0.6,generally available,Village B\n",
-        encoding="utf-8",
-    )
+def test_service_generates_recommendations_with_trained_model(tmp_path):
+    model_path, people_csv = _train_tiny_bundle(tmp_path)
 
     service = RecommenderService(
-        model_path=str(tmp_path / "missing.pkl"),
+        model_path=str(model_path),
         people_csv=str(people_csv),
         dataset_root=str(tmp_path),
     )
@@ -59,15 +100,10 @@ def test_service_generates_recommendations_without_model(tmp_path):
 
 @patch("recommender_service.run_recommender")
 def test_service_passes_optional_fields_to_core(mock_run, tmp_path):
-    people_csv = tmp_path / "people.csv"
-    people_csv.write_text(
-        "person_id,name,text,willingness_eff,willingness_bias\n"
-        "p1,Alice,water quality assessment,0.8,0.7\n",
-        encoding="utf-8",
-    )
+    model_path, people_csv = _train_tiny_bundle(tmp_path)
 
     service = RecommenderService(
-        model_path=str(tmp_path / "missing.pkl"),
+        model_path=str(model_path),
         people_csv=str(people_csv),
         dataset_root=str(tmp_path),
     )

@@ -2,6 +2,8 @@
 
 This document summarises every input the frontend (or a future service) can supply to the backend scripts, and every field the backend returns. Use it to wire UI controls or REST endpoints without diving into the code.
 
+For the canonical recommender architecture and exact feature stack, see [docs/model_spec.md](model_spec.md).
+
 ---
 
 ## Training Pipeline (`m3_trainer.py`)
@@ -11,7 +13,7 @@ This document summarises every input the frontend (or a future service) can supp
 - `people` *(path)* – CSV with volunteer records, including skills text, willingness columns, availability string, and `home_location`.
 - `pairs` *(path)* – CSV of labelled proposal–person pairs (`label|y|target`).
 - Optional overrides:
-  - `out` *(path, default `model.pkl`)* – Destination for the trained model bundle.
+  - `out` *(path, default `backend/runtime_data/canonical_model.pkl`)* – Destination for the trained model bundle.
   - `model_name` *(string, default `sentence-transformers/all-MiniLM-L6-v2`)* – Embedding model name.
   - `village_locations` *(path, default resolved from repo/env)* – Master list used to detect proposal villages.
   - `village_distances` *(path, default resolved from repo/env)* – Pairwise village distances (km + minutes).
@@ -19,11 +21,15 @@ This document summarises every input the frontend (or a future service) can supp
   - `distance_decay` *(float, default `30.0` km)* – Distance penalty decay constant (`exp(-d/decay)`).
 
 ### Outputs
-- `model.pkl` (or `--out` path) containing:
+- The persisted trained bundle at `backend/runtime_data/canonical_model.pkl` containing:
   - Fitted GradientBoosting classifier.
   - Embedding backends (`prop_model`, `people_model`) and backend label (`sentence-transformers` or `tfidf`).
   - Distance hyperparameters (`distance_scale`, `distance_decay`).
-  - The pipeline implicitly encodes availability levels, severity scores, and distance penalties during training; no extra artefacts are emitted.
+  - The pipeline implicitly encodes availability levels, severity scores, and distance penalties during training.
+- Intermediate checkpoint artefacts are also written during training:
+  - `canonical_model.progress.pkl` after each boosting stage.
+  - `canonical_model.best.pkl` when validation improves.
+  - The final canonical bundle is rewritten from the best checkpoint at the end of training.
 
 ---
 
@@ -31,7 +37,7 @@ This document summarises every input the frontend (or a future service) can supp
 
 ### Inputs
 Core parameters:
-- `model` *(path)* – The trained bundle from `m3_trainer.py`.
+- `model` *(path)* – The persisted trained bundle from `m3_trainer.py`.
 - `people` *(path)* – Volunteer roster CSV (same schema as training).
 - Proposal data *(one of)*:
   - `proposal_text` *(string)* – Inline description.
@@ -75,7 +81,7 @@ Team construction:
   - Detected proposal village (or warning if not found).
   - Count of volunteers excluded due to schedule conflicts.
 - No secondary files are written. Volunteers are guaranteed to appear in at most one team for the specified time window; lower-ranked teams are recomputed if a member was already assigned.
-- If the configured `model` file does not exist in the API runtime path, the backend now falls back to a runtime TF-IDF bundle so `/recommend` can still return teams on a fresh clone.
+- If the configured `model` file does not exist, the backend fails closed. The demo bootstrap is responsible for generating and persisting the canonical trained bundle before serving requests.
 
 ---
 

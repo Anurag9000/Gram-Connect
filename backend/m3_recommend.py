@@ -10,7 +10,7 @@ What’s new:
 
 Usage (PowerShell):
   python m3_recommend.py `
-    --model model.pkl `
+    --model backend/runtime_data/canonical_model.pkl `
     --people people.csv `
     --proposal_text "village drains blocked; handpump broken; need toilets and awareness" `
     --out teams_m3.csv `
@@ -18,7 +18,7 @@ Usage (PowerShell):
     --auto_extract --threshold 0.20
 
 Or if you already have a skills JSON:
-  python m3_recommend.py --model model.pkl --people people.csv --proposal_text "..." --skills_json skills.json --out teams_m3.csv
+  python m3_recommend.py --model backend/runtime_data/canonical_model.pkl --people people.csv --proposal_text "..." --skills_json skills.json --out teams_m3.csv
 """
 
 import argparse
@@ -71,19 +71,6 @@ logger = logging.getLogger("m3_recommend")
 # Backward-compatible alias used by older utilities and tests.
 sigmoid = robust_sigmoid
 
-
-class RuntimeFallbackClassifier:
-    def predict_proba(self, features: np.ndarray) -> np.ndarray:
-        scores = []
-        for row in features:
-            sim = float(row[0]) if len(row) > 0 else 0.0
-            weighted_sim = float(row[1]) if len(row) > 1 else sim
-            willingness = float(row[2]) if len(row) > 2 else 0.0
-            availability = float(row[5]) if len(row) > 5 else 0.5
-            score = (0.45 * sim) + (0.35 * weighted_sim) + (0.15 * willingness) + (0.05 * availability)
-            score = max(0.0, min(1.0, score))
-            scores.append([1.0 - score, score])
-        return np.asarray(scores, dtype=float)
 
 @dataclass
 class RecommendationConfig:
@@ -428,23 +415,14 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
     if not all_people:
         raise ValueError("No valid volunteers found in people data.")
 
-    # 3. Load model bundle or build a runtime fallback for fresh clones.
+    # 3. Load the trained model bundle.
     if config.loaded_bundle:
         bundle = config.loaded_bundle
     elif not os.path.exists(config.model):
-        logger.warning("Model file not found at %s. Using runtime TF-IDF fallback.", config.model)
-        shared_model, _, _ = embed_texts(
-            [text] + [person["text"] for person in all_people],
-            model_name="tfidf-runtime-fallback",
+        raise FileNotFoundError(
+            f"Trained model bundle not found at {config.model}. "
+            "Train and persist the canonical model before calling the recommender."
         )
-        bundle = {
-            "model": RuntimeFallbackClassifier(),
-            "backend": "tfidf",
-            "prop_model": shared_model,
-            "people_model": shared_model,
-            "distance_scale": config.distance_scale,
-            "distance_decay": config.distance_decay,
-        }
     else:
         with open(config.model, "rb") as f:
             bundle = pickle.load(f)

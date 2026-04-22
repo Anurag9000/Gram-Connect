@@ -1,6 +1,8 @@
 # Social Code Scripts - CLI & API Parameters
 
-Every script in this repository is a self-contained CLI tool. The flags documented here map directly to parameters you can surface through a future API. Defaults resolve from the repo or from the `GRAM_CONNECT_*` environment variables.
+Every script in this repository is a self-contained CLI tool. The flags documented here map directly to parameters you can surface through a future API. Defaults resolve from the repo or from the `GRAM_CONNECT_*` environment variables, and the canonical persisted model lives at `backend/runtime_data/canonical_model.pkl`.
+
+For a concise explanation of what the recommender model is, what features it uses, and how it is trained and checkpointed, see [docs/model_spec.md](../docs/model_spec.md).
 
 For Linux + NVIDIA GPU setups, install PyTorch separately before `requirements.txt`:
 ```bash
@@ -27,21 +29,29 @@ Train the GradientBoosting classifier that scores volunteer-to-proposal compatib
 - `--proposals` **(required)**: CSV with proposal text (`text|proposal_text|description|body|content`).  
 - `--people` **(required)**: CSV with volunteer profiles, willingness signals, availability category, and home village.  
 - `--pairs` **(required)**: CSV of labelled proposal-person pairs (`label|y|target`).  
-- `--out` (default `model.pkl`): Output bundle containing the classifier and embedding backends.  
-- `--model_name` (default `sentence-transformers/all-MiniLM-L6-v2`): Transformer to try before falling back to TF-IDF.  
+- `--out` (default `backend/runtime_data/canonical_model.pkl`): Output bundle containing the classifier and embedding backends.  
+- `--model_name` (default `sentence-transformers/all-MiniLM-L6-v2`): Embedding model used to train the persisted bundle.  
 - `--village_locations` (default resolved from repo/env): Master village list for proposal location parsing.  
 - `--village_distances` (default resolved from repo/env): Pairwise village distances (km plus travel minutes).  
 - `--distance_scale` (default `50.0` km): Normalisation scale so `distance_km / distance_scale` is clipped to `[0, 1]`.  
 - `--distance_decay` (default `30.0` km): Decay constant for the distance penalty `exp(-distance / distance_decay)` applied to willingness.
+- `--resume_from_checkpoint` / `--no-resume_from_checkpoint`: Resume from the best saved checkpoint by default, or force a clean run if you need one.
+- `--checkpoint_every` (default `1`): Save the current stage checkpoint every N boosting steps.
 
-The trainer automatically finds the village mentioned in each proposal, estimates severity (LOW/NORMAL/HIGH) from keywords, maps availability strings to levels, and augments the feature matrix with distance and severity-aware penalties. The chosen distance hyperparameters are saved inside `model.pkl` so the recommender stays in sync.
+The trainer automatically finds the village mentioned in each proposal, estimates severity (LOW/NORMAL/HIGH) from keywords, maps availability strings to levels, and augments the feature matrix with distance and severity-aware penalties. The chosen distance hyperparameters are saved inside the persisted bundle so the recommender stays in sync.
+
+During training the script now writes:
+- `canonical_model.progress.pkl` after every boosting stage
+- `canonical_model.best.pkl` whenever validation improves
+
+If a run is interrupted, rerunning the trainer resumes from the best saved stage by default and then writes the final canonical bundle back to `backend/runtime_data/canonical_model.pkl`.
 
 ---
 
 ## `m3_recommend.py`
 Build teams for a new proposal while respecting skills, willingness, geography, availability fairness, pre-existing schedules, and weekly workload ceilings.
 
-- `--model` **(required)**: Path to `model.pkl` from training.  
+- `--model` **(required)**: Path to the persisted trained bundle.  
 - `--proposal_text` / `--proposal_file`: Inline text or file path for the problem statement (mutually exclusive).  
 - `--people` **(required)**: Volunteer roster (flexible headers for IDs, text/skills, willingness, availability, home location).  
 - `--required_skills`: Explicit list of skills (overrides auto extraction).  
@@ -75,7 +85,7 @@ Runtime pipeline:
 
 Output columns include `team_size`, `goodness`, `coverage`, `k_robustness`, `redundancy`, `set_size`, `willingness_avg`, and `willingness_min`. Distance and severity effects are reflected in the aggregated willingness metrics and goodness scores.
 
-If the configured model path does not exist, the runtime API path falls back to a TF-IDF recommender instead of failing hard.
+If the configured model path does not exist, the runtime API now fails closed. The demo bootstrap and `run_full_verification.py` are responsible for creating the canonical trained bundle before serving recommendations.
 
 The repository also includes `run_full_verification.py`, which performs a real training run, validates seeded data integrity, verifies schedule-aware inference, and exercises `/recommend`, `/analyze-image`, and `/transcribe` using repo fixtures.
 
@@ -115,7 +125,7 @@ Map free-form proposal text to canonical Gram Sahayta skill phrases.
 ---
 
 ### Integration Notes
-- CLI flags are API-ready. Path defaults can also be overridden with `GRAM_CONNECT_*` environment variables.  
+- CLI flags are API-ready. Dataset paths can be overridden with `GRAM_CONNECT_*` environment variables, but the canonical model bundle always resolves to `backend/runtime_data/canonical_model.pkl`.  
 - Time arguments must be ISO-8601; the scheduler converts to UTC and keeps volunteers collision-free.  
 - Severity/availability penalties follow a fixed heuristic (HIGH penalises "generally" and "rarely"; NORMAL penalises "rarely"; LOW applies no penalty). Override `--severity` or adjust the source if policy changes.  
 - Distance penalties depend on the supplied village assets; point the CLI to different CSVs if you deploy in another geography.  

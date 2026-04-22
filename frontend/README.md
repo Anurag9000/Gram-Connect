@@ -2,7 +2,7 @@
 
 ## Install and Verify
 ```bash
-cd /home/anurag-basistha/Projects/Done/Gram-Connect/frontend
+cd /home/anurag-basistha/Projects/TODO/Gram-Connect/frontend
 npm install
 printf 'VITE_API_BASE_URL=http://127.0.0.1:8011\n' > .env
 npm test -- --run

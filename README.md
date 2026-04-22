@@ -1,6 +1,6 @@
-# SocialCode
+# Gram Connect
 
-SocialCode is a FastAPI + Vite application for matching community problems to volunteer teams. The repo now includes a canonical synthetic dataset, a real model-training path, real multimodal verification, and a live browser integration suite against the backend.
+Gram Connect is a FastAPI + Vite application for matching community problems to volunteer teams. The repo now includes a canonical synthetic dataset, a real model-training path, real multimodal verification, and a live browser integration suite against the backend.
 
 ## Repo Layout
 - `backend/`: FastAPI service, recommender logic, multimodal helpers, tests
@@ -10,7 +10,7 @@ SocialCode is a FastAPI + Vite application for matching community problems to vo
 
 ## System Architecture
 
-![Gram-Connect Architecture](docs/architecture_diagram.png)
+![Gram Connect Architecture](docs/architecture_diagram.png)
 
 The project follows a modern decoupled architecture with a FastAPI backend and a Vite+React frontend. It integrates multimodal AI services (CLIP for vision, Whisper for audio) and a custom hybrid recommendation engine (M3).
 

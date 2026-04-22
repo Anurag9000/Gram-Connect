@@ -1,4 +1,4 @@
-# Social Code Scripts - CLI & API Parameters
+# Gram Connect Scripts - CLI & API Parameters
 
 Every script in this repository is a self-contained CLI tool. The flags documented here map directly to parameters you can surface through a future API. Defaults resolve from the repo or from the `GRAM_CONNECT_*` environment variables, and the canonical persisted model lives at `backend/runtime_data/canonical_model.pkl`.
 

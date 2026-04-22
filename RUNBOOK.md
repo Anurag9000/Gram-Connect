@@ -1,4 +1,4 @@
-# SocialCode Runbook
+# Gram Connect Runbook
 
 ## 1. Backend
 ```bash

@@ -84,7 +84,7 @@ export default function Home() {
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center space-x-2">
               <Globe className="text-green-600" size={32} />
-              <span className="text-2xl font-bold text-gray-900 tracking-tight">SocialCode</span>
+              <span className="text-2xl font-bold text-gray-900 tracking-tight">Gram Connect</span>
             </div>
             <div className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-gray-600 hover:text-green-600 transition">Features</a>
@@ -115,7 +115,7 @@ export default function Home() {
             </span>
           </h1>
           <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">
-            SocialCode uses multimodal AI to match student volunteers with critical village needs,
+            Gram Connect uses multimodal AI to match student volunteers with critical village needs,
             ensuring expertise goes exactly where it's needed most.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">

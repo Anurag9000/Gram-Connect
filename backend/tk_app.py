@@ -25,7 +25,7 @@ recommender = RecommenderService(
 class RecommendationApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("SocialCode Team Recommender")
+        self.title("Gram Connect Team Recommender")
         self.geometry("900x700")
         self._build_ui()
 

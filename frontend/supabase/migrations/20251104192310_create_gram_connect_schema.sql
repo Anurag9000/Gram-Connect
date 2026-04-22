@@ -1,7 +1,7 @@
 /*
-  # Gram-Connect Schema
+  # Gram Connect Schema
 
-  This migration creates the database structure for the Gram-Connect platform,
+  This migration creates the database structure for the Gram Connect platform,
   which matches village problems with volunteer skills.
 
   ## New Tables

@@ -97,7 +97,7 @@ export default function Navigation() {
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
               <span className="text-green-600 font-bold text-xl">S</span>
             </div>
-            <h1 className="text-xl font-bold">SocialCode</h1>
+            <h1 className="text-xl font-bold">Gram Connect</h1>
           </div>
 
           <div className="flex space-x-1 md:space-x-2 items-center">

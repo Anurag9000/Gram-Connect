@@ -14,7 +14,7 @@ describe('Navigation', () => {
             </BrowserRouter>
         );
 
-        expect(screen.getByText('SocialCode')).toBeInTheDocument();
+        expect(screen.getByText('Gram Connect')).toBeInTheDocument();
     });
 
     it('should show login buttons when not authenticated', () => {

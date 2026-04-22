@@ -62,7 +62,7 @@ recommender_service = RecommenderService(
     dataset_root=DATASET_ROOT
 )
 
-app = FastAPI(title="SocialCode Backend Service")
+app = FastAPI(title="Gram Connect Backend Service")
 
 # CORS Configuration
 # Allow user to specify origins via env var, otherwise default to lenient for dev
@@ -991,6 +991,6 @@ def analyze_image_endpoint(file: UploadFile = File(...), labels: Optional[str] =
 
 if __name__ == "__main__":
     import uvicorn
-    print("Starting SocialCode Backend Server...")
+    print("Starting Gram Connect Backend Server...")
     print(f"Loading data from: {DATASET_ROOT}")
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -856,12 +856,10 @@ export default function CoordinatorDashboard() {
                         </div>
 
                         <div className="mt-4 text-sm text-blue-800 bg-blue-50 p-4 rounded-lg border border-blue-100 leading-relaxed">
-                          <strong className="text-blue-900 block mb-1">Why this team?</strong>
-                          Team ranked #{idx + 1} with <strong>{(team.coverage * 100).toFixed(0)}% skill coverage</strong> of the task's requirements.
-                          The members bring an average willingness of <strong>{(team.willingnessAvg * 100).toFixed(0)}%</strong> and are on average <strong>{team.avgDistanceKm.toFixed(1)} km</strong> from the problem site
-                          {team.avgDistanceKm === 0 ? ' (all local to the problem village)' : ''}.
-                          {' '}The model prioritised this combination by multiplying domain expertise × willingness — ensuring only volunteers who are both skilled and motivated make the shortlist.
-                          {team.coverage < 0.3 && ' Note: coverage is below 30%; consider a larger team size or assigning additional specialists.'}
+                          <strong className="text-blue-900 block mb-2">⚙ Why this team? (Forge Engine)</strong>
+                          <span className="block mb-1">Ranked #{idx + 1} · <strong>{(team.coverage * 100).toFixed(0)}% skill coverage</strong> · <strong>{(team.willingnessAvg * 100).toFixed(0)}% avg willingness</strong> · <strong>{team.avgDistanceKm.toFixed(1)} km avg distance</strong>{team.avgDistanceKm === 0 ? ' (all local)' : ''}</span>
+                          <span className="block text-blue-700 text-xs mt-1">Score = DOMAIN × WILL × AVAIL × PROX × FRESH — multiplicative, so any factor near zero eliminates the candidate regardless of other strengths. Teams are then ranked by coverage first, then geometric-mean member quality.</span>
+                          {team.coverage < 0.3 && <span className="block text-amber-700 font-semibold mt-1">⚠ Coverage below 30% — consider increasing team size or reassigning with domain specialists.</span>}
                         </div>
                       </div>
                     ))}

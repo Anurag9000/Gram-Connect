@@ -19,9 +19,7 @@ import shutil
 import tempfile
 
 from env_loader import load_local_env
-from m3_trainer import TrainingConfig, train_model
-from m3_recommend import RecommendationConfig
-from demo_bootstrap import ensure_canonical_dataset, ensure_trained_model, should_bootstrap_models
+from demo_bootstrap import ensure_canonical_dataset, should_bootstrap_models
 from recommender_service import RecommenderService
 from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof
 from notification_service import notify_problem_resolved, notify_team_assignment
@@ -953,49 +951,24 @@ load_initial_data()
 
 @app.on_event("startup")
 async def bootstrap_demo_runtime():
+    """Forge engine requires no trained model — just seed the dataset and runtime state."""
     if not should_bootstrap_models():
         return
     try:
         ensure_canonical_dataset()
         reset_runtime_state()
-        model_path = ensure_trained_model(
-            model_path=str((PATHS.runtime_dir / "canonical_model.pkl").resolve()),
-            proposals=DEFAULT_PROPOSALS_CSV,
-            people=DEFAULT_PEOPLE_CSV,
-            pairs=DEFAULT_PAIRS_CSV,
-            village_locations=DEFAULT_VILLAGE_LOCATIONS,
-            village_distances=DEFAULT_DISTANCE_CSV,
-            force=True,
-        )
-        recommender_service.set_model_path(model_path)
-        logger.info("Demo runtime bootstrapped with trained model at %s", model_path)
+        logger.info("Demo runtime bootstrapped (Forge engine — no model training required).")
     except Exception as exc:
         logger.exception("Demo bootstrap failed: %s", exc)
 
 
-@app.post("/train", response_model=TrainResponse)
-def train_endpoint(request: TrainRequest):
-    canonical_model_path = str((PATHS.runtime_dir / "canonical_model.pkl").resolve())
-    config = TrainingConfig(
-        proposals=request.proposals or DEFAULT_PROPOSALS_CSV,
-        people=request.people or DEFAULT_PEOPLE_CSV,
-        pairs=request.pairs or DEFAULT_PAIRS_CSV,
-        out=canonical_model_path,
-        model_name=request.model_name or "sentence-transformers/all-MiniLM-L6-v2",
-        village_locations=request.village_locations or DEFAULT_VILLAGE_LOCATIONS,
-        village_distances=request.village_distances or DEFAULT_DISTANCE_CSV,
-        distance_scale=request.distance_scale,
-        distance_decay=request.distance_decay,
-    )
-    try:
-        auc = train_model(config)
-        return TrainResponse(status="ok", auc=auc, model_path=config.out)
-    except FileNotFoundError as e:
-        logger.error(f"Training file not found: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as exc:
-        logger.exception("Training failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+@app.post("/train")
+def train_endpoint():
+    """Deprecated: Forge engine uses no ML model. Training is no longer required."""
+    return {
+        "status": "deprecated",
+        "message": "The Forge scoring engine is deterministic and requires no trained model. This endpoint is a no-op.",
+    }
 
 
 @app.get("/problems")

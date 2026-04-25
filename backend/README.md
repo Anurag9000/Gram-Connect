@@ -1,143 +1,177 @@
-# Gram Connect Backend CLI and Runtime Specification
+# Gram Connect Backend — Specification
 
-This document defines the backend command-line surface and runtime contract for Gram Connect. The canonical persisted model is stored at `backend/runtime_data/canonical_model.pkl`, and repository defaults resolve from the checked-in dataset or from `GRAM_CONNECT_*` environment variables.
+This document defines the backend runtime contract for Gram Connect.
 
-For a concise description of the recommender architecture, feature stack, and checkpointing policy, refer to [docs/model_spec.md](../docs/model_spec.md).
+The team recommendation engine is **Forge** — a deterministic, interpretable scoring system with no ML model, no embeddings, and no training data. It replaces the previous LightGBM/embedding pipeline entirely.
 
-For Linux systems with NVIDIA GPU support, install PyTorch before the repository requirements:
+---
 
-```bash
-python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+## Architecture Overview
+
+```
+proposal_text + village_name
+        │
+        ▼
+  extract_required_skills()       ← keyword → skill map
+        │
+        ▼
+  score_volunteer() for every v   ← DOMAIN × WILL × AVAIL × PROX × FRESH
+        │
+        ▼
+  _build_one_team()               ← greedy marginal-coverage selection
+        │
+        ▼
+  _format_team()                  ← team metrics + ranking
+        │
+        ▼
+  /recommend API response
 ```
 
-The verified backend workflow is:
+---
+
+## The Forge Scoring Formula
+
+```
+SCORE(v, T) = DOMAIN(v,T) × WILL(v) × AVAIL(v,T) × PROX(v,T) × FRESH(v)
+```
+
+All factors are in [0, 1]. The formula is **multiplicative** — any factor near zero
+eliminates the volunteer regardless of other strengths.
+
+| Factor | Formula | What it captures |
+|--------|---------|-----------------|
+| **DOMAIN** | `(exact_skill_hits + 0.5 × partial_hits) / |required|` | Skill-set overlap with task requirements |
+| **WILL** | `sigmoid(willingness_eff + willingness_bias − 1)` | Volunteer motivation and engagement |
+| **AVAIL** | `{immediately:1.0, generally:0.7, rarely:0.35}` | Categorical availability level |
+| **PROX** | `exp(−distance_km / λ)` where λ ∈ {25,40,65} by severity | Proximity to problem village |
+| **FRESH** | `max(0, 1 − 0.1 × overwork_hours)` | Not burnt out from current workload |
+
+### Distance decay by severity
+
+| Severity | λ (km) | Rationale |
+|----------|--------|-----------|
+| LOW | 25 | Stay local |
+| NORMAL | 40 | Balanced reach |
+| HIGH | 65 | Willing to travel far for emergencies |
+
+### Team building
+
+```
+effective_score(c) = SCORE(c)
+    × (1 + 1.5 × new_skill_fraction)     ← coverage bonus
+    × (1 − 0.3 × redundant_skill_fraction) ← redundancy penalty
+```
+
+Each alternative team is built from a disjoint volunteer pool (team N excludes all members of teams 1…N−1).
+
+### Team ranking
+
+```
+team_score = coverage_fraction × geometric_mean(member scores) − 0.003 × avg_distance_km
+```
+
+Teams sorted by `(coverage, team_score)` descending — domain relevance first.
+
+---
+
+## `forge.py`
+
+Core scoring engine. No external dependencies beyond the Python stdlib.
+
+**Key functions:**
+
+- `extract_required_skills(text)` — keyword→skill map, returns `List[str]`
+- `estimate_severity(text)` → `int` (0=LOW, 1=NORMAL, 2=HIGH)
+- `score_volunteer(v, required, location, distance_lookup, severity)` → enriched dict
+- `_build_one_team(scored_pool, required, target_size, excluded_ids)` → `List[Dict]`
+- `run_forge(config: ForgeConfig)` → API-compatible response dict
+
+**ForgeConfig fields:**
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `people_csv` | required | Volunteer roster CSV |
+| `proposal_text` | required | Raw proposal text |
+| `village_locations` | required | Village list CSV |
+| `distance_csv` | required | Pairwise distance CSV |
+| `team_size` | `None` | Fixed team size (falls back to `soft_cap`) |
+| `num_teams` | `3` | Alternative teams to generate |
+| `soft_cap` | `6` | Max team size when `team_size` unset |
+| `severity_override` | `None` | Force severity (`LOW\|NORMAL\|HIGH`) |
+| `weekly_quota` | `5.0` | Hours/week threshold before overwork penalty |
+| `overwork_penalty` | `0.1` | Deduction per excess hour |
+| `auto_extract` | `True` | Auto-extract required skills from text |
+| `proposal_location_override` | `None` | Override village detection |
+
+---
+
+## `recommender_service.py`
+
+Thin bridge: `RecommenderService.generate_recommendations(config_dict)` → calls `run_forge()`.
+
+- **No model loading.** `set_model_path()` is a no-op kept for API compatibility.
+- Pre-loads distance lookup and village names once at startup.
+
+---
+
+## `api_server.py`
+
+FastAPI service. Key endpoints:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/volunteers` | List all seeded volunteers |
+| `GET` | `/problems` | List all problems with matches |
+| `POST` | `/problems` | Submit new problem |
+| `POST` | `/recommend` | Generate team recommendations via Forge |
+| `POST` | `/assign` | Assign volunteer(s) to a problem |
+| `DELETE` | `/problems/{id}` | Delete (nuke) a problem |
+| `PUT` | `/problems/{id}/status` | Update problem status |
+| `POST` | `/unassign` | Remove a volunteer from a problem |
+
+---
+
+## Boot Sequence
 
 ```bash
-python -m pip install -r requirements.txt
-python -m pip install pytest
-python generate_canonical_dataset.py
-python -m pytest tests -q
-python run_full_verification.py
+python generate_canonical_dataset.py   # regenerate CSVs (480 volunteers, 180 proposals)
+python -m pytest tests/test_forge_utils.py -q   # verify Forge scoring logic
 python -m uvicorn api_server:app --host 127.0.0.1 --port 8011
 ```
 
-The canonical dataset generator writes `people.csv`, `proposals.csv`, `pairs.csv`, `village_locations.csv`, `village_distances.csv`, `schedule.csv`, and `runtime_profiles.csv` into the repository `data/` directory. The API runtime seeds from those files and persists live state to `backend/runtime_data/app_state.json`.
+No model training step required. Every restart seeds fresh from CSVs.
 
 ---
 
-## `m3_trainer.py`
+## What Was Removed
 
-Train the gradient-boosted classifier used for volunteer-to-proposal compatibility scoring.
-
-- `--proposals` **(required)**: CSV with proposal text (`text|proposal_text|description|body|content`).
-- `--people` **(required)**: CSV with volunteer profiles, willingness signals, availability category, and home village.
-- `--pairs` **(required)**: CSV of labelled proposal-person pairs (`label|y|target`).
-- `--out` (default `backend/runtime_data/canonical_model.pkl`): Output bundle containing the classifier and embedding backends.
-- `--model_name` (default `sentence-transformers/all-MiniLM-L6-v2`): Embedding model used to train the persisted bundle.
-- `--village_locations` (default resolved from repo/env): Master village list for proposal location parsing.
-- `--village_distances` (default resolved from repo/env): Pairwise village distances, including kilometres and travel minutes.
-- `--distance_scale` (default `50.0` km): Normalisation scale so `distance_km / distance_scale` is clipped to `[0, 1]`.
-- `--distance_decay` (default `30.0` km): Decay constant for the distance penalty `exp(-distance / distance_decay)` applied to willingness.
-- `--resume_from_checkpoint` / `--no-resume_from_checkpoint`: Resume from the best saved checkpoint by default, or force a clean run.
-- `--checkpoint_every` (default `1`): Save the current stage checkpoint every `N` boosting steps.
-
-The trainer identifies the village referenced in each proposal, estimates severity (`LOW`, `NORMAL`, or `HIGH`) from keywords, maps availability strings to levels, and augments the feature matrix with distance- and severity-aware penalties. The chosen distance hyperparameters are stored in the persisted bundle so the recommender remains internally consistent.
-
-During training the script writes:
-
-- `canonical_model.progress.pkl` after every boosting stage
-- `canonical_model.best.pkl` whenever validation improves
-
-If a run is interrupted, rerunning the trainer resumes from the best saved stage by default and then writes the final canonical bundle back to `backend/runtime_data/canonical_model.pkl`.
+| Removed | Reason |
+|---------|--------|
+| `m3_trainer.py` calls | No ML training needed |
+| `canonical_model.pkl` | No ML model |
+| `pairs.csv` labels | No training data |
+| LightGBM inference | Replaced by arithmetic scoring |
+| Embedding models (`prop_model`, `people_model`) | Cross-model cosine was mathematically invalid |
+| `k_robustness` metric | Meaningless for small teams; deprecated |
+| `similarity_coverage` (cosine-based) | Replaced by direct string-match coverage |
 
 ---
 
-## `m3_recommend.py`
+## Dataset
 
-Build teams for a new proposal while respecting skills, willingness, geography, availability fairness, pre-existing schedules, and weekly workload ceilings.
+`generate_canonical_dataset.py` writes to `data/`:
 
-- `--model` **(required)**: Path to the persisted trained bundle.
-- `--proposal_text` / `--proposal_file`: Inline description or text file path for the problem statement.
-- `--people` **(required)**: Volunteer roster (flexible headers for IDs, text/skills, willingness, availability, and home location).
-- `--required_skills`: Explicit list of skills (overrides auto extraction).
-- `--skills_json`: JSON file with `["skill", ...]` or `{"skills":[...]}`.
-- `--auto_extract`: Enable automatic skill extraction.
-- `--threshold` (default `0.25`): Cosine threshold for auto extraction.
-- `--out` (default `teams_m3.csv`): Output CSV.
-- `--tau` (default `0.35`): Coverage threshold for similarity metrics.
-- `--task_start` **(required)** / `--task_end` **(required)**: ISO-8601 timestamps defining when the task runs.
-- `--village_locations` (default resolved from repo/env): Village list to locate the proposal.
-- `--distance_csv` (default resolved from repo/env): Distance table for travel penalties.
-- `--distance_scale` (default `50.0` km) / `--distance_decay` (default `30.0` km): Match the training settings.
-- `--severity` (`LOW|NORMAL|HIGH`): Override the automatic severity classifier.
-- `--schedule_csv`: Existing volunteer schedule (`person_id,start,end[,hours]`) to avoid clashes.
-- `--weekly_quota` (default `5.0` hours): Weekly hour budget before overwork penalties apply.
-- `--overwork_penalty` (default `0.1`): Willingness deduction per hour above the weekly quota.
-- `--soft_cap` (default `6`): Maximum team size considered during greedy selection.
-- `--topk_swap` (default `10`): Number of alternatives inspected for one-swap improvements.
-- `--k_robust` (default `1`): Required robustness level, meaning the team survives the loss of any `k` members.
-- `--lambda_red`, `--lambda_size`, `--lambda_will` (defaults `1.0`, `1.0`, `0.5`): Weights for redundancy, size, and average willingness in the goodness score.
-- `--size_buckets` (default `small:2-10:10,medium:11-50:10,large:51-200:10`): `label:min-max:limit` rules for how many teams to return per size band.
+| File | Contents |
+|------|----------|
+| `people.csv` | 480 volunteers (12 base profiles × 40 variants each) |
+| `proposals.csv` | 180 problems (12 base × 15 variants) |
+| `village_locations.csv` | 5 villages with lat/lng |
+| `village_distances.csv` | All pairwise km + travel time |
+| `schedule.csv` | Volunteer availability windows |
+| `runtime_profiles.csv` | Auth profile seeds |
 
-Runtime pipeline:
-
-1. Detect the proposal village and severity. `HIGH` severity penalises "generally available" volunteers moderately and "rarely available" volunteers heavily; `NORMAL` penalises "rarely available" only.
-2. Drop volunteers already booked during the specified window (`--schedule_csv`).
-3. Apply weekly workload penalties via `--weekly_quota` and `--overwork_penalty`.
-4. Apply distance decay (`exp(-distance / distance_decay)`) and severity-aware penalties to willingness before scoring with the model.
-5. Greedily assemble the best team under `--soft_cap`, then explore one-swap variants.
-6. Enforce per-bucket top-k limits via `--size_buckets`.
-7. Remove any volunteer who appears in multiple recommended teams; the lower-ranked team is recomputed without them so the final list is collision-free.
-
-Output columns include `team_size`, `goodness`, `coverage`, `k_robustness`, `redundancy`, `set_size`, `willingness_avg`, and `willingness_min`. Distance and severity effects are reflected in the aggregated willingness metrics and goodness scores.
-
-If the configured model path does not exist, the runtime API fails closed. The demo bootstrap and `run_full_verification.py` are responsible for creating the canonical trained bundle before serving recommendations.
-
-The repository also includes `run_full_verification.py`, which performs a real training run, validates seeded data integrity, verifies schedule-aware inference, and exercises `/recommend`, `/analyze-image`, and `/transcribe` using repository fixtures.
+Volunteer home locations are distributed across all 5 villages (~96 per village).
 
 ---
 
-## `team_builder_embeddings.py`
-
-Exhaustive enumerator for small rosters, useful for validation or debugging.
-
-- `--skills` **(required)**: JSON list of required skills.
-- `--students` **(required)**: CSV roster with willingness columns.
-- `--out` (default `teams.csv`).
-- `--topk` (default `10`).
-- `--tau` (default `0.35`).
-- `--k_robust` (default `1`).
-- `--lambda_red`, `--lambda_size`, `--lambda_will` (defaults `1.0`, `1.0`, `0.5`): Align weights with the recommender for comparable scores.
-
-Outputs mirror the recommender metrics, including willingness averages and minima.
-
----
-
-## `embed_skills_extractor.py`
-
-Map free-form proposal text to canonical Gram Sahayta skill phrases.
-
-- `--text` or `--file`: Inline text or path to a `.txt` file.
-- `--out` (default `skills.json`): Destination JSON.
-- `--threshold` (default `0.25`): Cosine threshold to accept a skill.
-- `--fallback_if_empty`: Use the domain fallback skill list when nothing clears the threshold.
-- `--extra_skills_json`: JSON with `{"skills": [...], "synonyms": {...}}` to extend the skill bank.
-
----
-
-## Legacy Helpers
-
-- `m3_recommend_early.py`: Early recommender variant with flags `--model`, `--proposal_text`, `--people`, `--required_skills`, `--out`, `--tau`, and `--soft_cap`.
-- `embed_skills_extractor_early.py`: Minimal extractor with flags `--text`, `--file`, and `--out`. Prefer the main extractor for production.
-
----
-
-## Integration Notes
-
-- CLI flags are API-ready. Dataset paths can be overridden with `GRAM_CONNECT_*` environment variables, but the canonical model bundle always resolves to `backend/runtime_data/canonical_model.pkl`.
-- Time arguments must be ISO-8601; the scheduler converts them to UTC and maintains collision-free assignments.
-- Severity and availability penalties follow a fixed heuristic: `HIGH` penalises "generally" and "rarely"; `NORMAL` penalises "rarely"; `LOW` applies no penalty. Override `--severity` or adjust the source if policy changes.
-- Distance penalties depend on the supplied village assets; point the CLI to different CSVs if the geographic context changes.
-- Goodness weights (`lambda_*`), workload penalties, and distance parameters are configurable without code changes.
-
-Keep this document synchronized with any CLI or runtime contract change; downstream services use it as the parameter specification.
+*Keep this document in sync with any API or ForgeConfig contract changes.*

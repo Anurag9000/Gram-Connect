@@ -35,7 +35,8 @@ interface AITeam {
   members: (TeamMember & {
     domain_score?: number;
     willingness_score?: number;
-    model_prob?: number;
+    match_score?: number;
+    forge_score?: number;
     distance_km?: number;
     availability_level?: number;
   })[];
@@ -822,8 +823,8 @@ export default function CoordinatorDashboard() {
                             <div key={member.person_id || member.id} className="flex flex-col gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
                               <div className="flex justify-between items-center text-sm">
                                 <span className="font-bold text-gray-900 text-base">{member.profile?.full_name || member.name || "Unknown"}</span>
-                                <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">
-                                  Model Prob: {((member.model_prob || 0) * 100).toFixed(1)}%
+                                <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200" title="Forge Score = DOMAIN × WILL × AVAIL × PROX × FRESH">
+                                  Forge: {((member.match_score ?? member.forge_score ?? 0) * 100).toFixed(1)}%
                                 </span>
                               </div>
 

@@ -366,10 +366,8 @@ def score_volunteer(
         "rarely available":      1,
     }.get(avail_label, 2)
 
-    # model_prob: interpretable display proxy (not a ML probability)
-    # = weighted combination of domain expertise and willingness
-    model_prob = min(1.0, domain * 0.65 + will * 0.35)
-
+    # match_score = the actual Forge score the engine uses for ranking.
+    # No model, no probability — this is DOMAIN × WILL × AVAIL × PROX × FRESH.
     return {
         **v,
         # Component scores (all 0–1)
@@ -382,8 +380,8 @@ def score_volunteer(
         "distance_km":       round(dist_km, 2),
         "availability_level": avail_level_num,
         "forge_score":       round(forge_score, 6),
-        "model_prob":        round(model_prob, 4),
-        "covered_skills":    covered,  # set of required skills this person matches
+        "match_score":       round(forge_score, 4),  # = forge_score, exposed as display field
+        "covered_skills":    covered,
     }
 
 
@@ -466,7 +464,7 @@ def _format_team(team: List[Dict], required: List[str], rank: int) -> Dict[str, 
             "distance_km":       v["distance_km"],
             "availability_level": v["availability_level"],
             "home_location":     v.get("home_location", ""),
-            "model_prob":        v["model_prob"],
+            "match_score":       v["match_score"],
             "forge_score":       v["forge_score"],
             "user_id":           v.get("user_id", v["person_id"]),
             "email":             v.get("email", ""),

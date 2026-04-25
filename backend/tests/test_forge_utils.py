@@ -61,37 +61,33 @@ def test_extract_required_skills_solar():
 
 def test_score_volunteer_domain_zero():
     v = {
-        "person_id": "V1",
-        "name": "Test",
+        "person_id": "V1", "name": "Test",
         "skills": ["solar panels", "wiring"],
-        "willingness_eff": 0.9,
-        "willingness_bias": 0.9,
+        "willingness_eff": 0.9, "willingness_bias": 0.9,
         "availability": "immediately available",
-        "home_location": "Lakshmipur",
-        "overwork_hours": 0,
+        "home_location": "Lakshmipur", "overwork_hours": 0,
     }
     required = ["plumbing", "handpump repair and maintenance"]
     result = forge.score_volunteer(v, required, "Lakshmipur", {}, 1)
-    # Domain = 0 → forge_score = 0 (multiplicative)
+    # DOMAIN = 0 → forge_score = 0 (multiplicative kills it)
     assert result["forge_score"] == 0.0
     assert result["domain_score"] == 0.0
+    assert result["match_score"] == 0.0
 
 
 def test_score_volunteer_full_match():
     v = {
-        "person_id": "V2",
-        "name": "Plumber",
+        "person_id": "V2", "name": "Plumber",
         "skills": ["plumbing", "handpump repair and maintenance"],
-        "willingness_eff": 0.9,
-        "willingness_bias": 0.7,
+        "willingness_eff": 0.9, "willingness_bias": 0.7,
         "availability": "immediately available",
-        "home_location": "Lakshmipur",
-        "overwork_hours": 0,
+        "home_location": "Lakshmipur", "overwork_hours": 0,
     }
     required = ["plumbing", "handpump repair and maintenance"]
     result = forge.score_volunteer(v, required, "Lakshmipur", {}, 1)
     assert result["domain_score"] == 1.0
-    assert result["forge_score"] > 0.5  # high score for good match
+    assert result["forge_score"] > 0.5
+    assert result["match_score"] == round(result["forge_score"], 4)
 
 
 def test_team_coverage():

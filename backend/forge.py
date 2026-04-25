@@ -477,8 +477,9 @@ def _format_team(team: List[Dict], required: List[str], rank: int) -> Dict[str, 
         "team_ids":        ";".join(v["person_id"] for v in team),
         "team_names":      "; ".join(v["name"] for v in team),
         "team_size":       len(team),
-        # Kept for API compatibility with frontend field names
-        "goodness":        round(team_score, 4),
+        # team_score = coverage_fraction * geometric_mean(member forge scores) - 0.003 * avg_distance_km
+        # Primary ranking key: a team that covers more required skills and has higher-quality members ranks first.
+        "team_score":      round(team_score, 4),
         "coverage":        round(coverage, 4),
         "k_robustness":    0.0,   # deprecated metric
         "redundancy":      0.0,
@@ -570,7 +571,7 @@ def run_forge(config: ForgeConfig) -> Dict[str, Any]:
             excluded.add(m["person_id"])
 
     # ── Rank: coverage first, then team_score ──────────────────────────────
-    teams_out.sort(key=lambda t: (t["coverage"], t["goodness"]), reverse=True)
+    teams_out.sort(key=lambda t: (t["coverage"], t["team_score"]), reverse=True)
     for i, t in enumerate(teams_out):
         t["rank"] = i + 1
 

@@ -40,12 +40,11 @@ interface AITeam {
     distance_km?: number;
     availability_level?: number;
   })[];
-  goodness: number;
+  teamScore: number;
   coverage: number;
   kRobustness: number;
   willingnessAvg: number;
   avgDistanceKm: number;
-  mockScore?: number;
   combinedSkills: string[];
 }
 
@@ -211,12 +210,11 @@ export default function CoordinatorDashboard() {
         id: team.team_ids || `team-${index + 1}`,
         name: team.team_names || `Team ${index + 1}`,
         members: team.members || [],
-        goodness: team.goodness || 0,
+        teamScore: team.team_score ?? team.goodness ?? 0,
         coverage: team.coverage || 0,
         kRobustness: team.k_robustness || 0,
         willingnessAvg: team.willingness_avg || 0,
         avgDistanceKm: team.avg_distance_km ?? 0,
-        mockScore: Math.round((team.goodness || 0) * 100),
         combinedSkills: Array.from(new Set(team.members?.flatMap((m: any) => m.skills || []) || [])) as string[]
       }));
 
@@ -803,8 +801,8 @@ export default function CoordinatorDashboard() {
                               {team.name}
                             </h4>
                             <div className="text-xs text-gray-600 mt-2 flex flex-wrap gap-4 font-medium">
-                              <span title="Overall recommendation goodness" className="bg-gray-100 px-2 py-1 rounded">Goodness: {(team.goodness * 100).toFixed(1)}%</span>
-                              <span title="Skill coverage of requirements" className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded">Coverage: {(team.coverage * 100).toFixed(1)}%</span>
+                              <span title="Team ranking score: skill_coverage x geometric_mean(member scores) - distance_penalty" className="bg-gray-100 px-2 py-1 rounded">Team Score: {(team.teamScore * 100).toFixed(1)}%</span>
+                              <span title="Fraction of the task's required skills collectively covered by this team" className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded">Skill Coverage: {(team.coverage * 100).toFixed(1)}%</span>
                               <span title="Average volunteer travel distance" className="bg-amber-50 text-amber-700 px-2 py-1 rounded">Avg Dist: {team.avgDistanceKm.toFixed(1)} km</span>
                               <span title="Average willingness to participate" className="bg-blue-50 text-blue-700 px-2 py-1 rounded">Avg Will: {(team.willingnessAvg * 100).toFixed(1)}%</span>
                             </div>
@@ -857,10 +855,10 @@ export default function CoordinatorDashboard() {
                         </div>
 
                         <div className="mt-4 text-sm text-blue-800 bg-blue-50 p-4 rounded-lg border border-blue-100 leading-relaxed">
-                          <strong className="text-blue-900 block mb-2">⚙ Why this team? (Forge Engine)</strong>
-                          <span className="block mb-1">Ranked #{idx + 1} · <strong>{(team.coverage * 100).toFixed(0)}% skill coverage</strong> · <strong>{(team.willingnessAvg * 100).toFixed(0)}% avg willingness</strong> · <strong>{team.avgDistanceKm.toFixed(1)} km avg distance</strong>{team.avgDistanceKm === 0 ? ' (all local)' : ''}</span>
-                          <span className="block text-blue-700 text-xs mt-1">Score = DOMAIN × WILL × AVAIL × PROX × FRESH — multiplicative, so any factor near zero eliminates the candidate regardless of other strengths. Teams are then ranked by coverage first, then geometric-mean member quality.</span>
-                          {team.coverage < 0.3 && <span className="block text-amber-700 font-semibold mt-1">⚠ Coverage below 30% — consider increasing team size or reassigning with domain specialists.</span>}
+                          <strong className="text-blue-900 block mb-2">Why this team? (Forge Engine)</strong>
+                          <span className="block mb-1">Ranked #{idx + 1} — <strong>{(team.coverage * 100).toFixed(0)}% skill coverage</strong> — <strong>{(team.willingnessAvg * 100).toFixed(0)}% avg willingness</strong> — <strong>{team.avgDistanceKm.toFixed(1)} km avg distance</strong>{team.avgDistanceKm === 0 ? ' (all local to problem village)' : ''}</span>
+                          <span className="block text-blue-700 text-xs mt-1">Individual score = DOMAIN * WILL * AVAIL * PROX * FRESH. Multiplicative: any factor at zero eliminates the candidate regardless of other strengths. Teams ranked by skill coverage first, then by geometric mean of member scores.</span>
+                          {team.coverage < 0.3 && <span className="block text-amber-700 font-semibold mt-1">Note: skill coverage is below 30%. Consider increasing the team size or selecting domain specialists manually.</span>}
                         </div>
                       </div>
                     ))}

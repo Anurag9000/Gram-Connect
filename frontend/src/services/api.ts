@@ -464,5 +464,49 @@ export const api = {
         }
         const data = await response.json();
         return Number(data.version || 0);
-    }
+    },
+
+    async deleteProblem(problemId: string): Promise<{ status: string; deleted_id: string }> {
+        const response = await fetch(`${API_BASE_URL}/problems/${problemId}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to delete problem');
+        }
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
+    },
+
+    async editProblem(problemId: string, payload: Partial<ProblemSubmission>): Promise<ProblemStatusResponse> {
+        const response = await fetch(`${API_BASE_URL}/problems/${problemId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to edit problem');
+        }
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
+    },
+
+    async unassignVolunteer(problemId: string, matchId: string): Promise<ProblemStatusResponse> {
+        const response = await fetch(`${API_BASE_URL}/problems/${problemId}/matches/${matchId}`, {
+            method: 'DELETE',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to unassign volunteer');
+        }
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
+    },
+
+    async getVillages(): Promise<{ name: string; district: string; state: string; lat?: number; lng?: number }[]> {
+        const response = await fetch(`${API_BASE_URL}/villages`, { cache: 'no-store' });
+        if (!response.ok) return [];
+        return await response.json();
+    },
 };

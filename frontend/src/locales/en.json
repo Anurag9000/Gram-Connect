@@ -3,20 +3,25 @@
         "title": "Gram Connect",
         "home": "Home",
         "dashboard": "Dashboard",
-        "submit_problem": "Submit Problem",
+        "submit_problem": "Submit Problem →",
         "volunteer_profile": "Volunteer Profile",
         "login": "Login",
         "logout": "Logout",
         "loading": "Loading...",
         "language": "Language",
         "en": "English",
-        "hi": "Hindi"
+        "hi": "Hindi",
+        "go_to_dashboard": "Go to Dashboard →"
     },
     "home": {
         "hero_title": "Connecting Volunteers to Village Needs",
         "hero_subtitle": "An intelligent, multimodal platform powered by SahayAI to empower rural communities.",
         "get_started": "Get Started",
-        "how_it_works": "How it Works"
+        "how_it_works": "How it Works",
+        "dashboard_title": "Coordination Centre",
+        "dashboard_desc": "View all reported problems, generate AI-matched volunteer teams, track assignments, and manage resolution status.",
+        "submit_title": "Submit a Problem",
+        "submit_desc": "Log a new village issue with photos, audio, and location data. AI will analyse the media and suggest the right team."
     },
     "dashboard": {
         "coordinator_dashboard": "Coordinator Dashboard",
@@ -38,5 +43,8 @@
         "upload_photo": "Upload Photo",
         "record_audio": "Record Audio (Voice Report)",
         "submit_button": "Submit Problem"
+    },
+    "volunteer": {
+        "dashboard_subtitle": "Your active assignments and completed tasks."
     }
 }

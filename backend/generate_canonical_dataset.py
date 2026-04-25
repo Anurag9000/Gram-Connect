@@ -6,12 +6,13 @@ from typing import Iterable
 from path_utils import get_repo_paths
 
 
+# (name, district, state, lat, lng)
 VILLAGES = [
-    ("Sundarpur", "Nagpur Rural", "Maharashtra"),
-    ("Nirmalgaon", "Wardha", "Maharashtra"),
-    ("Lakshmipur", "Sehore", "Madhya Pradesh"),
-    ("Devnagar", "Bhopal Rural", "Madhya Pradesh"),
-    ("Riverbend", "Raipur", "Chhattisgarh"),
+    ("Sundarpur",  "Nagpur Rural",   "Maharashtra",    21.1458, 79.0882),
+    ("Nirmalgaon", "Wardha",          "Maharashtra",    20.7453, 78.6022),
+    ("Lakshmipur", "Sehore",          "Madhya Pradesh", 23.2000, 77.0833),
+    ("Devnagar",   "Bhopal Rural",    "Madhya Pradesh", 23.2599, 77.4126),
+    ("Riverbend",  "Raipur",          "Chhattisgarh",   21.2514, 81.6296),
 ]
 
 BASE_VOLUNTEERS = [
@@ -127,6 +128,62 @@ BASE_VOLUNTEERS = [
         "home_location": "Sundarpur",
         "availability_status": "busy",
     },
+    {
+        "person_id": "VOL-009",
+        "user_id": "vol-priya-uuid",
+        "name": "Priya Nair",
+        "email": "priya@test.com",
+        "phone": "9012345678",
+        "skills": "solar microgrid design and maintenance;solar pumping systems;rural electrification safety and earthing;iot",
+        "text": "Designs and maintains solar microgrids, solar pumping systems, and rural electrification setups.",
+        "willingness_eff": 0.88,
+        "willingness_bias": 0.72,
+        "availability": "immediately available",
+        "home_location": "Lakshmipur",
+        "availability_status": "available",
+    },
+    {
+        "person_id": "VOL-010",
+        "user_id": "vol-rajan-uuid",
+        "name": "Rajan Pillai",
+        "email": "rajan@test.com",
+        "phone": "9123456789",
+        "skills": "disaster preparedness and response;safety and risk management;project management;community mobilization",
+        "text": "Leads disaster preparedness drills, risk assessments, and emergency response coordination.",
+        "willingness_eff": 0.82,
+        "willingness_bias": 0.65,
+        "availability": "generally available",
+        "home_location": "Riverbend",
+        "availability_status": "available",
+    },
+    {
+        "person_id": "VOL-011",
+        "user_id": "vol-sunita-uuid",
+        "name": "Sunita Joshi",
+        "email": "sunita@test.com",
+        "phone": "9234567890",
+        "skills": "anganwadi strengthening;school wq testing and wash in schools;education and digital literacy;hygiene behavior change communication",
+        "text": "Strengthens anganwadis, runs school WASH programmes, and leads hygiene communication campaigns.",
+        "willingness_eff": 0.90,
+        "willingness_bias": 0.70,
+        "availability": "immediately available",
+        "home_location": "Nirmalgaon",
+        "availability_status": "available",
+    },
+    {
+        "person_id": "VOL-012",
+        "user_id": "vol-deepak-uuid",
+        "name": "Deepak Rao",
+        "email": "deepak@test.com",
+        "phone": "9345678901",
+        "skills": "low-cost housing construction and PMAY support;panchayat planning and budgeting;gram sabha facilitation;beneficiary identification and targeting",
+        "text": "Supports low-cost housing under PMAY, panchayat budgeting, and gram sabha facilitation.",
+        "willingness_eff": 0.76,
+        "willingness_bias": 0.55,
+        "availability": "generally available",
+        "home_location": "Devnagar",
+        "availability_status": "available",
+    },
 ]
 
 BASE_PROPOSALS = [
@@ -204,8 +261,8 @@ BASE_PROPOSALS = [
     },
 ]
 
-VOLUNTEER_VARIANTS_PER_SOURCE = 12
-PROPOSAL_VARIANTS_PER_SOURCE = 12
+VOLUNTEER_VARIANTS_PER_SOURCE = 40  # 12 base * 40 = 480 volunteers
+PROPOSAL_VARIANTS_PER_SOURCE = 30  # 6 base * 30 = 180 proposals
 
 VOLUNTEER_EXTRA_SKILLS = {
     "VOL-001": ["excel dashboards", "mobile data collection and dashboards", "household survey and enumeration"],
@@ -216,6 +273,10 @@ VOLUNTEER_EXTRA_SKILLS = {
     "VOL-006": ["gis and remote sensing", "data analysis and reporting", "asset mapping and village information systems"],
     "VOL-007": ["culvert and causeway design", "rural road maintenance and culvert repair", "drainage design and de-silting"],
     "VOL-008": ["drip and sprinkler irrigation setup", "watershed management", "soil testing and fertility management"],
+    "VOL-009": ["solar pumping systems", "sensor deployment and iot", "solar microgrid design and maintenance"],
+    "VOL-010": ["safety and risk management", "project management", "disaster preparedness and response"],
+    "VOL-011": ["school wq testing and wash in schools", "education and digital literacy", "anganwadi strengthening"],
+    "VOL-012": ["panchayat planning and budgeting", "beneficiary identification and targeting", "gram sabha facilitation"],
 }
 
 PROPOSAL_EXTRA_TERMS = {
@@ -249,7 +310,7 @@ def _unique_phone(base_phone: str, source_index: int, variant_index: int) -> str
 
 
 def _expand_volunteers() -> list[dict]:
-    villages = [village_name for village_name, _, _ in VILLAGES]
+    villages = [v[0] for v in VILLAGES]
     availability_cycle = ["immediately available", "generally available", "rarely available"]
     text_variants = [
         "covers follow-up visits, documentation, and on-ground support.",
@@ -301,7 +362,7 @@ def _expand_volunteers() -> list[dict]:
 
 
 def _expand_proposals() -> list[dict]:
-    villages = [village_name for village_name, _, _ in VILLAGES]
+    villages = [v[0] for v in VILLAGES]
     status_cycle = ["pending", "in_progress", "completed", "pending"]
     category_cycle = ["education", "health", "infrastructure", "digital", "others"]
     text_variants = [
@@ -313,6 +374,7 @@ def _expand_proposals() -> list[dict]:
     ]
 
     proposals: list[dict] = []
+    village_coords = {v[0]: (v[3], v[4]) for v in VILLAGES}
     for source_index, base in enumerate(BASE_PROPOSALS):
         source_id = base["proposal_id"]
         positive_assignees = [volunteer_id for volunteer_id in POSITIVE_RULES[source_id]]
@@ -322,11 +384,16 @@ def _expand_proposals() -> list[dict]:
                 proposal = {**base, "source_proposal_id": source_id}
                 if not proposal.get("seed_assignees"):
                     proposal["seed_assignees"] = ";".join(positive_assignees[:2])
+                base_village = base.get("village", villages[0])
+                blat, blng = village_coords.get(base_village, (20.5937, 78.9629))
+                proposal["lat"] = blat
+                proposal["lng"] = blng
                 proposals.append(proposal)
                 continue
 
             variant_id = f"{source_id}-{variant_index:02d}"
             village = _cycle(villages, source_index + variant_index)
+            lat, lng = village_coords.get(village, (20.5937, 78.9629))
             address = f"{base['village_address']} - Block {variant_index:02d}"
             status = _cycle(status_cycle, source_index + variant_index)
             category = _cycle(category_cycle, source_index + variant_index)
@@ -342,6 +409,8 @@ def _expand_proposals() -> list[dict]:
                 ),
                 "village": village,
                 "village_address": address,
+                "lat": lat,
+                "lng": lng,
                 "category": category,
                 "status": status,
                 "seed_assignees": seed_assignees,
@@ -351,16 +420,22 @@ def _expand_proposals() -> list[dict]:
     return proposals
 
 SCHEDULE_ROWS = [
-    {
-        "person_id": "VOL-002",
-        "start": "2026-03-19T09:00:00",
-        "end": "2026-03-19T13:00:00",
-    },
-    {
-        "person_id": "VOL-006",
-        "start": "2026-03-20T14:00:00",
-        "end": "2026-03-20T18:00:00",
-    },
+    # VOL-002 busy morning of the handpump repair task date
+    {"person_id": "VOL-002", "start": "2026-03-19T09:00:00", "end": "2026-03-19T13:00:00"},
+    # VOL-006 busy afternoon next day
+    {"person_id": "VOL-006", "start": "2026-03-20T14:00:00", "end": "2026-03-20T18:00:00"},
+    # VOL-003 fully committed on a different date
+    {"person_id": "VOL-003", "start": "2026-03-21T08:00:00", "end": "2026-03-21T16:00:00"},
+    # VOL-007 busy all morning of drainage task date
+    {"person_id": "VOL-007", "start": "2026-03-22T08:00:00", "end": "2026-03-22T12:00:00"},
+    # VOL-005 already has a water survey slot this week
+    {"person_id": "VOL-005", "start": "2026-03-18T10:00:00", "end": "2026-03-18T15:00:00"},
+    # VOL-008 busy (rarely available - slot that fills their quota)
+    {"person_id": "VOL-008", "start": "2026-03-17T09:00:00", "end": "2026-03-17T18:00:00"},
+    # VOL-001 busy in the morning on standard recommendation window
+    {"person_id": "VOL-001", "start": "2026-03-19T08:30:00", "end": "2026-03-19T11:00:00"},
+    # VOL-004 has a health camp during irrigation audit window
+    {"person_id": "VOL-004", "start": "2026-03-22T09:00:00", "end": "2026-03-22T13:00:00"},
 ]
 
 RUNTIME_PROFILES = [
@@ -382,11 +457,11 @@ RUNTIME_PROFILES = [
 
 POSITIVE_RULES = {
     "PROB-001": {"VOL-002", "VOL-003"},
-    "PROB-002": {"VOL-001", "VOL-006"},
+    "PROB-002": {"VOL-001", "VOL-006", "VOL-011"},
     "PROB-003": {"VOL-004", "VOL-005", "VOL-006"},
     "PROB-004": {"VOL-007", "VOL-002"},
-    "PROB-005": {"VOL-008", "VOL-006"},
-    "PROB-006": {"VOL-001", "VOL-005", "VOL-004"},
+    "PROB-005": {"VOL-008", "VOL-006", "VOL-009"},
+    "PROB-006": {"VOL-001", "VOL-005", "VOL-004", "VOL-011"},
 }
 
 DISTANCE_MATRIX = {
@@ -477,6 +552,8 @@ def main() -> None:
             "text",
             "village",
             "village_address",
+            "lat",
+            "lng",
             "category",
             "status",
             "seed_assignees",
@@ -492,14 +569,16 @@ def main() -> None:
     )
     _write_csv(
         data_dir / "village_locations.csv",
-        ["village_name", "district_placeholder", "state_placeholder"],
+        ["village_name", "district_placeholder", "state_placeholder", "lat", "lng"],
         [
             {
-                "village_name": village_name,
-                "district_placeholder": district,
-                "state_placeholder": state,
+                "village_name": v[0],
+                "district_placeholder": v[1],
+                "state_placeholder": v[2],
+                "lat": v[3],
+                "lng": v[4],
             }
-            for village_name, district, state in VILLAGES
+            for v in VILLAGES
         ],
     )
     _write_csv(

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Activity, Clock, AlertTriangle, CheckCircle, Search,
-  BarChart3, LayoutGrid, List, MapPin, ChevronRight, X, UserCheck, Cpu
+  BarChart3, LayoutGrid, List, MapPin, ChevronRight, X, UserCheck, Cpu, Trash2
 } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import LanguageToggle from '../components/LanguageToggle';
@@ -32,11 +32,18 @@ interface ProblemWithDetails extends Problem {
 interface AITeam {
   id: string;
   name: string;
-  members: TeamMember[];
+  members: (TeamMember & {
+    domain_score?: number;
+    willingness_score?: number;
+    model_prob?: number;
+    distance_km?: number;
+    availability_level?: number;
+  })[];
   goodness: number;
   coverage: number;
   kRobustness: number;
   willingnessAvg: number;
+  avgDistanceKm: number;
   mockScore?: number;
   combinedSkills: string[];
 }
@@ -52,7 +59,6 @@ function normalizePositiveInt(value: string, fallback: number, min: number, max:
 export default function CoordinatorDashboard() {
   const { profile } = useAuth();
   const navigate = useNavigate();
-  // const { t } = useTranslation(); // Unused
 
   const [problems, setProblems] = useState<ProblemWithDetails[]>([]);
   const [filteredProblems, setFilteredProblems] = useState<ProblemWithDetails[]>([]);
@@ -60,7 +66,7 @@ export default function CoordinatorDashboard() {
   const [loading, setLoading] = useState(true);
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [categoryFilter] = useState<string>('all'); // Removed setter
+  const [categoryFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
@@ -78,7 +84,10 @@ export default function CoordinatorDashboard() {
 
   // Manual Assignment State
   const [individualSearch, setIndividualSearch] = useState('');
-  const [individualSort] = useState<'name' | 'skills'>('name'); // Removed setter
+  const [individualSort] = useState<'name' | 'skills'>('name');
+  const [selectedManualIds, setSelectedManualIds] = useState<Set<string>>(new Set());
+  const [expandedVolunteerId, setExpandedVolunteerId] = useState<string | null>(null);
+  const [confirmingManual, setConfirmingManual] = useState(false);
 
   // Stats
   const [stats, setStats] = useState({ pending: 0, inProgress: 0, resolved: 0 });
@@ -95,9 +104,12 @@ export default function CoordinatorDashboard() {
       const problemsWithMatches: ProblemWithDetails[] = problemsData.map((problem: ProblemRecord) => ({
         ...problem,
         villager: problem.profiles,
-        matches: problem.matches?.map((m) => ({
+        matches: problem.matches?.map((m: any) => ({
           ...m,
-          volunteer: m.volunteers,
+          volunteer: {
+            ...m.volunteers,
+            profile: m.volunteers?.profiles ?? m.volunteers?.profile
+          },
         })) || [],
       }));
 
@@ -175,8 +187,8 @@ export default function CoordinatorDashboard() {
     setAiLoading(true);
 
     try {
-      const start = new Date(); // Start now
-      const end = new Date(start.getTime() + 4 * 60 * 60 * 1000); // 4 hours duration
+      const start = new Date();
+      const end = new Date(start.getTime() + 4 * 60 * 60 * 1000);
 
       const data = await api.getRecommendations({
         proposal_text: selectedProblem.description,
@@ -188,15 +200,13 @@ export default function CoordinatorDashboard() {
         auto_extract: true,
       });
 
-      // if (data.error) throw new Error(data.error); // Removed as api throws on error
-
       setAiSummary({
         severity: data.severity_detected || 'NORMAL',
         origin: data.severity_source || 'AI',
-        location: data.proposal_location || undefined, // Handle null -> undefined
+        location: data.proposal_location || undefined,
       });
 
-      const teams = (data.teams || []).map((team, index: number) => ({
+      const teams = (data.teams || []).map((team: any, index: number) => ({
         id: team.team_ids || `team-${index + 1}`,
         name: team.team_names || `Team ${index + 1}`,
         members: team.members || [],
@@ -204,8 +214,9 @@ export default function CoordinatorDashboard() {
         coverage: team.coverage || 0,
         kRobustness: team.k_robustness || 0,
         willingnessAvg: team.willingness_avg || 0,
+        avgDistanceKm: team.avg_distance_km ?? 0,
         mockScore: Math.round((team.goodness || 0) * 100),
-        combinedSkills: Array.from(new Set(team.members?.flatMap((m) => m.skills || []) || [])) as string[]
+        combinedSkills: Array.from(new Set(team.members?.flatMap((m: any) => m.skills || []) || [])) as string[]
       }));
 
       setAiTeams(teams);
@@ -218,10 +229,7 @@ export default function CoordinatorDashboard() {
   }, [numTeamsToShow, selectedProblem, teamSize]);
 
   useEffect(() => {
-    if (!profile) {
-      return;
-    }
-
+    if (!profile) return;
     const unsubscribe = subscribeLiveRefresh(() => {
       loadDashboardData();
       if (showAssignModal && selectedProblem && modalTab === 'ai') {
@@ -233,23 +241,13 @@ export default function CoordinatorDashboard() {
       setAiError(null);
     });
 
-    const handleFocus = () => {
-      loadDashboardData();
-    };
-
+    const handleFocus = () => loadDashboardData();
     window.addEventListener('focus', handleFocus);
-
-    return () => {
-      unsubscribe();
-      window.removeEventListener('focus', handleFocus);
-    };
+    return () => { unsubscribe(); window.removeEventListener('focus', handleFocus); };
   }, [loadDashboardData, modalTab, profile, runAiAlgo, selectedProblem, showAssignModal]);
 
   useEffect(() => {
-    if (!selectedProblem) {
-      return;
-    }
-
+    if (!selectedProblem) return;
     const latestProblem = problems.find((problem) => problem.id === selectedProblem.id);
     if (!latestProblem) {
       setSelectedProblem(null);
@@ -259,20 +257,26 @@ export default function CoordinatorDashboard() {
       setAiError(null);
       return;
     }
-
     if (latestProblem !== selectedProblem) {
       setSelectedProblem(latestProblem);
     }
   }, [problems, selectedProblem]);
 
-  const handleAssignIndividual = async (problemId: string, volunteer: VolunteerWithProfile) => {
+  const confirmManualTeam = async (problemId: string) => {
+    if (selectedManualIds.size === 0) return;
+    setConfirmingManual(true);
     try {
-      await api.assignTask(problemId, volunteer.id || volunteer.user_id);
-      alert(`Assigned to ${volunteer.profile?.full_name || 'Volunteer'}!`);
+      await Promise.all(
+        Array.from(selectedManualIds).map(id => api.assignTask(problemId, id))
+      );
       setShowAssignModal(false);
+      setSelectedManualIds(new Set());
+      setExpandedVolunteerId(null);
       loadDashboardData();
     } catch {
-      alert("Failed to assign task.");
+      alert('Failed to assign one or more volunteers.');
+    } finally {
+      setConfirmingManual(false);
     }
   };
 
@@ -281,12 +285,8 @@ export default function CoordinatorDashboard() {
       const memberIds = Array.from(
         new Set(team.members.map((member) => member.person_id || member.id).filter(Boolean))
       ) as string[];
-      if (memberIds.length === 0) {
-        throw new Error("No valid team members to assign.");
-      }
-
+      if (memberIds.length === 0) throw new Error("No valid team members to assign.");
       await Promise.all(memberIds.map((memberId) => api.assignTask(problemId, memberId)));
-      alert(`Team ${team.name} assigned with ${memberIds.length} volunteer${memberIds.length === 1 ? '' : 's'}.`);
       setShowAssignModal(false);
       loadDashboardData();
     } catch {
@@ -300,6 +300,27 @@ export default function CoordinatorDashboard() {
       loadDashboardData();
     } catch (err) {
       console.error("Failed to update status:", err);
+    }
+  };
+
+  const handleDeleteProblem = async (problemId: string) => {
+    if (!window.confirm("Are you sure you want to delete this problem? This action cannot be undone.")) return;
+    try {
+      await api.deleteProblem(problemId);
+      loadDashboardData();
+    } catch (err) {
+      console.error("Failed to delete problem", err);
+      alert("Failed to delete problem.");
+    }
+  };
+
+  const handleUnassignVolunteer = async (problemId: string, matchId: string) => {
+    try {
+      await api.unassignVolunteer(problemId, matchId);
+      loadDashboardData();
+    } catch (err) {
+      console.error("Failed to unassign volunteer", err);
+      alert("Failed to unassign volunteer.");
     }
   };
 
@@ -456,8 +477,8 @@ export default function CoordinatorDashboard() {
         ) : (
           <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
             {filteredProblems.map((problem) => (
-              <div key={problem.id} data-testid={`problem-card-${problem.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow group">
-                <div className="p-6">
+              <div key={problem.id} data-testid={`problem-card-${problem.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                <div className="p-6 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${problem.status === 'pending' ? 'bg-red-100 text-red-700' :
                       problem.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
@@ -468,65 +489,75 @@ export default function CoordinatorDashboard() {
                     <span className="text-xs text-gray-400">{new Date(problem.created_at).toLocaleDateString()}</span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 min-h-[3.5rem]">{problem.title}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">{problem.title}</h3>
 
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
                     <MapPin size={16} />
                     <span className="truncate">{problem.village_name}, {problem.village_address}</span>
                   </div>
 
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3 h-16">{problem.description}</p>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">{problem.description}</p>
 
-                  <div className="flex flex-wrap gap-2 mb-4">
+                  <div className="flex flex-wrap gap-2 mb-4 mt-auto">
                     {problem.visual_tags?.slice(0, 3).map((tag: string) => (
                       <span key={tag} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">#{tag}</span>
                     ))}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 mb-4">
-                    {problem.media_assets?.length ? (
-                      <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700 border border-blue-100">
-                        {problem.media_assets.length} media item{problem.media_assets.length === 1 ? '' : 's'}
-                      </span>
-                    ) : null}
-                    {problem.proof?.media_ids?.length ? (
-                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700 border border-emerald-100">
-                        proof stored
-                      </span>
-                    ) : null}
-                  </div>
+                  {problem.matches && problem.matches.length > 0 && (
+                    <div className="mb-4">
+                      <p className="text-xs font-bold text-gray-500 mb-2 uppercase">Assigned Volunteers:</p>
+                      <div className="space-y-2">
+                        {problem.matches.map(m => (
+                          <div key={m.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded border border-gray-100">
+                            <span className="font-medium text-gray-700">{m.volunteer?.profile?.full_name || "Unknown"}</span>
+                            <button onClick={() => handleUnassignVolunteer(problem.id, m.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">Unassign</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Action Footer */}
-                  <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
-                    {problem.status !== 'completed' && (
-                      <button
-                        onClick={() => {
-                          setSelectedProblem(problem);
-                          setShowAssignModal(true);
-                          setModalTab('ai'); // Default to AI
-                          setAiTeams([]);
-                        }}
-                        className="text-sm font-semibold text-green-600 hover:text-green-800 flex items-center gap-1"
-                      >
-                        Assign Team <ChevronRight size={16} />
-                      </button>
-                    )}
-                    {problem.status === 'in_progress' && (
-                      <button
-                        onClick={() => handleStatusChange(problem.id, 'completed')}
-                        className="text-sm bg-green-50 text-green-700 px-3 py-1 rounded-md hover:bg-green-100 font-medium"
-                      >
-                        Mark Resolved
-                      </button>
-                    )}
-                    {problem.status === 'completed' && (
-                      <button
-                        onClick={() => handleStatusChange(problem.id, 'in_progress')}
-                        className="text-sm bg-gray-50 text-gray-700 px-3 py-1 rounded-md hover:bg-gray-100 font-medium"
-                      >
-                        Reopen
-                      </button>
-                    )}
+                  <div className="pt-4 border-t border-gray-100 flex items-center justify-between mt-auto">
+                    <div className="flex flex-wrap gap-2">
+                        {problem.status !== 'completed' && (
+                        <button
+                            onClick={() => {
+                            setSelectedProblem(problem);
+                            setShowAssignModal(true);
+                            setModalTab('ai'); // Default to AI
+                            setAiTeams([]);
+                            }}
+                            className="text-sm font-semibold text-green-600 hover:text-green-800 flex items-center gap-1 bg-green-50 px-3 py-1 rounded-md transition"
+                        >
+                            Assign Team <ChevronRight size={16} />
+                        </button>
+                        )}
+                        {problem.status === 'in_progress' && (
+                        <button
+                            onClick={() => handleStatusChange(problem.id, 'completed')}
+                            className="text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-100 font-medium transition"
+                        >
+                            Force Resolve
+                        </button>
+                        )}
+                        {problem.status === 'completed' && (
+                        <button
+                            onClick={() => handleStatusChange(problem.id, 'in_progress')}
+                            className="text-sm bg-yellow-50 text-yellow-700 px-3 py-1 rounded-md hover:bg-yellow-100 font-medium transition"
+                        >
+                            Reopen Task
+                        </button>
+                        )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteProblem(problem.id)}
+                      className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition"
+                      title="Nuke/Delete Task"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -545,7 +576,7 @@ export default function CoordinatorDashboard() {
                 <h2 className="text-2xl font-bold text-gray-800">Assign Resolution Team</h2>
                 <p className="text-gray-500 text-sm mt-1">For issue: <span className="font-semibold text-gray-900">{selectedProblem.title}</span></p>
               </div>
-              <button onClick={() => setShowAssignModal(false)} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition">
+              <button onClick={() => { setShowAssignModal(false); setSelectedManualIds(new Set()); setExpandedVolunteerId(null); }} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition">
                 <X size={24} />
               </button>
             </div>
@@ -562,7 +593,7 @@ export default function CoordinatorDashboard() {
                 onClick={() => setModalTab('ai')}
                 className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${modalTab === 'ai' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                <div className="flex items-center justify-center gap-2"><Cpu size={18} /> AI Team Builder</div>
+                <div className="flex items-center justify-center gap-2"><Cpu size={18} /> AI Team Builder (Explainable)</div>
               </button>
             </div>
 
@@ -571,42 +602,135 @@ export default function CoordinatorDashboard() {
 
               {/* Manual Assignment */}
               {modalTab === 'manual' && (
-                <div>
-                  <div className="flex gap-4 mb-4">
-                    <div className="flex-1 flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
-                      <Search size={18} className="text-gray-400 mr-2" />
-                      <input
-                        type="text"
-                        placeholder="Search volunteer or skill..."
-                        className="flex-1 outline-none"
-                        value={individualSearch}
-                        onChange={(e) => setIndividualSearch(e.target.value)}
-                      />
-                    </div>
+                <div className="flex flex-col gap-3">
+                  {/* Search */}
+                  <div className="flex items-center bg-white border border-gray-300 rounded-lg px-3 py-2">
+                    <Search size={18} className="text-gray-400 mr-2 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search by name or skill…"
+                      className="flex-1 outline-none text-sm"
+                      value={individualSearch}
+                      onChange={(e) => setIndividualSearch(e.target.value)}
+                    />
+                    {selectedManualIds.size > 0 && (
+                      <button onClick={() => setSelectedManualIds(new Set())} className="ml-2 text-xs text-red-500 hover:text-red-700 font-semibold shrink-0">
+                        Clear ({selectedManualIds.size})
+                      </button>
+                    )}
                   </div>
-                  <div className="space-y-3">
-                    {getFilteredAndSortedVolunteers().map(volunteer => (
-                      <div key={volunteer.id} className="bg-white p-4 rounded-lg border border-gray-200 flex justify-between items-center">
-                        <div>
-                          <h4 className="font-bold text-gray-800">{volunteer.profile?.full_name}</h4>
-                          <p className="text-xs text-gray-500">{volunteer.skills.join(', ')}</p>
+
+                  {/* Volunteer list */}
+                  <div className="space-y-2">
+                    {getFilteredAndSortedVolunteers().map(volunteer => {
+                      const vid = volunteer.id || volunteer.user_id;
+                      const checked = selectedManualIds.has(vid);
+                      const expanded = expandedVolunteerId === vid;
+                      const avail = (volunteer.availability_status || 'unknown');
+                      const availColor = avail === 'available' ? 'text-emerald-600 bg-emerald-50' : avail === 'busy' ? 'text-amber-600 bg-amber-50' : 'text-gray-500 bg-gray-100';
+                      return (
+                        <div key={vid} className={`rounded-xl border transition-all ${checked ? 'border-green-400 bg-green-50/40 shadow-sm' : 'border-gray-200 bg-white'}`}>
+                          {/* Row */}
+                          <div className="flex items-center gap-3 p-3">
+                            {/* Checkbox */}
+                            <input
+                              type="checkbox"
+                              id={`vol-check-${vid}`}
+                              checked={checked}
+                              onChange={() => {
+                                const next = new Set(selectedManualIds);
+                                if (checked) next.delete(vid); else next.add(vid);
+                                setSelectedManualIds(next);
+                              }}
+                              className="w-4 h-4 accent-green-600 shrink-0 cursor-pointer"
+                            />
+                            {/* Avatar */}
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-green-200 to-emerald-400 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                              {(volunteer.profile?.full_name || 'V').charAt(0).toUpperCase()}
+                            </div>
+                            {/* Name + skills summary */}
+                            <div className="flex-1 min-w-0">
+                              <button
+                                className="font-semibold text-sm text-gray-900 hover:text-green-700 text-left truncate w-full"
+                                onClick={() => setExpandedVolunteerId(expanded ? null : vid)}
+                              >
+                                {volunteer.profile?.full_name || vid}
+                              </button>
+                              <p className="text-xs text-gray-500 truncate">{volunteer.skills.slice(0, 3).join(' · ')}{volunteer.skills.length > 3 ? ` +${volunteer.skills.length - 3}` : ''}</p>
+                            </div>
+                            {/* Availability badge */}
+                            <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${availColor}`}>
+                              {avail}
+                            </span>
+                            {/* Expand toggle */}
+                            <button
+                              onClick={() => setExpandedVolunteerId(expanded ? null : vid)}
+                              className="text-gray-400 hover:text-gray-700 transition shrink-0 text-xs font-medium"
+                            >
+                              {expanded ? '▲ Hide' : '▼ View'}
+                            </button>
+                          </div>
+
+                          {/* Expandable detail panel */}
+                          {expanded && (
+                            <div className="border-t border-gray-100 p-4 bg-gray-50 rounded-b-xl">
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
+                                <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
+                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Home Location</div>
+                                  <div className="text-sm font-semibold text-gray-800">{volunteer.home_location || '—'}</div>
+                                </div>
+                                <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
+                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Availability</div>
+                                  <div className="text-sm font-semibold text-gray-800">{volunteer.availability || volunteer.availability_status || '—'}</div>
+                                </div>
+                                <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
+                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Willingness (eff)</div>
+                                  <div className="text-sm font-semibold text-gray-800">{volunteer.willingness_eff != null ? `${(Number(volunteer.willingness_eff) * 100).toFixed(0)}%` : '—'}</div>
+                                </div>
+                              </div>
+                              <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Full Skill Set</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {volunteer.skills.map(s => (
+                                    <span key={s} className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-full">{s}</span>
+                                  ))}
+                                </div>
+                              </div>
+                              {volunteer.profile?.email && (
+                                <p className="mt-2 text-xs text-gray-400">📧 {volunteer.profile.email}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                        <button
-                          onClick={() => handleAssignIndividual(selectedProblem.id, volunteer)}
-                          className="bg-green-100 text-green-700 px-3 py-1 rounded text-sm font-semibold hover:bg-green-200"
-                        >
-                          Assign
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
+
+                  {/* Sticky confirm bar */}
+                  {selectedManualIds.size > 0 && (
+                    <div className="sticky bottom-0 left-0 right-0 bg-white border-t-2 border-green-400 shadow-lg rounded-b-xl p-4 flex items-center justify-between gap-4 z-10">
+                      <div className="text-sm font-semibold text-gray-800">
+                        <span className="text-green-700 text-lg font-bold">{selectedManualIds.size}</span> volunteer{selectedManualIds.size !== 1 ? 's' : ''} selected
+                        <div className="text-xs text-gray-500 font-normal mt-0.5">
+                          {allVolunteers.filter(v => selectedManualIds.has(v.id || v.user_id)).map(v => v.profile?.full_name || v.id).join(', ')}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => confirmManualTeam(selectedProblem.id)}
+                        disabled={confirmingManual}
+                        className="bg-green-600 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition shadow-md shrink-0"
+                      >
+                        {confirmingManual ? 'Assigning…' : `Confirm Team (${selectedManualIds.size})`}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* AI Assignment */}
               {modalTab === 'ai' && (
                 <div>
-                  <div className="bg-white p-4 rounded-lg border-gray-200 border mb-6">
+                  <div className="bg-white p-4 rounded-lg border-gray-200 border mb-6 shadow-sm">
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1">TEAM SIZE</label>
@@ -616,7 +740,7 @@ export default function CoordinatorDashboard() {
                           max="10"
                           value={teamSize}
                           onChange={(e) => setTeamSize(normalizePositiveInt(e.target.value, 2, 1, 10))}
-                          className="w-full border border-gray-300 rounded p-2"
+                          className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none"
                         />
                       </div>
                       <div>
@@ -627,7 +751,7 @@ export default function CoordinatorDashboard() {
                           max="20"
                           value={numTeamsToShow}
                           onChange={(e) => setNumTeamsToShow(normalizePositiveInt(e.target.value, 3, 1, 20))}
-                          className="w-full border border-gray-300 rounded p-2"
+                          className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-green-100 focus:border-green-500 outline-none"
                         />
                       </div>
                     </div>
@@ -635,57 +759,109 @@ export default function CoordinatorDashboard() {
                       onClick={runAiAlgo}
                       disabled={aiLoading}
                       data-testid="generate-optimal-teams"
-                      className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-300 flex justify-center gap-2 items-center"
+                      className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-300 flex justify-center gap-2 items-center transition shadow-md"
                     >
-                      {aiLoading ? <span className="animate-spin">⌛</span> : <Cpu size={18} />}
-                      {aiLoading ? 'Analyzing Context & Skills...' : 'Generate Optimal Teams'}
+                      {aiLoading ? <span className="animate-spin">⌛</span> : <Cpu size={20} />}
+                      {aiLoading ? 'Analyzing Context & Skills...' : 'Generate Explainable Teams'}
                     </button>
                   </div>
 
                   {aiError && (
-                    <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm border border-red-200">
-                      {aiError}
+                    <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 text-sm border border-red-200 flex items-start gap-2">
+                      <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold mb-1">AI Generation Failed</div>
+                        <div>{aiError}</div>
+                      </div>
                     </div>
                   )}
 
                   {aiSummary && (
-                    <div className="flex gap-2 mb-4 text-xs font-semibold">
-                      <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded border border-orange-200">Severity: {aiSummary.severity}</span>
-                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded border border-blue-200">Origin: {aiSummary.origin}</span>
-                      {aiSummary.location && <span className="bg-gray-100 text-gray-800 px-2 py-1 rounded border border-gray-200">Loc: {aiSummary.location}</span>}
+                    <div className="flex gap-3 mb-6 text-sm font-medium">
+                      <span className="bg-orange-100 text-orange-800 px-3 py-1.5 rounded-lg border border-orange-200 flex items-center gap-1">
+                        <AlertTriangle size={14} /> Severity: {aiSummary.severity}
+                      </span>
+                      <span className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1">
+                        <Activity size={14} /> Origin: {aiSummary.origin}
+                      </span>
+                      {aiSummary.location && (
+                        <span className="bg-gray-100 text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 flex items-center gap-1">
+                            <MapPin size={14} /> Loc: {aiSummary.location}
+                        </span>
+                      )}
                     </div>
                   )}
 
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {aiTeams.map((team, idx) => (
-                      <div key={idx} className="bg-white border border-blue-100 rounded-xl p-4 shadow-sm hover:border-blue-300 transition">
-                        <div className="flex justify-between items-start mb-3">
+                      <div key={idx} className="bg-white border border-blue-200 rounded-xl p-5 shadow-md hover:border-blue-400 transition-colors">
+                        <div className="flex justify-between items-start mb-4 border-b border-gray-100 pb-4">
                           <div>
-                            <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                              <span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{idx + 1}</span>
+                            <h4 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                              <span className="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm">{idx + 1}</span>
                               {team.name}
                             </h4>
-                            <div className="text-[10px] text-gray-400 mt-1 flex gap-2">
-                              <span>Match: {team.mockScore}%</span>
-                              <span>•</span>
-                              <span>Robustness: {team.kRobustness.toFixed(2)}</span>
+                            <div className="text-xs text-gray-600 mt-2 flex flex-wrap gap-4 font-medium">
+                              <span title="Overall recommendation goodness" className="bg-gray-100 px-2 py-1 rounded">Goodness: {(team.goodness * 100).toFixed(1)}%</span>
+                              <span title="Skill coverage of requirements" className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded">Coverage: {(team.coverage * 100).toFixed(1)}%</span>
+                              <span title="Average volunteer travel distance" className="bg-amber-50 text-amber-700 px-2 py-1 rounded">Avg Dist: {team.avgDistanceKm.toFixed(1)} km</span>
+                              <span title="Average willingness to participate" className="bg-blue-50 text-blue-700 px-2 py-1 rounded">Avg Will: {(team.willingnessAvg * 100).toFixed(1)}%</span>
                             </div>
                           </div>
                           <button
                             onClick={() => handleAssignTeam(selectedProblem.id, team)}
                             data-testid={`assign-ai-team-${idx + 1}`}
-                            className="text-blue-600 font-semibold text-sm hover:bg-blue-50 px-3 py-1 rounded"
+                            className="bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 px-5 py-2.5 rounded-lg shadow-sm transition"
                           >
                             Assign Team
                           </button>
                         </div>
-                        <div className="space-y-2">
+
+                        <div className="space-y-3">
                           {team.members.map((member) => (
-                            <div key={member.person_id || member.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                              <span className="font-medium text-gray-700">{member.profile?.full_name || member.name || "Unknown"}</span>
-                              <span className="text-xs text-gray-500">{member.skills?.slice(0, 2).join(', ')}</span>
+                            <div key={member.person_id || member.id} className="flex flex-col gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="font-bold text-gray-900 text-base">{member.profile?.full_name || member.name || "Unknown"}</span>
+                                <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-1 rounded-full border border-blue-200">
+                                  Model Prob: {((member.model_prob || 0) * 100).toFixed(1)}%
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-gray-700 mt-1">
+                                <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
+                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">Domain Exp.</span>
+                                  <span className="font-medium">{(member.domain_score || 0).toFixed(3)}</span>
+                                </div>
+                                <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
+                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">Willingness</span>
+                                  <span className="font-medium">{(member.willingness_score || 0).toFixed(3)}</span>
+                                </div>
+                                <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
+                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">Distance</span>
+                                  <span className="font-medium">
+                                    {member.distance_km != null ? `${member.distance_km.toFixed(1)} km` : 'Unknown'}
+                                    {member.home_location ? <span className="text-gray-400 ml-1">· {member.home_location}</span> : null}
+                                  </span>
+                                </div>
+                                <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
+                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">Avail Level</span>
+                                  <span className="font-medium">{member.availability_level || 1}/3</span>
+                                </div>
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1 bg-white p-2 rounded border border-gray-100">
+                                <span className="font-bold text-gray-500 mr-1">Skills:</span> {member.skills?.join(', ')}
+                              </div>
                             </div>
                           ))}
+                        </div>
+
+                        <div className="mt-4 text-sm text-blue-800 bg-blue-50 p-4 rounded-lg border border-blue-100 leading-relaxed">
+                          <strong className="text-blue-900 block mb-1">Why this team?</strong>
+                          Team ranked #{idx + 1} with <strong>{(team.coverage * 100).toFixed(0)}% skill coverage</strong> of the task's requirements.
+                          The members bring an average willingness of <strong>{(team.willingnessAvg * 100).toFixed(0)}%</strong> and are on average <strong>{team.avgDistanceKm.toFixed(1)} km</strong> from the problem site
+                          {team.avgDistanceKm === 0 ? ' (all local to the problem village)' : ''}.
+                          {' '}The model prioritised this combination by multiplying domain expertise × willingness — ensuring only volunteers who are both skilled and motivated make the shortlist.
+                          {team.coverage < 0.3 && ' Note: coverage is below 30%; consider a larger team size or assigning additional specialists.'}
                         </div>
                       </div>
                     ))}

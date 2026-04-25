@@ -1,6 +1,6 @@
-village_name,district_placeholder,state_placeholder
-Sundarpur,Nagpur Rural,Maharashtra
-Nirmalgaon,Wardha,Maharashtra
-Lakshmipur,Sehore,Madhya Pradesh
-Devnagar,Bhopal Rural,Madhya Pradesh
-Riverbend,Raipur,Chhattisgarh
+village_name,district_placeholder,state_placeholder,lat,lng
+Sundarpur,Nagpur Rural,Maharashtra,21.1458,79.0882
+Nirmalgaon,Wardha,Maharashtra,20.7453,78.6022
+Lakshmipur,Sehore,Madhya Pradesh,23.2,77.0833
+Devnagar,Bhopal Rural,Madhya Pradesh,23.2599,77.4126
+Riverbend,Raipur,Chhattisgarh,21.2514,81.6296

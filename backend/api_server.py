@@ -179,6 +179,41 @@ class RecommendResponse(BaseModel):
 async def health():
     return {"status": "ok"}
 
+
+@app.get("/villages")
+async def list_villages():
+    """Return all known villages with coordinates for map autocomplete."""
+    try:
+        rows = read_csv_norm(DEFAULT_VILLAGE_LOCATIONS)
+        villages = []
+        for r in rows:
+            name = get_any(r, ["village_name", "village", "name"])
+            lat_raw = get_any(r, ["lat", "latitude"])
+            lng_raw = get_any(r, ["lng", "longitude"])
+            district = get_any(r, ["district_placeholder", "district"], "")
+            state = get_any(r, ["state_placeholder", "state"], "")
+            if not name:
+                continue
+            entry: Dict[str, Any] = {"name": name, "district": district, "state": state}
+            if lat_raw and lng_raw:
+                try:
+                    entry["lat"] = float(lat_raw)
+                    entry["lng"] = float(lng_raw)
+                except ValueError:
+                    pass
+            villages.append(entry)
+        # Also include any village names that appear in problems but aren't in the CSV
+        known_names = {v["name"] for v in villages}
+        for p in PROBLEMS:
+            vn = p.get("village_name")
+            if vn and vn not in known_names:
+                lat, lng = _village_coordinates(vn)
+                villages.append({"name": vn, "district": "", "state": "", "lat": lat, "lng": lng})
+                known_names.add(vn)
+        return sorted(villages, key=lambda v: v["name"])
+    except Exception as e:
+        return []
+
 # --- In-Memory State & Data Loading ---
 # We use in-memory lists to simulate a database for this session.
 # In a real app, this would be replaced by SQL queries.
@@ -218,24 +253,41 @@ def _safe_identifier(value: str) -> str:
 
 
 def _village_coordinates(village_name: Optional[str]) -> tuple[float, float]:
-    village_coords = {
-        "Sundarpur": (21.1458, 79.0882),
-        "Nirmalgaon": (20.9504, 78.9671),
-        "Lakshmipur": (23.2156, 77.0854),
-        "Devnagar": (23.0105, 77.4212),
-        "Riverbend": (21.2514, 81.6296),
+    # Primary: canonical coordinates that match generate_canonical_dataset.py exactly
+    village_coords: Dict[str, tuple[float, float]] = {
+        "Sundarpur":  (21.1458, 79.0882),
+        "Nirmalgaon": (20.7453, 78.6022),
+        "Lakshmipur": (23.2000, 77.0833),
+        "Devnagar":   (23.2599, 77.4126),
+        "Riverbend":  (21.2514, 81.6296),
     }
-    if village_name in village_coords:
+    # Secondary: read from village_locations.csv at runtime to pick up any additions
+    try:
+        rows = read_csv_norm(DEFAULT_VILLAGE_LOCATIONS)
+        for r in rows:
+            name = get_any(r, ["village_name", "village", "name"])
+            lat_raw = get_any(r, ["lat", "latitude"])
+            lng_raw = get_any(r, ["lng", "longitude"])
+            if name and lat_raw and lng_raw:
+                try:
+                    village_coords.setdefault(name, (float(lat_raw), float(lng_raw)))
+                except ValueError:
+                    pass
+    except Exception:
+        pass
+
+    if village_name and village_name in village_coords:
         return village_coords[village_name]
 
+    # Deterministic fallback within India bounding box for unknown villages
     seed = (village_name or "unknown-village").encode("utf-8")
     digest = hashlib.sha256(seed).hexdigest()
     lat_ratio = int(digest[:8], 16) / 0xFFFFFFFF
     lng_ratio = int(digest[8:16], 16) / 0xFFFFFFFF
-    # Keep fallback points within a rough India bounding box so they still render on the map.
     lat = 8.0 + (lat_ratio * 29.0)
     lng = 68.0 + (lng_ratio * 29.0)
     return round(lat, 4), round(lng, 4)
+
 
 
 def _media_relative_url(path: Path) -> str:
@@ -834,32 +886,10 @@ def _build_seed_profiles(
 
 def persist_runtime_state() -> None:
     global STATE_VERSION
-
-    def _json_safe(value: Any) -> Any:
-        if isinstance(value, dict):
-            return {key: _json_safe(item) for key, item in value.items()}
-        if isinstance(value, list):
-            return [_json_safe(item) for item in value]
-        if value.__class__.__module__.startswith("fastapi.params"):
-            default = getattr(value, "default", None)
-            return _json_safe(default)
-        return value
-
     with csv_lock:
         STATE_VERSION += 1
-        with open(RUNTIME_STATE_JSON, "w", encoding="utf-8") as handle:
-            json.dump(
-                {
-                    "state_version": STATE_VERSION,
-                    "problems": _json_safe(PROBLEMS),
-                    "volunteers": _json_safe(VOLUNTEERS),
-                    "profiles": _json_safe(PROFILES),
-                    "media_assets": _json_safe(MEDIA_ASSETS),
-                },
-                handle,
-                ensure_ascii=False,
-                indent=2,
-            )
+    # Persistence is disabled for this session so we always get a fresh run from CSVs.
+    pass
 
 
 def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
@@ -875,7 +905,7 @@ def load_initial_data(force_seed: bool = False):
     """Loads seeded runtime state backed by canonical CSV data."""
     global PROBLEMS, VOLUNTEERS, PROFILES, MEDIA_ASSETS, STATE_VERSION
 
-    if os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
+    if False and os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
         try:
             with open(RUNTIME_STATE_JSON, "r", encoding="utf-8") as handle:
                 state = json.load(handle)
@@ -1175,6 +1205,45 @@ async def update_problem_status(problem_id: str, payload: Dict[str, str]):
     elif new_status in {"pending", "in_progress"}:
         for match in problem.get("matches", []):
             match["completed_at"] = None
+    persist_runtime_state()
+    return {"status": "success", "problem": _serialize_problem(problem)}
+
+
+@app.delete("/problems/{problem_id}")
+async def delete_problem(problem_id: str):
+    global PROBLEMS
+    problem = next((p for p in PROBLEMS if p["id"] == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    PROBLEMS = [p for p in PROBLEMS if p["id"] != problem_id]
+    persist_runtime_state()
+    return {"status": "success", "deleted_id": problem_id}
+
+
+@app.patch("/problems/{problem_id}")
+async def edit_problem(problem_id: str, payload: Dict[str, Any]):
+    problem = next((p for p in PROBLEMS if p["id"] == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    editable = {"title", "description", "category", "village_name", "village_address", "visual_tags"}
+    for key in editable:
+        if key in payload:
+            problem[key] = payload[key]
+    problem["updated_at"] = _now_iso()
+    persist_runtime_state()
+    return {"status": "success", "problem": _serialize_problem(problem)}
+
+
+@app.delete("/problems/{problem_id}/matches/{match_id}")
+async def unassign_volunteer(problem_id: str, match_id: str):
+    problem = next((p for p in PROBLEMS if p["id"] == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    original = list(problem.get("matches") or [])
+    problem["matches"] = [m for m in original if m.get("id") != match_id]
+    if not problem["matches"] and problem["status"] == "in_progress":
+        problem["status"] = "pending"
+    problem["updated_at"] = _now_iso()
     persist_runtime_state()
     return {"status": "success", "problem": _serialize_problem(problem)}
 

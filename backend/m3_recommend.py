@@ -211,31 +211,36 @@ def redundancy_metric(required: List[str], covered_counts: Dict[str, int]) -> fl
     return redundant / len(required)
 
 def k_robustness(required: List[str], team_members: List[Dict], backend: str, model_or_vec, tau: float = 0.35, k: int = 1, sample_limit: int = 2000) -> float:
+    """Robustness measured over the subset of required skills the full team actually covers.
+    This avoids always returning 0 when the skill list is longer than the team can cover."""
     if not team_members:
         return 0.0
     _, per_req_best, _ = similarity_coverage(required, team_members, backend, model_or_vec, tau)
-    if not all(v >= tau for v in per_req_best.values()):
+    # Only measure over skills the full team covers – fairer for small teams
+    covered = [r for r, v in per_req_best.items() if v >= tau]
+    if not covered:
         return 0.0
     n = len(team_members)
-    if n == 0:
-        return 0.0
-    k = max(1, min(k, n - 1 if n > 1 else 1)) # Can't remove all members if n=1
+    if n == 1:
+        return 0.0  # nothing to remove
     import itertools, random
-    subsets = []
+    k = max(1, min(k, n - 1))
+    subsets: list = []
     for r in range(1, k + 1):
-        combs = list(itertools.combinations(range(n), r))
-        subsets.extend(combs)
+        subsets.extend(itertools.combinations(range(n), r))
         if len(subsets) > sample_limit:
             break
     if len(subsets) > sample_limit:
         subsets = random.sample(subsets, sample_limit)
+    if not subsets:
+        return 0.0
     ok = 0
     for rem in subsets:
         sub_members = [m for i, m in enumerate(team_members) if i not in rem]
-        _, per_req_best2, _ = similarity_coverage(required, sub_members, backend, model_or_vec, tau)
+        _, per_req_best2, _ = similarity_coverage(covered, sub_members, backend, model_or_vec, tau)
         if all(v >= tau for v in per_req_best2.values()):
             ok += 1
-    return ok / len(subsets) if subsets else 0.0
+    return ok / len(subsets)
 
 def team_metrics(required: List[str], team_members: List[Dict], backend: str, model_or_vec, tau: float = 0.35, k: int = 1) -> Dict[str, float]:
     coverage, per_req_best, covered_counts = similarity_coverage(required, team_members, backend, model_or_vec, tau)
@@ -256,14 +261,20 @@ def team_metrics(required: List[str], team_members: List[Dict], backend: str, mo
     }
 
 def goodness(metrics: Dict[str, float], lambda_red: float = 1.0, lambda_size: float = 1.0, lambda_will: float = 0.5) -> float:
+    # k_robustness removed: tasks are single-classification and small teams can't achieve redundancy.
+    # Score = multiplicative combination of coverage × willingness, penalised by size and redundancy.
+    # This ensures a plumber on a plumbing task scores high, not just a willing but irrelevant person.
+    coverage = metrics["coverage"]
+    willingness = metrics["willingness_avg"]
+    # Combined skill×will: geometric mean so both matter
+    core = math.sqrt(max(coverage, 0.0) * max(willingness, 0.0))
     s = (
-        (+1) * metrics["coverage"]
-        + (+1) * metrics["k_robustness"]
-        + lambda_will * metrics["willingness_avg"]
-        - lambda_red * metrics["redundancy"]
-        - lambda_size * metrics["set_size"]
+        2.0 * core                            # main signal
+        + lambda_will * willingness            # bonus for high-willingness teams
+        - lambda_red * metrics["redundancy"]   # penalty for skill duplication
+        - lambda_size * metrics["set_size"]    # gentle penalty for large teams
     )
-    return (s + 2.0) / 4.0
+    return max(0.0, min(1.0, (s + 0.5) / 3.5))
 
 # ------------- size-bucket selection -------------
 
@@ -343,35 +354,112 @@ def _load_skills_json(path: str) -> List[str]:
         return [str(x) for x in blob["skills"]]
     raise ValueError(f"--skills_json must be a JSON array or an object with a 'skills' array.")
 
+# Keyword→skill mapping: words in proposal text → concrete required skills
+_KEYWORD_SKILL_MAP: List[tuple] = [
+    (["handpump", "pump", "borewell", "water pump"], [
+        "handpump repair and maintenance",
+        "plumbing",
+        "pump maintenance",
+        "mechanical systems (pumps/filtration)",
+        "pipe fitting",
+        "borewell installation and rehabilitation",
+    ]),
+    (["drain", "drainage", "sewer", "sewage", "de-silt"], [
+        "drainage design and de-silting",
+        "rural road maintenance and culvert repair",
+        "fecal sludge management",
+    ]),
+    (["toilet", "latrine", "sanitation", "odf"], [
+        "toilet construction and retrofitting",
+        "hygiene behavior change communication",
+        "fecal sludge management",
+    ]),
+    (["water", "contamination", "quality", "testing", "contaminated"], [
+        "water quality assessment",
+        "groundwater assessment and monitoring",
+        "public health outreach",
+    ]),
+    (["solar", "electricity", "electrification", "power", "wiring", "electrical"], [
+        "solar microgrid design and maintenance",
+        "solar pumping systems",
+        "rural electrification safety and earthing",
+        "electrical work",
+    ]),
+    (["road", "culvert", "bridge", "path", "pavement"], [
+        "rural road maintenance and culvert repair",
+        "culvert and causeway design",
+        "construction",
+    ]),
+    (["digital", "literacy", "smartphone", "computer", "spreadsheet", "internet"], [
+        "education and digital literacy",
+        "mobile data collection and dashboards",
+        "data analysis and reporting",
+    ]),
+    (["health", "disease", "outbreak", "nutrition", "anganwadi", "vaccination"], [
+        "public health outreach",
+        "anganwadi strengthening",
+        "school wq testing and wash in schools",
+    ]),
+    (["agriculture", "irrigation", "drip", "crop", "farm", "soil"], [
+        "drip and sprinkler irrigation setup",
+        "soil testing and fertility management",
+        "integrated pest management",
+        "dairy and livestock management",
+    ]),
+    (["housing", "pmay", "construction", "house", "wall", "building"], [
+        "low-cost housing construction and PMAY support",
+        "construction",
+    ]),
+    (["forest", "tree", "erosion", "plantation", "biodiversity"], [
+        "tree plantation and survival monitoring",
+        "erosion control and gully plugging",
+        "biodiversity and habitat restoration",
+    ]),
+    (["gram sabha", "panchayat", "mgnrega", "beneficiary"], [
+        "panchayat planning and budgeting",
+        "gram sabha facilitation",
+        "mgnrega works planning and measurement",
+        "beneficiary identification and targeting",
+    ]),
+    (["shg", "self.help", "women", "group", "cooperative"], [
+        "self-help group formation and strengthening",
+        "panchayat planning and budgeting",
+    ]),
+    (["survey", "gis", "mapping", "data", "enumeration"], [
+        "household survey and enumeration",
+        "gis and remote sensing",
+        "data analysis and reporting",
+        "mobile data collection and dashboards",
+    ]),
+    (["solar", "pump", "irrigation"], [
+        "solar pumping systems",
+        "pump maintenance",
+    ]),
+]
+
 def _auto_extract_skills(text: str, threshold: float) -> List[str]:
+    """Extract required skills from proposal text using keyword matching against a comprehensive map.
+    This avoids returning a generic 15-skill list that produces meaningless coverage scores."""
     try:
         import embed_skills_extractor as ex
         return ex.extract_skills_embed(text, topk_per_sentence=7, threshold=threshold)
     except Exception:
-        t = (text or "").lower()
-        keys = ["village","gram","panchayat","ward","toilet","drain","waste","river","water",
-                "anganwadi","school","handpump","borewell","harvesting","mgnrega","shg",
-                "pmay","health","nutrition","road","culvert","solar","gis","survey","iot"]
-        if any(k in t for k in keys):
-            base = [
-                "drainage design and de-silting",
-                "handpump repair and maintenance",
-                "toilet construction and retrofitting",
-                "solid waste segregation and composting",
-                "water quality assessment",
-                "rainwater harvesting",
-                "watershed management",
-                "soil testing and fertility management",
-                "panchayat planning and budgeting",
-                "self-help group formation and strengthening",
-                "public health outreach",
-                "education and digital literacy",
-                "gis and remote sensing",
-                "data analysis and reporting",
-                "project management",
-            ]
-            return base
-        return VILLAGE_FALLBACK_SKILLS[:12]
+        pass
+
+    t = (text or "").lower()
+    matched: List[str] = []
+    seen: set = set()
+    for keywords, skills in _KEYWORD_SKILL_MAP:
+        if any(kw in t for kw in keywords):
+            for s in skills:
+                if s not in seen:
+                    matched.append(s)
+                    seen.add(s)
+
+    # Always include the top few fallback skills as a backstop so the list is never empty
+    if not matched:
+        return VILLAGE_FALLBACK_SKILLS[:6]
+    return matched
 
 # ------------------------ main ---------------------
 
@@ -475,10 +563,29 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
         required = VILLAGE_FALLBACK_SKILLS
 
     # 5. Ranking & Feature Matrix
+    # Compute domain_score via direct skill-set overlap with required skills.
+    # The cross-model embedding cosine (prop_model vs people_model) is unreliable because
+    # the two models project to different embedding spaces.
+    norm_required = {normalize_phrase(r) for r in required}
+
+    def _skill_overlap_score(person_skills: List[str]) -> float:
+        """Fraction of required skills covered by this person's skills (with partial credit)."""
+        if not norm_required or not person_skills:
+            return 0.0
+        norm_ps = {normalize_phrase(s) for s in person_skills}
+        exact = len(norm_required & norm_ps)
+        # Partial: a required token appears as substring in a skill or vice versa
+        partial = sum(
+            0.5 for r in norm_required for ps in norm_ps
+            if r != ps and (r in ps or ps in r)
+        )
+        return min(1.0, (exact + partial) / len(norm_required))
+
+    # Still compute embedding sims for the ML model feature (even if imperfect)
     P = embed_with(prop_model, [text], backend)
     S = embed_with(people_model, [p["text"] for p in filtered_people], backend)
     sims = cosine_similarity(P, S).ravel()
-    
+
     features = []
     for idx, p in enumerate(filtered_people):
         avail_label = (p.get("availability") or "").lower()
@@ -486,36 +593,50 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
         base_W = p["W_base"]
         sev_pen = severity_penalty(avail_label, severity_level)
         W_sev = max(0.0, min(1.0, base_W - sev_pen))
-        
+
         dist_km = lookup_distance_km(p.get("home_location"), proposal_location, distance_lookup)
         dist_norm = min(dist_km / distance_scale, 1.0) if distance_scale > 0 else 0.0
         dist_pen = math.exp(-dist_km / distance_decay) if distance_decay > 0 else 1.0
-        
+
         W_final = max(0.0, min(1.0, W_sev * dist_pen))
+        # Interpretable domain score: what fraction of the task's required skills does this person cover?
+        domain_score = _skill_overlap_score(p.get("skills", []))
         p.update({
             "W": W_final,
             "distance_km": dist_km,
             "distance_penalty": dist_pen,
             "availability_level": avail_level,
             "severity_level": severity_level,
-            "severity_penalty": sev_pen
+            "severity_penalty": sev_pen,
+            "domain_score": round(domain_score, 4),
+            "willingness_score": round(W_final, 4),
+            "overwork_hours": round(p.get("overwork_hours", 0.0), 2),
         })
+        # ML features: use domain_score (now skill-overlap) as primary signal
         features.append([
-            sims[idx],
-            sims[idx] * W_final,
+            domain_score,
+            domain_score * W_final,
             W_final,
             dist_norm,
             dist_pen,
             avail_level / 2.0,
-            severity_level / 2.0
+            severity_level / 2.0,
         ])
-        
+
+
     probs = clf.predict_proba(np.asarray(features))[:, 1]
-    ranked = sorted(zip(filtered_people, probs), key=lambda x: x[1], reverse=True)
+    # Blend model prob with domain_score so pure skill-match people rank higher
+    for p, prob in zip(filtered_people, probs):
+        blended = 0.5 * float(prob) + 0.5 * p["domain_score"]
+        p["model_prob"] = round(blended, 4)
+    ranked = sorted(zip(filtered_people, probs), key=lambda x: x[0]["model_prob"], reverse=True)
 
     # 6. Team Building logic
+    # Use direct skill-overlap for coverage (not embedding similarity) for interpretability.
+    # tau=0.6 means a volunteer skill must be at least 60% semantically similar to a required skill.
+    COVERAGE_TAU = 0.60
     def evaluate(tlist):
-        mets = team_metrics(required, tlist, backend, people_model, tau=config.tau, k=config.k_robust)
+        mets = team_metrics(required, tlist, backend, people_model, tau=COVERAGE_TAU, k=config.k_robust)
         score = goodness(mets, lambda_red=config.lambda_red, lambda_size=config.lambda_size, lambda_will=config.lambda_will)
         return score, mets
 
@@ -525,28 +646,37 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
     soft_cap = config.team_size or config.soft_cap
 
     while len(team) < soft_cap:
-        best_cand, best_cand_score, best_cand_mets, best_cand_prob = None, -1.0, None, -1.0
-        best_delta = 0.0
+        best_cand, best_cand_score, best_cand_mets, best_cand_prob = None, -float('inf'), None, -1.0
+        # If user explicitly wants a team size, allow negative score deltas to fill the roster.
+        # Otherwise, only accept additions that improve the score.
+        best_delta = -float('inf') if config.team_size else 0.0
         for p, prob in ranked:
             if p["person_id"] in team_ids: continue
             cand_score, cand_mets = evaluate(team + [p])
             delta = cand_score - best_score
             if delta > best_delta + 1e-9 or (abs(delta - best_delta) <= 1e-9 and prob > best_cand_prob):
                 best_cand, best_cand_score, best_cand_mets, best_cand_prob, best_delta = p, cand_score, cand_mets, prob, delta
-        if not best_cand or best_delta <= 1e-9: break
+        if not best_cand or (best_delta <= 1e-9 and not config.team_size): break
         team.append(best_cand)
         team_ids.add(best_cand["person_id"])
         best_score = best_cand_score
-        if best_cand_mets["coverage"] >= 0.999 and best_cand_mets["k_robustness"] >= 0.999: break
+        # Early exit only when skills are fully covered (no robustness dependency)
+        if not config.team_size and best_cand_mets["coverage"] >= 0.999: break
+
 
     # 7. Variants & Consolidation
+    # Build N alternative full-size teams by re-running the greedy algorithm
+    # from different starting seeds (top-ranked non-team-1 candidates).
     recs = []
     def add_rec(tlist):
         g, m = evaluate(tlist)
+        dist_vals = [float(mm.get("distance_km", 0.0)) for mm in tlist]
+        avg_dist = round(sum(dist_vals) / len(dist_vals), 2) if dist_vals else 0.0
+        enriched = [{**mm, "home_location": mm.get("home_location", "")} for mm in tlist]
         recs.append({
-            "team_ids": ";".join([mm["person_id"] for mm in tlist]),
-            "team_names": "; ".join([mm["name"] for mm in tlist]),
-            "team_size": len(tlist),
+            "team_ids": ";".join([mm["person_id"] for mm in enriched]),
+            "team_names": "; ".join([mm["name"] for mm in enriched]),
+            "team_size": len(enriched),
             "goodness": round(g, 4),
             "coverage": round(m["coverage"], 3),
             "k_robustness": round(m["k_robustness"], 3),
@@ -554,58 +684,55 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
             "set_size": round(m["set_size"], 3),
             "willingness_avg": round(m["willingness_avg"], 3),
             "willingness_min": round(m["willingness_min"], 3),
-            "members": list(tlist)
+            "avg_distance_km": avg_dist,
+            "members": enriched
         })
 
+
     add_rec(team)
-    tids_set = {m["person_id"] for m in team}
-    for p, _ in ranked[:max(1, config.topk_swap)]:
-        if p["person_id"] in tids_set: continue
-        for i in range(len(team)):
-            variant = list(team)
-            variant[i] = p
-            add_rec(variant)
 
-    dedup = {(r['team_ids'], r['team_names']): r for r in recs}.values()
-    sorted_recs = sorted(dedup, key=lambda r: (r["goodness"], r["coverage"]), reverse=True)
+    # Generate alternative full-size teams: exclude team-1 members, re-run greedy from scratch
+    requested_limit = max(1, int(config.num_teams)) if config.num_teams else 3
+    team1_ids = {m["person_id"] for m in team}
+    alt_pool = [(p, prob) for p, prob in ranked if p["person_id"] not in team1_ids]
+
+    for alt_seed_idx in range(requested_limit - 1):
+        alt_team: List[Dict] = []
+        alt_team_ids: set = set()
+        alt_excluded = set(team1_ids)
+        # Each alternative excludes the seed candidates already used in previous alternatives
+        for prev_rec in recs[1:]:
+            for prev_member in prev_rec["members"]:
+                alt_excluded.add(prev_member["person_id"])
+
+        alt_ranked = [(p, prob) for p, prob in alt_pool if p["person_id"] not in alt_excluded]
+        if not alt_ranked:
+            break
+
+        alt_best_score, _ = evaluate([])
+        while len(alt_team) < soft_cap:
+            best_cand_alt, best_alt_prob = None, -1.0
+            best_alt_delta = -float('inf') if config.team_size else 0.0
+            for p_alt, prob_alt in alt_ranked:
+                if p_alt["person_id"] in alt_team_ids: continue
+                cand_score_alt, _ = evaluate(alt_team + [p_alt])
+                delta_alt = cand_score_alt - alt_best_score
+                if delta_alt > best_alt_delta + 1e-9 or (abs(delta_alt - best_alt_delta) <= 1e-9 and prob_alt > best_alt_prob):
+                    best_cand_alt, best_alt_prob, best_alt_delta = p_alt, prob_alt, delta_alt
+                    alt_best_score = cand_score_alt
+            if not best_cand_alt or (best_alt_delta <= 1e-9 and not config.team_size):
+                break
+            alt_team.append(best_cand_alt)
+            alt_team_ids.add(best_cand_alt["person_id"])
+        if alt_team:
+            add_rec(alt_team)
+
+    # Deduplicate and sort; do NOT strip members across teams (these are alternatives, not serial assignments)
+    dedup = {r['team_ids']: r for r in recs}.values()
+    sorted_recs = sorted(dedup, key=lambda r: (r["coverage"], r["goodness"]), reverse=True)
     buckets = parse_size_buckets(config.size_buckets)
-    requested_limit = max(1, int(config.num_teams)) if config.num_teams else 10
-    final = select_top_teams_by_size(sorted_recs, buckets) or sorted_recs[:requested_limit]
-    final = final[:requested_limit]
-
-    # Enforce unique volunteers across recommendations
-    assigned_global = set()
-    resolved = []
-    for r in final:
-        keep = [m for m in r["members"] if m["person_id"] not in assigned_global]
-        if not keep: 
-            continue
-            
-        # If we removed members, we MUST recalculate the goodness score
-        if len(keep) < len(r["members"]):
-            g, m = evaluate(keep)
-            r = dict(r)
-            r.update({
-                "members": keep,
-                "team_ids": ";".join([mm["person_id"] for mm in keep]),
-                "team_names": "; ".join([mm.get("name", "Volunteer") for mm in keep]),
-                "team_size": len(keep),
-                "goodness": round(g, 4),
-                "coverage": round(m["coverage"], 3),
-                "k_robustness": round(m["k_robustness"], 3),
-                "redundancy": round(m["redundancy"], 3),
-                "set_size": round(m["set_size"], 3),
-                "willingness_avg": round(m["willingness_avg"], 3),
-                "willingness_min": round(m["willingness_min"], 3)
-            })
-        
-        # Check if the team is still "good enough" after removals
-        if len(resolved) > 0 and r["goodness"] < 0.2: # Example threshold
-             continue
-
-        for m in keep: 
-            assigned_global.add(m["person_id"])
-        resolved.append(r)
+    final = list(sorted_recs[:requested_limit])
+    resolved = final
     
     # Add rank
     for i, r in enumerate(resolved, start=1):
@@ -613,7 +740,7 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
 
     return {
         "severity_detected": SEVERITY_LABELS.get(severity_level, "NORMAL"),
-        "severity_source": "override" if config.severity_override else "auto",
+        "severity_source": "Coordinator Override" if config.severity_override else "Keyword Match",
         "proposal_location": proposal_location,
         "teams": resolved
     }

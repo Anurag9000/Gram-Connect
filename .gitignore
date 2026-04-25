@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.venv
+venv
+ENV
+.env
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.vscode/
+frontend/test-results/
+frontend/playwright-report/
+
+# Datasets & Models
+backend/model.pkl
+backend/runtime_data/
+data/*.csv
+!frontend/src/lib/
+!frontend/src/lib/database.types.ts
+!data/availability_legend.csv
+!data/people.csv
+!data/proposals.csv
+!data/pairs.csv
+!data/village_locations.csv
+!data/village_distances.csv
+!data/schedule.csv
+!data/runtime_profiles.csv
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.zip
+*.log
+docs/paper_*.pdf
+docs/paper_*.html

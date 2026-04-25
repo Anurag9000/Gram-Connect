@@ -1,0 +1,11 @@
+village_a,village_b,distance_km,travel_time_min
+Sundarpur,Nirmalgaon,18,35
+Sundarpur,Lakshmipur,42,82
+Sundarpur,Devnagar,28,54
+Sundarpur,Riverbend,61,110
+Nirmalgaon,Lakshmipur,37,73
+Nirmalgaon,Devnagar,24,48
+Nirmalgaon,Riverbend,55,100
+Lakshmipur,Devnagar,16,33
+Lakshmipur,Riverbend,34,67
+Devnagar,Riverbend,29,56

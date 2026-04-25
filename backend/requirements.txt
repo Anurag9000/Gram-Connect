@@ -1,0 +1,20 @@
+numpy
+scikit-learn
+sentence-transformers
+scipy
+pandas
+fastapi
+python-multipart
+uvicorn
+openai-whisper
+imageio-ffmpeg
+pillow
+ftfy
+regex
+tqdm
+httpx
+# Install PyTorch separately from the official CUDA wheel index before this file:
+# python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# Note: clip usually installed via: pip install git+https://github.com/openai/CLIP.git
+# We will add it as a placeholder here if it's already installed or if we handle it separately.
+git+https://github.com/openai/CLIP.git

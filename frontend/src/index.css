@@ -1,0 +1,59 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/*
+ * =========================================
+ * GOOGLE TRANSLATE WIDGET STYLES
+ * Replace your old rules with this entire block
+ * =========================================
+ */
+
+/* * == RULES TO HIDE THE TOP BANNER ==
+ * The JavaScript in Navigation.tsx handles this,
+ * but this is our fallback.
+ */
+.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+} 
+
+/* * This is the MOST IMPORTANT rule.
+ * Google adds `top: 40px;` and `position: absolute;` to the body.
+ * We MUST override it.
+ */
+body {
+  top: 0 !important; 
+  position: relative !important; 
+}
+
+
+/* * == RULES TO STYLE THE DROPDOWN IN THE NAV BAR ==
+ * This is the "Select Language" text itself.
+ */
+.goog-te-gadget-simple {
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.goog-te-gadget-simple .goog-te-menu-value {
+  color: white !important;
+  text-decoration: none !important;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem; /* Give it space like a button */
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+.goog-te-gadget-simple:hover .goog-te-menu-value {
+  background-color: #2f855a; /* A darker green */
+}
+
+.goog-te-gadget-simple img {
+  display: none !important;
+}
+
+.VIpgJd-ZVi9od-ORHb-OEVmCD {
+  display: none !important;
+}

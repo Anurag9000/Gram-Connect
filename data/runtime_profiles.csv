@@ -1,0 +1,3 @@
+id,email,full_name,phone,role
+mock-coordinator-uuid,coordinator@test.com,Test Coordinator,0987654321,coordinator
+mock-volunteer-uuid,volunteer@test.com,Test Volunteer,1234567890,volunteer

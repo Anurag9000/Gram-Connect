@@ -6,6 +6,13 @@ This document records the current implementation status of Gram Connect at the r
 
 Gram Connect is a FastAPI and Vite application for community issue intake, volunteer assignment, map-based operations, and persisted recommendation-driven coordination. The repository contains a live backend, a live frontend, a canonical synthetic dataset, a persisted trained recommender bundle, and end-to-end operational flows for villager reporting, coordinator dispatch, and volunteer proof submission.
 
+## Deployment Status
+
+- Public hosted prototype URL: not currently configured in the repository.
+- Local demo frontend URL: `http://127.0.0.1:5173`
+- Local demo backend API URL: `http://127.0.0.1:8011`
+- Local API documentation URL: `http://127.0.0.1:8011/docs`
+
 ## Implemented Subsystems
 
 - Backend API service with persisted runtime state and media storage.

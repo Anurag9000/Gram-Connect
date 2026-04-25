@@ -22,6 +22,13 @@ The persisted recommender architecture, feature stack, early-stopping policy, an
 
 The current implementation status, canonical artifacts, intentionally deferred subsystems, and verification scope are documented in [docs/repository_state.md](docs/repository_state.md).
 
+## Deployment Status
+
+- Public hosted prototype URL: not currently configured.
+- Local demo frontend: `http://127.0.0.1:5173`
+- Local demo backend API: `http://127.0.0.1:8011`
+- Local API documentation: `http://127.0.0.1:8011/docs`
+
 ## Canonical Seeded Data
 - `backend/generate_canonical_dataset.py` is the source of truth for the synthetic dataset.
 - Running it regenerates:

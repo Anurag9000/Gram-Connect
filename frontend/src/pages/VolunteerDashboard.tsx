@@ -7,7 +7,8 @@ import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../components/LanguageToggle';
 import { api, type VolunteerTask } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { subscribeLiveRefresh } from '../lib/liveRefresh';
 
 export default function VolunteerDashboard() {
     const { profile } = useAuth();
@@ -21,6 +22,8 @@ export default function VolunteerDashboard() {
     const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
     const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const activeTasks = tasks.filter((task) => task.status !== 'completed');
+    const completedTasks = tasks.filter((task) => task.status === 'completed');
 
     const revokeProofDraftUrls = () => {
         if (beforeImagePreview) {
@@ -64,6 +67,37 @@ export default function VolunteerDashboard() {
         }
     }, [loadTasks, profile]);
 
+    useEffect(() => {
+        if (!profile) {
+            return;
+        }
+
+        const unsubscribe = subscribeLiveRefresh(() => {
+            loadTasks();
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [loadTasks, profile]);
+
+    useEffect(() => {
+        if (!selectedTask) {
+            return;
+        }
+
+        const latestTask = tasks.find((task) => task.id === selectedTask.id);
+        if (!latestTask) {
+            setSelectedTask(null);
+            clearProofDraft();
+            return;
+        }
+
+        if (latestTask !== selectedTask) {
+            setSelectedTask(latestTask);
+        }
+    }, [selectedTask, tasks]);
+
     const handleComplete = async () => {
         if (!afterImageFile) {
             alert("Please upload an 'After' photo as proof of work.");
@@ -106,35 +140,20 @@ export default function VolunteerDashboard() {
                 after_media_id: afterMediaId,
                 notes: 'Volunteer submitted completion proof',
             });
-            alert("Impact verified! Thank you for your service.");
+            alert("Proof accepted. Gemini verified the visible fix.");
             setSelectedTask(null);
             clearProofDraft();
             loadTasks();
         } catch (err) {
             console.error("Task completion failed:", err);
-            alert("Failed to verify impact. Please try again.");
+            alert(err instanceof Error ? err.message : "Failed to verify impact. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     if (!profile || profile.role !== 'volunteer') {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-                <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-                    <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
-                    <p className="text-gray-600 mb-6">
-                        You must be logged in as a Volunteer to view your assignments.
-                    </p>
-                    <button
-                        onClick={() => navigate('/')}
-                        className="w-full bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
-                    >
-                        Back to Home
-                    </button>
-                </div>
-            </div>
-        );
+        return <Navigate to="/volunteer-login" replace />;
     }
 
     if (selectedTask) {
@@ -303,12 +322,12 @@ export default function VolunteerDashboard() {
                         <div className="flex justify-center py-12">
                             <Loader2 className="animate-spin text-green-600" size={32} />
                         </div>
-                    ) : tasks.length === 0 ? (
+                    ) : activeTasks.length === 0 ? (
                         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center text-gray-500">
                             No active assignments at the moment.
                         </div>
                     ) : (
-                        tasks.map(task => (
+                        activeTasks.map(task => (
                             <div
                                 key={task.id}
                                 data-testid={`task-card-${task.id}`}
@@ -327,6 +346,29 @@ export default function VolunteerDashboard() {
                         ))
                     )}
                 </div>
+
+                {completedTasks.length > 0 && (
+                    <div className="mt-10 grid gap-6">
+                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <CheckCircle className="text-emerald-600" /> Completed Assignments
+                        </h2>
+                        {completedTasks.map(task => (
+                            <div
+                                key={`completed-${task.id}`}
+                                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center opacity-90"
+                            >
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-1">{task.title}</h3>
+                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                        <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
+                                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{task.status}</span>
+                                    </div>
+                                </div>
+                                <CheckCircle className="text-emerald-500" />
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -1,61 +1,144 @@
-import pytest
-import sys
+import io
 import os
-from unittest.mock import patch, MagicMock
+import sys
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import multimodal_service
 
-@patch('whisper.load_model')
-def test_get_whisper(mock_load):
-    multimodal_service._whisper_model = None
-    multimodal_service.get_whisper()
-    mock_load.assert_called_with("tiny")
 
-@patch('multimodal_service.get_whisper')
-@patch('os.path.exists')
-def test_transcribe_audio(mock_exists, mock_get_w):
-    mock_exists.return_value = True
-    model = mock_get_w.return_value
-    model.transcribe.return_value = {"text": " hello world "}
-    
-    res = multimodal_service.transcribe_audio("fake_path.mp3")
-    assert res == "hello world"
+@patch("multimodal_service._has_gemini_key", return_value=True)
+@patch("multimodal_service._read_file_bytes", return_value=b"fake-audio")
+@patch("os.path.exists", return_value=True)
+@patch("multimodal_service.get_gemini_client")
+def test_transcribe_audio_uses_gemini(mock_get_client, mock_exists, mock_read_bytes, mock_has_key):
+    response = MagicMock()
+    response.text = """
+    {
+      "text": "नाली जाम है",
+      "language_code": "hi",
+      "language_name": "Hindi",
+      "source": "gemini"
+    }
+    """
+    client = MagicMock()
+    client.models.generate_content.return_value = response
+    mock_get_client.return_value = client
 
-@patch('multimodal_service.get_clip')
-@patch('os.path.exists')
-@patch('PIL.Image.open')
-def test_analyze_image_success(mock_img_open, mock_exists, mock_get_clip):
+    result = multimodal_service.transcribe_audio("sample.wav")
+
+    assert result["text"] == "नाली जाम है"
+    assert result["language"] == "hi"
+    assert result["language_name"] == "Hindi"
+    assert client.models.generate_content.called
+
+
+@patch("multimodal_service._has_gemini_key", return_value=True)
+@patch("multimodal_service._read_file_bytes", return_value=b"fake-image")
+@patch("os.path.exists", return_value=True)
+@patch("multimodal_service.get_gemini_client")
+def test_analyze_image_uses_gemini(mock_get_client, mock_exists, mock_read_bytes, mock_has_key):
+    response = MagicMock()
+    response.text = """
+    {
+      "top_label": "digital literacy",
+      "confidence": 0.88,
+      "tags": ["digital literacy", "education"],
+      "all_probs": {
+        "digital literacy": 0.88,
+        "education": 0.1
+      }
+    }
+    """
+    client = MagicMock()
+    client.models.generate_content.return_value = response
+    mock_get_client.return_value = client
+
+    result = multimodal_service.analyze_image("sample.jpg", ["digital literacy", "education"])
+
+    assert result["top_label"] == "digital literacy"
+    assert result["confidence"] == 0.88
+    assert result["tags"][0] == "digital literacy"
+    assert result["all_probs"]["education"] == 0.1
+
+
+@patch("multimodal_service._has_gemini_key", return_value=False)
+@patch("os.path.exists")
+@patch("PIL.Image.open")
+def test_analyze_image_falls_back_to_clip(mock_img_open, mock_exists, mock_has_key):
     mock_exists.return_value = True
-    model = MagicMock()
-    preprocess = MagicMock()
-    mock_get_clip.return_value = (model, preprocess)
-    
-    # Mocking model call results
+    mock_get_clip = MagicMock()
+    mock_model = MagicMock()
+    mock_preprocess = MagicMock()
+    mock_get_clip.return_value = (mock_model, mock_preprocess)
+
     import torch
-    mock_logits = torch.tensor([[10.0, 1.0]]) # Very high logit for first label
-    model.return_value = (mock_logits, None)
-    
-    # Create a mock for the clip module
+
+    mock_logits = torch.tensor([[10.0, 1.0]])
+    mock_model.return_value = (mock_logits, None)
     mock_clip = MagicMock()
     mock_clip.tokenize.return_value = torch.zeros((2, 77))
-    
-    # Patch sys.modules to include our mock clip
-    with patch.dict('sys.modules', {'clip': mock_clip}):
-        res = multimodal_service.analyze_image("fake.jpg", ["label1", "label2"])
-        assert res["top_label"] == "label1"
-        assert res["confidence"] > 0.9
-        assert res["tags"][0] == "label1"
 
-@patch('multimodal_service.get_clip')
-@patch('os.path.exists')
-def test_analyze_image_no_clip(mock_exists, mock_get_clip):
+    with patch("multimodal_service.get_clip", mock_get_clip), patch.dict("sys.modules", {"clip": mock_clip}):
+        result = multimodal_service.analyze_image("fake.jpg", ["label1", "label2"])
+
+    assert result["top_label"] == "label1"
+    assert result["confidence"] > 0.9
+
+
+@patch("multimodal_service._has_gemini_key", return_value=False)
+@patch("multimodal_service.get_whisper")
+@patch("os.path.exists")
+def test_transcribe_audio_falls_back_to_whisper(mock_exists, mock_get_whisper, mock_has_key):
     mock_exists.return_value = True
-    mock_get_clip.return_value = (None, None)
-    
-    res = multimodal_service.analyze_image("fake.jpg")
-    assert res["top_label"] == "N/A (CLIP Missing)"
-    assert res["tags"] == []
+    model = mock_get_whisper.return_value
+    model.transcribe.return_value = {"text": " hello world "}
+
+    result = multimodal_service.transcribe_audio("sample.mp3")
+
+    assert result["text"] == "hello world"
+    assert result["source"] == "whisper"
+    assert result["language"] is None or result["language"] == "en"
+
+
+@patch("multimodal_service._has_gemini_key", return_value=True)
+@patch("multimodal_service._read_file_bytes", return_value=b"fake-image")
+@patch("os.path.exists", return_value=True)
+@patch("multimodal_service.get_gemini_client")
+def test_verify_resolution_proof_uses_task_context_and_rejects_mismatch(mock_get_client, mock_exists, mock_read_bytes, mock_has_key):
+    response = MagicMock()
+    response.text = """
+    {
+      "accepted": false,
+      "confidence": 0.08,
+      "task_match": false,
+      "same_scene": false,
+      "issue_fixed": false,
+      "summary": "The uploaded images depict a road pothole and do not match a digital literacy training task.",
+      "detected_change": "task mismatch",
+      "source": "gemini"
+    }
+    """
+    client = MagicMock()
+    client.models.generate_content.return_value = response
+    mock_get_client.return_value = client
+
+    result = multimodal_service.verify_resolution_proof(
+        "before.jpg",
+        "after.jpg",
+        problem_title="Digital Literacy Camp",
+        problem_description="Conduct digital literacy training for residents",
+        category="education",
+        visual_tags=["digital literacy"],
+    )
+
+    assert result["accepted"] is False
+    assert result["task_match"] is False
+    assert "do not match" in result["summary"]
+    assert client.models.generate_content.called
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

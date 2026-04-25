@@ -3,8 +3,16 @@ import { Mic, Square, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../services/api';
 
+export interface TranscriptionResult {
+    text: string;
+    language?: string | null;
+    language_code?: string | null;
+    language_name?: string | null;
+    source?: string | null;
+}
+
 interface AudioRecorderProps {
-    onTranscription: (text: string) => void;
+    onTranscription: (result: TranscriptionResult) => void;
     onCapturedAudio?: (blob: Blob) => void;
 }
 
@@ -13,6 +21,7 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription, onCaptur
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null);
     const mediaRecorder = useRef<MediaRecorder | null>(null);
     const audioChunks = useRef<Blob[]>([]);
 
@@ -58,9 +67,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription, onCaptur
     const handleTranscription = async (blob: Blob) => {
         setIsProcessing(true);
         setError(null);
+        setDetectedLanguage(null);
         try {
-            const text = await api.transcribe(blob);
-            onTranscription(text);
+            const result = await api.transcribe(blob);
+            onTranscription(result);
+            setDetectedLanguage(result.language_name || result.language_code || result.language || null);
         } catch (err) {
             console.error("Transcription error:", err);
             setError("Failed to transcribe audio.");
@@ -99,6 +110,11 @@ const AudioRecorder: React.FC<AudioRecorderProps> = ({ onTranscription, onCaptur
                     </div>
                 )}
             </div>
+            {detectedLanguage && !isProcessing && (
+                <div className="text-xs text-emerald-700">
+                    Detected language: {detectedLanguage}
+                </div>
+            )}
             {error && (
                 <div className="text-red-500 text-sm mt-1">
                     {error}

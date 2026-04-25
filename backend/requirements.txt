@@ -13,6 +13,7 @@ ftfy
 regex
 tqdm
 httpx
+google-genai
 # Install PyTorch separately from the official CUDA wheel index before this file:
 # python3 -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 # Note: clip usually installed via: pip install git+https://github.com/openai/CLIP.git

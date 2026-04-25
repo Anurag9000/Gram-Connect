@@ -6,9 +6,10 @@ import {
 import { useAuth } from '../contexts/auth-shared';
 import LanguageToggle from '../components/LanguageToggle';
 import { api, type MediaRecord, type ProblemRecord, type ProofRecord, type TeamMember, type VolunteerRecord } from '../services/api';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import type { Database } from '../lib/database.types';
 import ProblemMap from '../components/ProblemMap';
+import { subscribeLiveRefresh } from '../lib/liveRefresh';
 
 type Problem = Database['public']['Tables']['problems']['Row'];
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -167,7 +168,7 @@ export default function CoordinatorDashboard() {
     return individuals;
   };
 
-  const runAiAlgo = async () => {
+  const runAiAlgo = useCallback(async () => {
     if (!selectedProblem) return;
     setAiError(null);
     setAiSummary(null);
@@ -214,7 +215,55 @@ export default function CoordinatorDashboard() {
     } finally {
       setAiLoading(false);
     }
-  };
+  }, [numTeamsToShow, selectedProblem, teamSize]);
+
+  useEffect(() => {
+    if (!profile) {
+      return;
+    }
+
+    const unsubscribe = subscribeLiveRefresh(() => {
+      loadDashboardData();
+      if (showAssignModal && selectedProblem && modalTab === 'ai') {
+        runAiAlgo();
+        return;
+      }
+      setAiTeams([]);
+      setAiSummary(null);
+      setAiError(null);
+    });
+
+    const handleFocus = () => {
+      loadDashboardData();
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [loadDashboardData, modalTab, profile, runAiAlgo, selectedProblem, showAssignModal]);
+
+  useEffect(() => {
+    if (!selectedProblem) {
+      return;
+    }
+
+    const latestProblem = problems.find((problem) => problem.id === selectedProblem.id);
+    if (!latestProblem) {
+      setSelectedProblem(null);
+      setShowAssignModal(false);
+      setAiTeams([]);
+      setAiSummary(null);
+      setAiError(null);
+      return;
+    }
+
+    if (latestProblem !== selectedProblem) {
+      setSelectedProblem(latestProblem);
+    }
+  }, [problems, selectedProblem]);
 
   const handleAssignIndividual = async (problemId: string, volunteer: VolunteerWithProfile) => {
     try {
@@ -255,22 +304,7 @@ export default function CoordinatorDashboard() {
   };
 
   if (!profile || profile.role !== 'coordinator') {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
-          <p className="text-gray-600 mb-6">
-            You must be logged in as a Coordinator to view the dashboard.
-          </p>
-          <button
-            onClick={() => navigate('/')}
-            className="w-full bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
-    );
+    return <Navigate to="/coordinator-login" replace />;
   }
 
   if (loading) {

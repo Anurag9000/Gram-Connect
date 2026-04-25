@@ -1,5 +1,9 @@
 import uvicorn
 
+from env_loader import load_local_env
+
+load_local_env()
+
 import api_server
 from demo_bootstrap import ensure_canonical_dataset, ensure_trained_model
 

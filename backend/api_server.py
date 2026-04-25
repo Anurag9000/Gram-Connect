@@ -6,8 +6,9 @@ import hashlib
 import mimetypes
 import threading
 import uuid
+import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form
@@ -17,11 +18,12 @@ from pydantic import BaseModel, Field
 import shutil
 import tempfile
 
+from env_loader import load_local_env
 from m3_trainer import TrainingConfig, train_model
 from m3_recommend import RecommendationConfig
 from demo_bootstrap import ensure_canonical_dataset, ensure_trained_model, should_bootstrap_models
 from recommender_service import RecommenderService
-from multimodal_service import transcribe_audio, analyze_image
+from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof
 from notification_service import notify_problem_resolved, notify_team_assignment
 from path_utils import (
     ensure_runtime_dir,
@@ -34,6 +36,8 @@ from path_utils import (
     resolve_village_locations_csv,
 )
 from utils import get_any, read_csv_norm
+
+load_local_env()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -52,8 +56,10 @@ DEFAULT_DISTANCE_CSV = resolve_distance_csv()
 ensure_runtime_dir()
 RUNTIME_STATE_JSON = str((PATHS.runtime_dir / "app_state.json").resolve())
 RUNTIME_PROFILES_CSV = str((PATHS.data_dir / "runtime_profiles.csv").resolve())
+RUNTIME_PEOPLE_CSV = str((PATHS.runtime_dir / "live_people.csv").resolve())
 MEDIA_ROOT = PATHS.runtime_dir / "media"
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+STATE_VERSION = 0
 
 # Initialize Service
 recommender_service = RecommenderService(
@@ -110,6 +116,7 @@ class ProblemRequest(BaseModel):
     has_audio: Optional[bool] = False
     media_ids: List[str] = Field(default_factory=list)
     transcript: Optional[str] = None
+    transcript_language: Optional[str] = None
 
 
 class ProfileRequest(BaseModel):
@@ -210,6 +217,27 @@ def _safe_identifier(value: str) -> str:
     return normalized or "asset"
 
 
+def _village_coordinates(village_name: Optional[str]) -> tuple[float, float]:
+    village_coords = {
+        "Sundarpur": (21.1458, 79.0882),
+        "Nirmalgaon": (20.9504, 78.9671),
+        "Lakshmipur": (23.2156, 77.0854),
+        "Devnagar": (23.0105, 77.4212),
+        "Riverbend": (21.2514, 81.6296),
+    }
+    if village_name in village_coords:
+        return village_coords[village_name]
+
+    seed = (village_name or "unknown-village").encode("utf-8")
+    digest = hashlib.sha256(seed).hexdigest()
+    lat_ratio = int(digest[:8], 16) / 0xFFFFFFFF
+    lng_ratio = int(digest[8:16], 16) / 0xFFFFFFFF
+    # Keep fallback points within a rough India bounding box so they still render on the map.
+    lat = 8.0 + (lat_ratio * 29.0)
+    lng = 68.0 + (lng_ratio * 29.0)
+    return round(lat, 4), round(lng, 4)
+
+
 def _media_relative_url(path: Path) -> str:
     return f"/media/{path.relative_to(MEDIA_ROOT).as_posix()}"
 
@@ -266,7 +294,11 @@ def _serialize_problem(problem: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _serialize_problems(problems: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    return [_serialize_problem(problem) for problem in problems]
+    def _sort_key(problem: Dict[str, Any]) -> str:
+        return str(problem.get("created_at") or "")
+
+    ordered = sorted(problems, key=_sort_key, reverse=True)
+    return [_serialize_problem(problem) for problem in ordered]
 
 
 def _ensure_problem_media_list(problem: Dict[str, Any]) -> List[str]:
@@ -306,6 +338,36 @@ def _attach_proof_to_problem(problem: Dict[str, Any], media_asset_ids: List[str]
             if notes:
                 match["notes"] = notes
     return proof
+
+
+def _verify_problem_proof(problem: Dict[str, Any], request: ProofRequest) -> Dict[str, Any]:
+    before_asset = _asset_by_id(request.before_media_id) if request.before_media_id else None
+    after_asset = _asset_by_id(request.after_media_id) if request.after_media_id else None
+    if not after_asset:
+        raise HTTPException(status_code=400, detail="An after image is required for proof verification.")
+
+    try:
+        verification = verify_resolution_proof(
+            before_asset.get("path") if before_asset else None,
+            after_asset.get("path"),
+            problem_title=problem.get("title", "Village issue"),
+            problem_description=problem.get("description", ""),
+            category=problem.get("category"),
+            visual_tags=list(problem.get("visual_tags") or []),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Proof verification failed for %s", problem.get("id"))
+        raise HTTPException(status_code=502, detail=f"Proof verification failed: {exc}")
+
+    if not verification.get("accepted"):
+        raise HTTPException(
+            status_code=400,
+            detail=verification.get("summary") or "Proof was rejected by Gemini verification.",
+        )
+
+    return verification
 
 
 def _store_media_file(
@@ -412,6 +474,261 @@ def _load_profile_directory() -> Dict[str, Dict[str, Any]]:
     return profiles
 
 
+def _normalize_availability(volunteer: Dict[str, Any]) -> str:
+    value = (
+        volunteer.get("availability")
+        or volunteer.get("availability_status")
+        or "available"
+    )
+    return str(value).strip().lower() or "available"
+
+
+def _runtime_people_rows() -> List[Dict[str, Any]]:
+    canonical_rows = read_csv_norm(DEFAULT_PEOPLE_CSV)
+    canonical_by_id: Dict[str, Dict[str, Any]] = {}
+    for row in canonical_rows:
+        volunteer_id = get_any(row, ["person_id", "student_id", "id"])
+        if volunteer_id:
+            canonical_by_id[str(volunteer_id)] = dict(row)
+
+    rows: List[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+
+    for volunteer in VOLUNTEERS:
+        volunteer_id = str(volunteer.get("id") or volunteer.get("user_id") or "")
+        if not volunteer_id:
+            continue
+        source = dict(canonical_by_id.get(volunteer_id, {}))
+        profile = volunteer.get("profiles") or {}
+        skills = [str(skill).strip() for skill in volunteer.get("skills", []) if str(skill).strip()]
+        skills_text = ";".join(skills)
+        row = {
+            **source,
+            "person_id": volunteer_id,
+            "id": volunteer_id,
+            "user_id": volunteer.get("user_id") or volunteer_id,
+            "name": profile.get("full_name") or source.get("name") or volunteer_id,
+            "full_name": profile.get("full_name") or source.get("full_name") or volunteer_id,
+            "email": profile.get("email") or source.get("email"),
+            "phone": profile.get("phone") or source.get("phone"),
+            "skills": skills_text,
+            "text": skills_text,
+            "availability": _normalize_availability(volunteer),
+            "availability_status": volunteer.get("availability_status") or source.get("availability_status") or "available",
+            "home_location": volunteer.get("home_location") or source.get("home_location") or source.get("village") or "",
+        }
+        if "willingness_eff" not in row:
+            row["willingness_eff"] = source.get("willingness_eff", 0.5)
+        if "willingness_bias" not in row:
+            row["willingness_bias"] = source.get("willingness_bias", 0.5)
+        rows.append(row)
+        seen_ids.add(volunteer_id)
+
+    for volunteer_id, row in canonical_by_id.items():
+        if volunteer_id in seen_ids:
+            continue
+        rows.append(dict(row))
+
+    return rows
+
+
+def _sync_runtime_people_csv() -> str:
+    rows = _runtime_people_rows()
+    fieldnames: List[str] = []
+    for row in rows:
+        for key in row.keys():
+            if key not in fieldnames:
+                fieldnames.append(key)
+
+    if not fieldnames:
+        fieldnames = [
+            "person_id",
+            "id",
+            "user_id",
+            "name",
+            "full_name",
+            "skills",
+            "text",
+            "availability",
+            "availability_status",
+            "home_location",
+            "willingness_eff",
+            "willingness_bias",
+        ]
+
+    with open(RUNTIME_PEOPLE_CSV, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({field: row.get(field, "") for field in fieldnames})
+
+    return RUNTIME_PEOPLE_CSV
+
+
+def _volunteer_lookup_by_candidate_id(candidate_id: Optional[str]) -> Optional[Dict[str, Any]]:
+    if not candidate_id:
+        return None
+    target = str(candidate_id)
+    for volunteer in VOLUNTEERS:
+        if (
+            str(volunteer.get("id")) == target
+            or str(volunteer.get("user_id")) == target
+        ):
+            return volunteer
+    return None
+
+
+def _build_problem_match(problem: Dict[str, Any], volunteer: Dict[str, Any], rank: int, source_note: str) -> Dict[str, Any]:
+    volunteer_id = volunteer.get("id") or volunteer.get("user_id")
+    return {
+        "id": f"match-{problem['id']}-{rank + 1}-{int(datetime.now().timestamp())}",
+        "problem_id": problem["id"],
+        "volunteer_id": volunteer_id,
+        "assigned_at": _now_iso(),
+        "completed_at": None,
+        "notes": source_note,
+        "volunteers": volunteer,
+    }
+
+
+def _recommendation_payload_for_problem(problem: Dict[str, Any], *, people_csv: str) -> Dict[str, Any]:
+    existing_team_size = len(problem.get("matches") or [])
+    team_size = min(max(existing_team_size or 2, 1), 4)
+    task_start = datetime.now()
+    task_end = task_start + timedelta(hours=4)
+    return {
+        "proposal_text": problem.get("description") or problem.get("title") or "Village issue",
+        "village_name": problem.get("village_name"),
+        "task_start": task_start.isoformat(),
+        "task_end": task_end.isoformat(),
+        "team_size": team_size,
+        "num_teams": 1,
+        "auto_extract": True,
+        "transcription": problem.get("transcript"),
+        "visual_tags": list(problem.get("visual_tags") or []),
+        "people_csv": people_csv,
+        "model_path": DEFAULT_MODEL_PATH,
+    }
+
+
+def _tokenize_text(value: str) -> set[str]:
+    return {token for token in re.split(r"[^a-z0-9]+", value.lower()) if token}
+
+
+def _problem_relevance_score(problem: Dict[str, Any], volunteer: Dict[str, Any]) -> int:
+    skills = [str(skill).strip().lower() for skill in volunteer.get("skills", []) if str(skill).strip()]
+    skill_tokens = {token for skill in skills for token in _tokenize_text(skill)}
+    problem_text = " ".join(
+        str(part or "")
+        for part in [
+            problem.get("title"),
+            problem.get("description"),
+            problem.get("category"),
+            " ".join(problem.get("visual_tags") or []),
+            problem.get("transcript"),
+        ]
+    ).lower()
+    problem_tokens = _tokenize_text(problem_text)
+    overlap = skill_tokens & problem_tokens
+    return len(overlap)
+
+
+def _personalized_reassign_for_volunteer(volunteer: Dict[str, Any], reason: str) -> int:
+    open_problems = [problem for problem in PROBLEMS if problem.get("status") != "completed"]
+    if not open_problems:
+        return 0
+
+    volunteer_id = volunteer.get("id") or volunteer.get("user_id")
+    personalized_rows = [row for row in _runtime_people_rows() if str(row.get("person_id")) == str(volunteer.get("id"))]
+    if not personalized_rows:
+        return 0
+
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, newline="", encoding="utf-8") as handle:
+        fieldnames = list(personalized_rows[0].keys())
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in personalized_rows:
+            writer.writerow({field: row.get(field, "") for field in fieldnames})
+        people_csv = handle.name
+
+    scored_candidates: List[tuple[float, int, Dict[str, Any]]] = []
+    try:
+        for problem in open_problems:
+            payload = _recommendation_payload_for_problem(problem, people_csv=people_csv)
+            payload["team_size"] = 1
+            payload["num_teams"] = 1
+            try:
+                results = recommender_service.generate_recommendations(payload)
+            except Exception as exc:
+                logger.warning("Failed to score problem %s for volunteer %s: %s", problem.get("id"), volunteer_id, exc)
+                continue
+            top_team = (results.get("teams") or [{}])[0]
+            score = float(top_team.get("goodness") or 0.0)
+            lexical = _problem_relevance_score(problem, volunteer)
+            scored_candidates.append((score, lexical, problem))
+    finally:
+        try:
+            os.remove(people_csv)
+        except OSError:
+            pass
+
+    scored_candidates.sort(key=lambda item: (item[0], item[1], str(item[2].get("created_at") or "")), reverse=True)
+    selected_problem_ids = {problem["id"] for score, lexical, problem in scored_candidates[:3] if score > 0 or lexical > 0}
+    if not selected_problem_ids and scored_candidates:
+        selected_problem_ids.add(scored_candidates[0][2]["id"])
+
+    reassigned = 0
+    for problem in open_problems:
+        original_matches = list(problem.get("matches") or [])
+        retained_matches = [match for match in original_matches if not _match_targets_volunteer(match, str(volunteer_id))]
+        if problem["id"] in selected_problem_ids:
+            retained_matches.insert(0, _build_problem_match(problem, volunteer, 0, f"Auto-rematched after {reason}"))
+            problem["status"] = "in_progress"
+            reassigned += 1
+        else:
+            problem["status"] = "in_progress" if retained_matches else "pending"
+        if retained_matches != original_matches:
+            problem["matches"] = retained_matches
+            problem["updated_at"] = _now_iso()
+
+    return reassigned
+
+
+def _rematch_open_problems(reason: str) -> int:
+    people_csv = _sync_runtime_people_csv()
+    reassigned = 0
+
+    for problem in PROBLEMS:
+        if problem.get("status") == "completed":
+            continue
+
+        payload = _recommendation_payload_for_problem(problem, people_csv=people_csv)
+        try:
+            results = recommender_service.generate_recommendations(payload)
+        except Exception as exc:
+            logger.warning("Failed to recompute matches for %s: %s", problem.get("id"), exc)
+            continue
+
+        team = (results.get("teams") or [{}])[0]
+        members = list(team.get("members") or [])
+        new_matches: List[Dict[str, Any]] = []
+
+        for rank, member in enumerate(members):
+            volunteer = _volunteer_lookup_by_candidate_id(member.get("person_id") or member.get("id"))
+            if not volunteer:
+                continue
+            new_matches.append(
+                _build_problem_match(problem, volunteer, rank, f"Auto-rematched after {reason}")
+            )
+
+        problem["matches"] = new_matches
+        problem["updated_at"] = _now_iso()
+        problem["status"] = "in_progress" if new_matches else "pending"
+        reassigned += 1
+
+    return reassigned
+
+
 def _build_seed_volunteers(profile_directory: Dict[str, Dict[str, Any]]) -> List[Dict[str, Any]]:
     volunteers: List[Dict[str, Any]] = []
     for index, row in enumerate(read_csv_norm(DEFAULT_PEOPLE_CSV)):
@@ -453,13 +770,6 @@ def _build_seed_problems(
         "role": "coordinator",
         "created_at": _now_iso(),
     })
-    village_coords = {
-        "Sundarpur": (21.1458, 79.0882),
-        "Nirmalgaon": (20.9504, 78.9671),
-        "Lakshmipur": (23.2156, 77.0854),
-        "Devnagar": (23.0105, 77.4212),
-        "Riverbend": (21.2514, 81.6296),
-    }
     problems: List[Dict[str, Any]] = []
     for index, row in enumerate(read_csv_norm(DEFAULT_PROPOSALS_CSV)):
         problem_id = get_any(row, ["proposal_id", "id"])
@@ -468,7 +778,7 @@ def _build_seed_problems(
         status = get_any(row, ["status"], "pending")
         created_at = _seed_timestamp(index)
         village_name = get_any(row, ["village", "village_name"], "Unknown")
-        lat, lng = village_coords.get(village_name, (0.0, 0.0))
+        lat, lng = _village_coordinates(village_name)
         matches = []
         for match_index, volunteer_id in enumerate(_split_items(get_any(row, ["seed_assignees"], ""))):
             volunteer = volunteers_by_id.get(volunteer_id)
@@ -523,6 +833,8 @@ def _build_seed_profiles(
 
 
 def persist_runtime_state() -> None:
+    global STATE_VERSION
+
     def _json_safe(value: Any) -> Any:
         if isinstance(value, dict):
             return {key: _json_safe(item) for key, item in value.items()}
@@ -534,9 +846,11 @@ def persist_runtime_state() -> None:
         return value
 
     with csv_lock:
+        STATE_VERSION += 1
         with open(RUNTIME_STATE_JSON, "w", encoding="utf-8") as handle:
             json.dump(
                 {
+                    "state_version": STATE_VERSION,
                     "problems": _json_safe(PROBLEMS),
                     "volunteers": _json_safe(VOLUNTEERS),
                     "profiles": _json_safe(PROFILES),
@@ -559,12 +873,13 @@ def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
 
 def load_initial_data(force_seed: bool = False):
     """Loads seeded runtime state backed by canonical CSV data."""
-    global PROBLEMS, VOLUNTEERS, PROFILES, MEDIA_ASSETS
+    global PROBLEMS, VOLUNTEERS, PROFILES, MEDIA_ASSETS, STATE_VERSION
 
     if os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
         try:
             with open(RUNTIME_STATE_JSON, "r", encoding="utf-8") as handle:
                 state = json.load(handle)
+            STATE_VERSION = int(state.get("state_version", 0) or 0)
             PROBLEMS = list(state.get("problems", []))
             VOLUNTEERS = list(state.get("volunteers", []))
             PROFILES = list(state.get("profiles", []))
@@ -573,6 +888,7 @@ def load_initial_data(force_seed: bool = False):
                 if not PROFILES:
                     PROFILES = _build_seed_profiles(_load_profile_directory(), VOLUNTEERS, PROBLEMS)
                     persist_runtime_state()
+                _sync_runtime_people_csv()
                 return
         except Exception as exc:
             logger.warning("Failed to load runtime state, rebuilding from canonical dataset: %s", exc)
@@ -584,6 +900,8 @@ def load_initial_data(force_seed: bool = False):
         PROBLEMS = _build_seed_problems(profile_directory, volunteers_by_id)
         PROFILES = _build_seed_profiles(profile_directory, VOLUNTEERS, PROBLEMS)
         MEDIA_ASSETS = []
+        STATE_VERSION = max(STATE_VERSION, 0)
+        _sync_runtime_people_csv()
         persist_runtime_state()
     except Exception as exc:
         logger.error("Failed to load canonical seed data: %s", exc)
@@ -591,6 +909,7 @@ def load_initial_data(force_seed: bool = False):
         VOLUNTEERS = []
         PROFILES = []
         MEDIA_ASSETS = []
+        STATE_VERSION = 0
 
 
 def reset_runtime_state() -> None:
@@ -653,6 +972,11 @@ def train_endpoint(request: TrainRequest):
 async def get_problems():
     return _serialize_problems(PROBLEMS)
 
+
+@app.get("/state-version")
+async def get_state_version():
+    return {"version": STATE_VERSION}
+
 @app.get("/volunteers")
 async def get_volunteers():
     return VOLUNTEERS
@@ -688,12 +1012,14 @@ async def update_volunteer(data: Dict[str, Any]):
         raise HTTPException(status_code=400, detail="user_id is required")
 
     timestamp = _now_iso()
+    updated_record: Optional[Dict[str, Any]] = None
     for volunteer in VOLUNTEERS:
         if volunteer.get("user_id") == user_id:
             volunteer.update(data)
             volunteer.setdefault("id", data.get("id") or f"vol-{user_id}")
             volunteer.setdefault("created_at", timestamp)
             volunteer["updated_at"] = timestamp
+            volunteer["availability"] = data.get("availability") or data.get("availability_status") or volunteer.get("availability") or "available"
             volunteer["profiles"] = _upsert_profile(data.get("profiles") or {
                 "id": user_id,
                 "full_name": data.get("full_name") or volunteer.get("profiles", {}).get("full_name") or "Volunteer",
@@ -702,28 +1028,46 @@ async def update_volunteer(data: Dict[str, Any]):
                 "role": "volunteer",
                 "created_at": volunteer.get("profiles", {}).get("created_at") or timestamp,
             })
-            persist_runtime_state()
-            return {"status": "success", "data": volunteer}
+            updated_record = volunteer
+            break
 
-    new_volunteer = {
-        "id": data.get("id") or f"vol-{user_id}",
-        "user_id": user_id,
-        "skills": list(data.get("skills") or []),
-        "availability_status": data.get("availability_status") or "available",
-        "created_at": timestamp,
-        "updated_at": timestamp,
-        "profiles": _upsert_profile(data.get("profiles") or {
-            "id": user_id,
-            "full_name": data.get("full_name") or "Volunteer",
-            "email": data.get("email"),
-            "phone": data.get("phone"),
-            "role": "volunteer",
+    if updated_record is None:
+        new_volunteer = {
+            "id": data.get("id") or f"vol-{user_id}",
+            "user_id": user_id,
+            "skills": list(data.get("skills") or []),
+            "availability_status": data.get("availability_status") or "available",
+            "availability": data.get("availability") or data.get("availability_status") or "available",
+            "home_location": data.get("home_location") or "",
             "created_at": timestamp,
-        }),
-    }
-    VOLUNTEERS.append(new_volunteer)
+            "updated_at": timestamp,
+            "profiles": _upsert_profile(data.get("profiles") or {
+                "id": user_id,
+                "full_name": data.get("full_name") or "Volunteer",
+                "email": data.get("email"),
+                "phone": data.get("phone"),
+                "role": "volunteer",
+                "created_at": timestamp,
+            }),
+        }
+        VOLUNTEERS.append(new_volunteer)
+        updated_record = new_volunteer
+
+    rematched = _rematch_open_problems(f"volunteer profile update for {user_id}")
+    personalized = _personalized_reassign_for_volunteer(updated_record, f"volunteer profile update for {user_id}")
     persist_runtime_state()
-    return {"status": "success", "data": new_volunteer}
+    logger.info(
+        "Recomputed assignments for %s open problems after volunteer update and personalized %s tasks for %s.",
+        rematched,
+        personalized,
+        user_id,
+    )
+    return {
+        "status": "success",
+        "data": updated_record,
+        "rematched_problems": rematched,
+        "personalized_tasks": personalized,
+    }
 
 @app.get("/volunteer-tasks")
 async def get_volunteer_tasks(volunteer_id: str):
@@ -866,7 +1210,9 @@ async def submit_proof(problem_id: str, request: ProofRequest):
         if missing_assets:
             raise HTTPException(status_code=404, detail=f"Media asset(s) not found: {', '.join(missing_assets)}")
 
+    verification = _verify_problem_proof(problem, request)
     proof = _attach_proof_to_problem(problem, media_asset_ids, request.volunteer_id, request.notes)
+    proof["verification"] = verification
     persist_runtime_state()
     return {"status": "success", "problem": _serialize_problem(problem), "proof": proof}
 
@@ -876,6 +1222,7 @@ def recommend_endpoint(request: RecommendRequest):
     try:
         payload = request.model_dump()
         payload["model_path"] = DEFAULT_MODEL_PATH
+        payload["people_csv"] = _sync_runtime_people_csv()
         results = recommender_service.generate_recommendations(payload)
         
         # Notify teams if recommendations were generated
@@ -911,14 +1258,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
                 "village_name": request.village_name,
             })
 
-        village_coords = {
-            "Sundarpur": (21.1458, 79.0882),
-            "Nirmalgaon": (20.9504, 78.9671),
-            "Lakshmipur": (23.2156, 77.0854),
-            "Devnagar": (23.0105, 77.4212),
-            "Riverbend": (21.2514, 81.6296),
-        }
-        lat, lng = village_coords.get(request.village_name, (0.0, 0.0))
+        lat, lng = _village_coordinates(request.village_name)
         
         new_problem = {
             "id": new_id,
@@ -932,6 +1272,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
             "has_audio": bool(request.has_audio),
             "media_ids": list(request.media_ids or []),
             "transcript": request.transcript,
+            "transcript_language": request.transcript_language,
             "status": "pending",
             "lat": lat,
             "lng": lng,
@@ -940,7 +1281,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
             "profiles": reporter_profile,
             "matches": [],
         }
-        PROBLEMS.append(new_problem)
+        PROBLEMS.insert(0, new_problem)
         persist_runtime_state()
         logger.info(f"Problem submitted and saved: {request.title} in {request.village_name}")
         return {"status": "success", "id": new_id}
@@ -957,8 +1298,8 @@ def transcribe_endpoint(file: UploadFile = File(...)):
             tmp_path = tmp.name
         
         try:
-            text = transcribe_audio(tmp_path)
-            return {"text": text}
+            transcription = transcribe_audio(tmp_path)
+            return transcription
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)

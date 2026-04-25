@@ -24,6 +24,9 @@ wheels/
 venv
 ENV
 .env
+.env.local
+backend/.env.local
+frontend/.env.local
 
 # Node.js
 node_modules/

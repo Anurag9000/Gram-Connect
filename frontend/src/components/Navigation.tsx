@@ -1,30 +1,7 @@
 import { Home, FileText, UserPlus, LayoutDashboard, LogOut, LogIn, MapPinned } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
-import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-
-// Declare the google global object for TypeScript
-declare global {
-  interface GoogleTranslateLayout {
-    SIMPLE: string;
-  }
-
-  interface GoogleTranslateConstructor {
-    InlineLayout: GoogleTranslateLayout;
-    new (options: { pageLanguage: string; layout: string; includedLanguages: string }, elementId: string): unknown;
-  }
-
-  interface GoogleTranslateNamespace {
-    TranslateElement: GoogleTranslateConstructor;
-  }
-
-  interface Window {
-    google?: {
-      translate?: GoogleTranslateNamespace;
-    };
-    googleTranslateElementInit: () => void;
-  }
-}
+import LanguageToggle from './LanguageToggle';
 
 export default function Navigation() {
   const { profile, signOut } = useAuth();
@@ -42,52 +19,6 @@ export default function Navigation() {
     if (path !== '/' && currentPage.startsWith(path)) return true;
     return false;
   };
-
-  // (The Google Translate useEffect remains unchanged)
-  useEffect(() => {
-    if (!document.getElementById('google-translate-script')) {
-      const script = document.createElement('script');
-      script.type = 'text/javascript';
-      script.src = '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
-      script.async = true;
-      script.id = 'google-translate-script';
-      document.body.appendChild(script);
-
-      window.googleTranslateElementInit = () => {
-        if (window.google && window.google.translate) {
-          new window.google.translate.TranslateElement(
-            {
-              pageLanguage: 'en',
-              layout: window.google.translate.TranslateElement.InlineLayout.SIMPLE,
-              includedLanguages: 'en,hi,bn,ta,te,mr,pa,gu,kn'
-            },
-            'google_translate_element'
-          );
-        }
-      };
-    } else {
-      if (window.google && window.google.translate && window.googleTranslateElementInit) {
-        window.googleTranslateElementInit();
-      }
-    }
-
-    const intervalId = setInterval(() => {
-      const banner = document.querySelector('.goog-te-banner-frame') as HTMLElement;
-      const body = document.body;
-
-      if (banner) {
-        banner.style.display = 'none';
-        banner.style.visibility = 'hidden';
-      }
-      if (body.style.top !== '0px') {
-        body.style.top = '0px';
-      }
-    }, 100);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, []);
 
   return (
     <nav className="bg-green-600 text-white shadow-lg">
@@ -200,7 +131,9 @@ export default function Navigation() {
               </div>
             )}
 
-            <div id="google_translate_element" className="ml-2"></div>
+            <div className="ml-2">
+              <LanguageToggle />
+            </div>
           </div>
         </div>
       </div>

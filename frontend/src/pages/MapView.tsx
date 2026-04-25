@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, Clock, MapPinned } from 'lucide-react';
 import { api, type ProblemRecord } from '../services/api';
 import ProblemMap from '../components/ProblemMap';
 import { useNavigate } from 'react-router-dom';
+import { subscribeLiveRefresh } from '../lib/liveRefresh';
 
 export default function MapView() {
   const navigate = useNavigate();
@@ -10,27 +11,41 @@ export default function MapView() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
 
-  useEffect(() => {
-    let mounted = true;
+  const loadProblems = useCallback(() => {
+    setLoading(true);
     api.getProblems()
       .then((data) => {
-        if (mounted) {
-          setProblems(data);
-        }
+        setProblems(data);
       })
       .catch((error) => {
         console.error('Failed to load map data:', error);
       })
       .finally(() => {
-        if (mounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const refresh = () => {
+      if (mounted) {
+        loadProblems();
+      }
+    };
+
+    refresh();
+
+    const unsubscribe = subscribeLiveRefresh(refresh);
+    const handleFocus = () => refresh();
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       mounted = false;
+      unsubscribe();
+      window.removeEventListener('focus', handleFocus);
     };
-  }, []);
+  }, [loadProblems]);
 
   const filteredProblems = useMemo(() => (
     statusFilter === 'all' ? problems : problems.filter((problem) => problem.status === statusFilter)

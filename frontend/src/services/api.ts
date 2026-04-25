@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../config';
 import type { Database } from '../lib/database.types';
+import { signalLiveRefresh } from '../lib/liveRefresh';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Volunteer = Database['public']['Tables']['volunteers']['Row'];
@@ -29,6 +30,13 @@ export interface ProofRecord {
     media_ids?: string[];
     notes?: string | null;
     submitted_at?: string | null;
+    verification?: {
+        accepted: boolean;
+        confidence: number;
+        summary: string;
+        detected_change?: string | null;
+        source?: string | null;
+    };
 }
 
 export interface RecommendationRequest {
@@ -113,6 +121,7 @@ export interface ProblemSubmission {
     visual_tags?: string[];
     has_audio?: boolean;
     transcript?: string;
+    transcript_language?: string;
     media_ids?: string[];
 }
 
@@ -188,8 +197,16 @@ export interface ImageAnalysisResponse {
     tags?: string[];
 }
 
+export interface TranscriptionResponse {
+    text: string;
+    language?: string | null;
+    language_code?: string | null;
+    language_name?: string | null;
+    source?: string | null;
+}
+
 export const api = {
-    async transcribe(blob: Blob): Promise<string> {
+    async transcribe(blob: Blob): Promise<TranscriptionResponse> {
         const formData = new FormData();
         formData.append('file', blob, 'recording.wav');
 
@@ -202,8 +219,7 @@ export const api = {
             throw new Error('Transcription failed');
         }
 
-        const data = await response.json();
-        return data.text;
+        return await response.json();
     },
 
     async analyzeImage(file: File, labels?: string[]): Promise<ImageAnalysisResponse> {
@@ -238,7 +254,9 @@ export const api = {
             throw new Error('Problem submission failed');
         }
 
-        return await response.json();
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
     },
 
     async upsertProfile(profile: ProfileSubmission): Promise<{ status: string; profile: Profile }> {
@@ -254,7 +272,9 @@ export const api = {
             throw new Error('Failed to save profile');
         }
 
-        return await response.json();
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
     },
 
     async uploadMedia(
@@ -289,7 +309,9 @@ export const api = {
             throw new Error('Media upload failed');
         }
 
-        return await response.json();
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
     },
 
     async submitProof(problemId: string, payload: {
@@ -307,10 +329,19 @@ export const api = {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to submit proof');
+            let detail = 'Failed to submit proof';
+            try {
+                const errorData = await response.json();
+                detail = errorData.detail || detail;
+            } catch {
+                // Ignore non-JSON error bodies.
+            }
+            throw new Error(detail);
         }
 
-        return await response.json();
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
     },
 
     async getRecommendations(request: RecommendationRequest): Promise<RecommendationResponse> {
@@ -331,7 +362,9 @@ export const api = {
     },
 
     async getProblems(): Promise<ProblemRecord[]> {
-        const response = await fetch(`${API_BASE_URL}/problems`);
+        const response = await fetch(`${API_BASE_URL}/problems`, {
+            cache: 'no-store',
+        });
         if (!response.ok) {
             throw new Error('Failed to fetch problems');
         }
@@ -339,7 +372,9 @@ export const api = {
     },
 
     async getVolunteers(): Promise<VolunteerRecord[]> {
-        const response = await fetch(`${API_BASE_URL}/volunteers`);
+        const response = await fetch(`${API_BASE_URL}/volunteers`, {
+            cache: 'no-store',
+        });
         if (!response.ok) {
             throw new Error('Failed to fetch volunteers');
         }
@@ -347,7 +382,9 @@ export const api = {
     },
 
     async getVolunteerTasks(volunteerId: string): Promise<VolunteerTask[]> {
-        const response = await fetch(`${API_BASE_URL}/volunteer-tasks?volunteer_id=${volunteerId}`);
+        const response = await fetch(`${API_BASE_URL}/volunteer-tasks?volunteer_id=${volunteerId}`, {
+            cache: 'no-store',
+        });
         if (!response.ok) {
             throw new Error('Failed to fetch volunteer tasks');
         }
@@ -355,7 +392,9 @@ export const api = {
     },
 
     async getVolunteer(volunteerId: string): Promise<VolunteerRecord> {
-        const response = await fetch(`${API_BASE_URL}/volunteer/${volunteerId}`);
+        const response = await fetch(`${API_BASE_URL}/volunteer/${volunteerId}`, {
+            cache: 'no-store',
+        });
         if (!response.ok) {
             throw new Error('Failed to fetch volunteer profile');
         }
@@ -375,7 +414,9 @@ export const api = {
             throw new Error('Failed to update volunteer profile');
         }
 
-        return await response.json();
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
     },
 
     async assignTask(problemId: string, volunteerId: string): Promise<AssignTaskResponse> {
@@ -391,7 +432,9 @@ export const api = {
             throw new Error('Failed to assign task');
         }
 
-        return await response.json();
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
     },
 
     async updateProblemStatus(problemId: string, status: string): Promise<ProblemStatusResponse> {
@@ -407,6 +450,19 @@ export const api = {
             throw new Error('Failed to update problem status');
         }
 
-        return await response.json();
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
+    },
+
+    async getStateVersion(): Promise<number> {
+        const response = await fetch(`${API_BASE_URL}/state-version`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch state version');
+        }
+        const data = await response.json();
+        return Number(data.version || 0);
     }
 };

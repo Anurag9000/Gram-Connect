@@ -51,10 +51,11 @@ def test_recommend_endpoint(mock_generate, mock_notify):
 
 @patch("api_server.transcribe_audio")
 def test_transcribe_endpoint(mock_transcribe):
-    mock_transcribe.return_value = "Transcribed text"
+    mock_transcribe.return_value = {"text": "Transcribed text", "language": "en", "source": "gemini"}
     upload = UploadFile(filename="sample.mp3", file=io.BytesIO(b"audio"))
     response = api_server.transcribe_endpoint(upload)
     assert response["text"] == "Transcribed text"
+    assert response["language"] == "en"
 
 
 @patch("api_server.analyze_image")
@@ -63,6 +64,129 @@ def test_analyze_image_endpoint(mock_analyze):
     upload = UploadFile(filename="sample.jpg", file=io.BytesIO(b"image"))
     response = api_server.analyze_image_endpoint(upload)
     assert response["top_label"] == "Infrastructure"
+
+
+@patch("api_server.verify_resolution_proof")
+def test_submit_proof_requires_gemini_acceptance(mock_verify, tmp_path):
+    original_state_path = api_server.RUNTIME_STATE_JSON
+    original_media_root = api_server.MEDIA_ROOT
+    api_server.RUNTIME_STATE_JSON = str(tmp_path / "app_state.json")
+    api_server.MEDIA_ROOT = tmp_path / "media"
+    api_server.MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    problem = {
+        "id": "problem-proof-verify",
+        "title": "Broken pump",
+        "description": "Pump is damaged near school",
+        "category": "infrastructure",
+        "village_name": "Sundarpur",
+        "status": "in_progress",
+        "matches": [],
+        "media_ids": [],
+        "created_at": "2026-01-01T10:00:00",
+        "updated_at": "2026-01-01T10:00:00",
+        "visual_tags": ["broken pump"],
+    }
+    api_server.PROBLEMS.append(problem)
+    try:
+        after_media = asyncio.run(
+            api_server.upload_media(
+                file=UploadFile(filename="after.jpg", file=io.BytesIO(b"after-bytes")),
+                kind="proof_after",
+                problem_id=problem["id"],
+                volunteer_id="mock-volunteer-uuid",
+            )
+        )["media"]
+
+        mock_verify.return_value = {
+            "accepted": True,
+            "confidence": 0.91,
+            "task_match": True,
+            "same_scene": True,
+            "issue_fixed": True,
+            "summary": "The handpump appears repaired and functional.",
+            "detected_change": "repair completed",
+            "source": "gemini",
+        }
+        response = asyncio.run(
+            api_server.submit_proof(
+                problem["id"],
+                api_server.ProofRequest(
+                    volunteer_id="mock-volunteer-uuid",
+                    after_media_id=after_media["id"],
+                    notes="completed",
+                ),
+            )
+        )
+        assert response["status"] == "success"
+        assert response["proof"]["verification"]["accepted"] is True
+        assert problem["status"] == "completed"
+    finally:
+        api_server.PROBLEMS[:] = [item for item in api_server.PROBLEMS if item.get("id") != problem["id"]]
+        api_server.MEDIA_ASSETS[:] = [item for item in api_server.MEDIA_ASSETS if item.get("problem_id") != problem["id"]]
+        api_server.RUNTIME_STATE_JSON = original_state_path
+        api_server.MEDIA_ROOT = original_media_root
+
+
+@patch("api_server.verify_resolution_proof")
+def test_submit_proof_rejects_invalid_before_after(mock_verify, tmp_path):
+    original_state_path = api_server.RUNTIME_STATE_JSON
+    original_media_root = api_server.MEDIA_ROOT
+    api_server.RUNTIME_STATE_JSON = str(tmp_path / "app_state.json")
+    api_server.MEDIA_ROOT = tmp_path / "media"
+    api_server.MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    problem = {
+        "id": "problem-proof-reject",
+        "title": "Blocked drain",
+        "description": "Drain is clogged near market",
+        "category": "sanitation",
+        "village_name": "Sundarpur",
+        "status": "in_progress",
+        "matches": [],
+        "media_ids": [],
+        "created_at": "2026-01-01T10:00:00",
+        "updated_at": "2026-01-01T10:00:00",
+        "visual_tags": ["drain"],
+    }
+    api_server.PROBLEMS.append(problem)
+    try:
+        after_media = asyncio.run(
+            api_server.upload_media(
+                file=UploadFile(filename="after.jpg", file=io.BytesIO(b"after-bytes")),
+                kind="proof_after",
+                problem_id=problem["id"],
+                volunteer_id="mock-volunteer-uuid",
+            )
+        )["media"]
+
+        mock_verify.return_value = {
+            "accepted": False,
+            "confidence": 0.12,
+            "task_match": False,
+            "same_scene": False,
+            "issue_fixed": False,
+            "summary": "The uploaded images do not show the same drain being fixed.",
+            "detected_change": "no verifiable repair",
+            "source": "gemini",
+        }
+        with pytest.raises(HTTPException) as exc_info:
+            asyncio.run(
+                api_server.submit_proof(
+                    problem["id"],
+                    api_server.ProofRequest(
+                        volunteer_id="mock-volunteer-uuid",
+                        after_media_id=after_media["id"],
+                        notes="completed",
+                    ),
+                )
+            )
+        assert exc_info.value.status_code == 400
+        assert "do not show the same drain" in str(exc_info.value.detail)
+        assert problem["status"] == "in_progress"
+    finally:
+        api_server.PROBLEMS[:] = [item for item in api_server.PROBLEMS if item.get("id") != problem["id"]]
+        api_server.MEDIA_ASSETS[:] = [item for item in api_server.MEDIA_ASSETS if item.get("problem_id") != problem["id"]]
+        api_server.RUNTIME_STATE_JSON = original_state_path
+        api_server.MEDIA_ROOT = original_media_root
 
 
 def test_submit_problem_persists_runtime_state(tmp_path):
@@ -114,6 +238,102 @@ def test_update_volunteer_creates_normalized_record():
     finally:
         api_server.VOLUNTEERS[:] = [
             volunteer for volunteer in api_server.VOLUNTEERS if volunteer.get("user_id") != "new-volunteer"
+        ]
+
+
+@patch.object(api_server.recommender_service, "generate_recommendations")
+def test_update_volunteer_triggers_live_rematch(mock_generate, tmp_path):
+    original_people_csv = api_server.RUNTIME_PEOPLE_CSV
+    api_server.RUNTIME_PEOPLE_CSV = str(tmp_path / "live_people.csv")
+
+    volunteer = {
+        "id": "VOL-TEST-001",
+        "user_id": "mock-volunteer-uuid",
+        "skills": ["Digital Literacy"],
+        "availability_status": "available",
+        "availability": "available",
+        "home_location": "Sundarpur",
+        "profiles": {
+            "id": "mock-volunteer-uuid",
+            "full_name": "Test Volunteer",
+            "role": "volunteer",
+        },
+    }
+    other_volunteer = {
+        "id": "VOL-TEST-002",
+        "user_id": "other-volunteer-uuid",
+        "skills": ["Agriculture"],
+        "availability_status": "available",
+        "availability": "available",
+        "home_location": "Sundarpur",
+        "profiles": {
+            "id": "other-volunteer-uuid",
+            "full_name": "Agri Volunteer",
+            "role": "volunteer",
+        },
+    }
+    problem = {
+        "id": "problem-rematch",
+        "title": "Need farm support",
+        "description": "Agriculture field assistance needed",
+        "category": "agriculture",
+        "village_name": "Sundarpur",
+        "status": "in_progress",
+        "matches": [{
+            "id": "old-match",
+            "problem_id": "problem-rematch",
+            "volunteer_id": "VOL-TEST-001",
+            "assigned_at": "2026-01-01T10:00:00",
+            "completed_at": None,
+            "notes": "Old assignment",
+            "volunteers": volunteer,
+        }],
+        "created_at": "2026-01-01T09:00:00",
+        "updated_at": "2026-01-01T10:00:00",
+        "visual_tags": [],
+    }
+
+    api_server.VOLUNTEERS.extend([volunteer, other_volunteer])
+    api_server.PROBLEMS.append(problem)
+
+    mock_generate.return_value = {
+        "severity_detected": "NORMAL",
+        "severity_source": "auto",
+        "proposal_location": "Sundarpur",
+        "teams": [{
+            "team_ids": "VOL-TEST-002",
+            "team_names": "Agri Volunteer",
+            "members": [{"person_id": "VOL-TEST-002", "skills": ["Agriculture"]}],
+        }],
+    }
+
+    try:
+        response = asyncio.run(
+            api_server.update_volunteer(
+                {
+                    "id": "VOL-TEST-001",
+                    "user_id": "mock-volunteer-uuid",
+                    "skills": ["Agriculture"],
+                    "availability_status": "available",
+                    "full_name": "Test Volunteer",
+                }
+            )
+        )
+        assert response["status"] == "success"
+        assert response["rematched_problems"] >= 1
+        assert Path(api_server.RUNTIME_PEOPLE_CSV).exists()
+        roster_text = Path(api_server.RUNTIME_PEOPLE_CSV).read_text(encoding="utf-8")
+        assert "Agriculture" in roster_text
+        assert problem["matches"]
+        assert problem["matches"][0]["volunteer_id"] == "VOL-TEST-002"
+        assert problem["matches"][0]["notes"].startswith("Auto-rematched after volunteer profile update")
+        assert problem["status"] == "in_progress"
+    finally:
+        api_server.RUNTIME_PEOPLE_CSV = original_people_csv
+        api_server.PROBLEMS[:] = [item for item in api_server.PROBLEMS if item.get("id") != "problem-rematch"]
+        api_server.VOLUNTEERS[:] = [
+            item for item in api_server.VOLUNTEERS
+            if item.get("id") not in {"VOL-TEST-001", "VOL-TEST-002"}
         ]
 
 

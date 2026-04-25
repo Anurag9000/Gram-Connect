@@ -32,7 +32,7 @@ class FakeMediaRecorder {
 describe('AudioRecorder', () => {
   beforeEach(() => {
     transcribeMock.mockReset();
-    transcribeMock.mockResolvedValue('Need pump repair');
+    transcribeMock.mockResolvedValue({ text: 'Need pump repair', language: 'en', source: 'gemini' });
     const tracks = [{ stop: vi.fn() }] as unknown as MediaStreamTrack[];
     vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
     vi.stubGlobal('navigator', {
@@ -53,7 +53,7 @@ describe('AudioRecorder', () => {
 
     await waitFor(() => {
       expect(transcribeMock).toHaveBeenCalled();
-      expect(onTranscription).toHaveBeenCalledWith('Need pump repair');
+      expect(onTranscription).toHaveBeenCalledWith({ text: 'Need pump repair', language: 'en', source: 'gemini' });
     });
   });
 });

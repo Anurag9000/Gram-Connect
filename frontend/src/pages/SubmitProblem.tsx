@@ -41,6 +41,7 @@ export default function SubmitProblem() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [capturedAudioBlob, setCapturedAudioBlob] = useState<Blob | null>(null);
+  const [capturedAudioLanguage, setCapturedAudioLanguage] = useState<string | null>(null);
   const [visualTags, setVisualTags] = useState<string[]>([]);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
 
@@ -144,6 +145,7 @@ export default function SubmitProblem() {
         visual_tags: visualTags,
         has_audio: Boolean(capturedAudioBlob) || description.includes('[Transcribed Audio]'),
         transcript: description,
+        transcript_language: capturedAudioLanguage ?? undefined,
       });
 
       problemId = submission.id;
@@ -184,6 +186,7 @@ export default function SubmitProblem() {
       setFileName(null);
       setSelectedImageFile(null);
       setCapturedAudioBlob(null);
+      setCapturedAudioLanguage(null);
       setVisualTags([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit problem');
@@ -194,6 +197,11 @@ export default function SubmitProblem() {
 
   const handleAudioCaptured = (blob: Blob) => {
     setCapturedAudioBlob(blob);
+  };
+
+  const handleAudioTranscription = ({ text, language }: { text: string; language?: string | null }) => {
+    setDescription((prev) => (prev ? `${prev}\n${text}` : text));
+    setCapturedAudioLanguage(language ?? null);
   };
 
   if (success) {
@@ -394,7 +402,7 @@ export default function SubmitProblem() {
 
               <div className="mb-4">
                 <AudioRecorder
-                  onTranscription={(text) => setDescription((prev) => prev + '\n' + `[Transcribed Audio]: ${text}`)}
+                  onTranscription={handleAudioTranscription}
                   onCapturedAudio={handleAudioCaptured}
                 />
               </div>

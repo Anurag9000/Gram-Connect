@@ -821,7 +821,7 @@ export default function CoordinatorDashboard() {
                             <div key={member.person_id || member.id} className="flex flex-col gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
                               <div className="flex justify-between items-center text-sm">
                                 <span className="font-bold text-gray-900 text-base">{member.profile?.full_name || member.name || "Unknown"}</span>
-                                <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200" title="Forge Score = DOMAIN × WILL × AVAIL × PROX × FRESH">
+                                <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200" title="Forge Score = DOMAIN^2 * WILL * AVAIL^0.5 * PROX * FRESH^0.5">
                                   Forge: {((member.match_score ?? member.forge_score ?? 0) * 100).toFixed(1)}%
                                 </span>
                               </div>
@@ -857,7 +857,7 @@ export default function CoordinatorDashboard() {
                         <div className="mt-4 text-sm text-blue-800 bg-blue-50 p-4 rounded-lg border border-blue-100 leading-relaxed">
                           <strong className="text-blue-900 block mb-2">Why this team? (Forge Engine)</strong>
                           <span className="block mb-1">Ranked #{idx + 1} — <strong>{(team.coverage * 100).toFixed(0)}% skill coverage</strong> — <strong>{(team.willingnessAvg * 100).toFixed(0)}% avg willingness</strong> — <strong>{team.avgDistanceKm.toFixed(1)} km avg distance</strong>{team.avgDistanceKm === 0 ? ' (all local to problem village)' : ''}</span>
-                          <span className="block text-blue-700 text-xs mt-1">Individual score = DOMAIN * WILL * AVAIL * PROX * FRESH. Multiplicative: any factor at zero eliminates the candidate regardless of other strengths. Teams ranked by skill coverage first, then by geometric mean of member scores.</span>
+                          <span className="block text-blue-700 text-xs mt-1">Individual score = DOMAIN² * WILL * AVAIL⁰⋅⁵ * PROX * FRESH⁰⋅⁵. Multiplicative: any factor at zero eliminates the candidate regardless of other strengths. Teams ranked by skill coverage first, then by geometric mean of member scores.</span>
                           {team.coverage < 0.3 && <span className="block text-amber-700 font-semibold mt-1">Note: skill coverage is below 30%. Consider increasing the team size or selecting domain specialists manually.</span>}
                         </div>
                       </div>

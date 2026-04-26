@@ -5,13 +5,14 @@ Deterministic, interpretable volunteer-to-task matching.
 No ML. No embeddings. No training data. Pure arithmetic.
 
 Individual score:
-    SCORE(v, T) = DOMAIN × WILL × AVAIL × PROX × FRESH
+    SCORE(v, T) = (DOMAIN^w_d) × (WILL^w_w) × (AVAIL^w_a) × (PROX^w_p) × (FRESH^w_f)
 
-    DOMAIN  — skill-set overlap fraction between volunteer and task requirements
-    WILL    — sigmoid of (willingness_eff + willingness_bias), saturation in [0,1]
-    AVAIL   — categorical availability level {immediately:1.0, generally:0.7, rarely:0.35}
-    PROX    — exp(-distance_km / λ) where λ grows with task severity (farther reach for emergencies)
-    FRESH   — overwork penalty, 0.1 deducted per excess hour above weekly quota
+    Weights:
+        w_d (Domain) = 2.0  (Skill match is paramount)
+        w_w (Will)   = 1.0  (Motivation matters linearly)
+        w_p (Prox)   = 1.0  (Distance penalty applies linearly)
+        w_a (Avail)  = 0.5  (Availability is a softer constraint)
+        w_f (Fresh)  = 0.5  (Workload penalty is softened)
 
 Team building:
     Greedy marginal-coverage selection.
@@ -56,6 +57,17 @@ COVERAGE_BONUS_ALPHA   = 1.5   # bonus multiplier for bringing new skills
 REDUNDANCY_PENALTY_BETA = 0.30  # penalty multiplier for duplicating covered skills
 PARTIAL_MATCH_CREDIT    = 0.5   # credit for substring skill overlap (vs 1.0 for exact)
 TEAM_DISTANCE_WEIGHT    = 0.003  # per-km penalty in team ranking score
+
+# Factor exponents to tune relative importance in the multiplicative score.
+# Higher weight = factor is more punishing when near zero.
+# Lower weight (< 1) = factor is softened (e.g. 0.5^0.5 = 0.707).
+FACTOR_WEIGHTS = {
+    "domain": 2.0,   # skill match is paramount
+    "will":   1.0,
+    "prox":   1.0,
+    "avail":  0.5,   # availability level is a softer constraint
+    "fresh":  0.5,   # overwork penalty is softened
+}
 
 SEVERITY_MAP    = {"LOW": 0, "NORMAL": 1, "HIGH": 2}
 SEVERITY_LABELS = {0: "LOW", 1: "NORMAL", 2: "HIGH"}
@@ -348,7 +360,7 @@ def score_volunteer(
     overwork_penalty:  float = OVERWORK_PENALTY_PER_HOUR,
 ) -> Dict[str, Any]:
     """
-    Compute SCORE(v, T) = DOMAIN × WILL × AVAIL × PROX × FRESH.
+    Compute SCORE(v, T) = (DOMAIN^w_d) × (WILL^w_w) × (AVAIL^w_a) × (PROX^w_p) × (FRESH^w_f)
     Returns the full volunteer dict enriched with all component scores.
     """
     domain, covered  = _skill_overlap(v["skills"], required)
@@ -357,7 +369,20 @@ def score_volunteer(
     prox, dist_km    = _prox_score(v, proposal_location, distance_lookup, severity_int)
     fresh            = _fresh_score(v, weekly_quota, overwork_penalty)
 
-    forge_score = domain * will * avail * prox * fresh
+    # Apply exponential weights to tune relative importance
+    wd = FACTOR_WEIGHTS["domain"]
+    ww = FACTOR_WEIGHTS["will"]
+    wa = FACTOR_WEIGHTS["avail"]
+    wp = FACTOR_WEIGHTS["prox"]
+    wf = FACTOR_WEIGHTS["fresh"]
+
+    forge_score = (
+        (domain ** wd) * 
+        (will ** ww) * 
+        (avail ** wa) * 
+        (prox ** wp) * 
+        (fresh ** wf)
+    )
 
     avail_label = v.get("availability", "").lower().strip()
     avail_level_num = {
@@ -367,7 +392,6 @@ def score_volunteer(
     }.get(avail_label, 2)
 
     # match_score = the actual Forge score the engine uses for ranking.
-    # No model, no probability — this is DOMAIN × WILL × AVAIL × PROX × FRESH.
     return {
         **v,
         # Component scores (all 0–1)

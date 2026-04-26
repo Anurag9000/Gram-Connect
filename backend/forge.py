@@ -57,41 +57,41 @@ PARTIAL_MATCH_CREDIT    = 0.5   # credit for substring skill overlap (vs 1.0 for
 TEAM_DISTANCE_WEIGHT    = 0.003  # per-km penalty in team ranking score
 
 # Per-severity exponent weights fitted from 150k synthetic samples (50k per severity).
-# Fitting: logistic regression on log-transformed features, intercept=True, C=100,
-#          competitive-zone filter (domain 0.15–0.90), then normalised to max=2.0.
-# ROC-AUC: LOW=0.73, NORMAL=0.89, HIGH=0.91.
+# Fitting: Model Shootout (LogReg, RF, XGBoost, LightGBM).
+# Extracted via SHAP values from the best performing non-linear tree model,
+# then normalized mathematically strictly to the 0.0 - 1.0 range.
 #
 # Interpretation of fitted weight ordering:
 #   HIGH  : domain > will > avail > prox≈0
 #           In an emergency you need someone skilled, committed, AND free.
 #           Distance is irrelevant — reach anyone anywhere.
-#   NORMAL: domain > will ≈ avail > prox
+#   NORMAL: domain > will > avail > prox
 #           Balanced. All factors matter; proximity still a soft constraint.
-#   LOW   : domain > avail ≈ prox ≈ will
+#   LOW   : domain > will > prox > avail
 #           Routine task: any competent local person who is free and willing.
 #           No single secondary factor dominates — spread the weight evenly.
 #   fresh : ~0 across all severities — overwork rarely tips the decision.
 SEVERITY_FACTOR_WEIGHTS: dict = {
-    2: {  # HIGH  (ROC-AUC 0.9073)
-        "domain": 2.0000,
-        "will":   1.6509,  # willingness nearly as important as availability in a crisis
-        "avail":  1.3715,
-        "prox":   0.1000,  # emergencies reach far — distance irrelevant
-        "fresh":  0.1000,
+    2: {  # HIGH  (Best: XGBoost, ROC-AUC 0.9288)
+        "domain": 1.0000,
+        "will":   0.4787,
+        "avail":  0.4303,
+        "prox":   0.0500,  # emergencies reach far — distance irrelevant
+        "fresh":  0.0500,
     },
-    1: {  # NORMAL  (ROC-AUC 0.8912)
-        "domain": 2.0000,
-        "will":   1.6495,
-        "avail":  1.6042,
-        "prox":   0.6143,
-        "fresh":  0.1000,
+    1: {  # NORMAL  (Best: LightGBM, ROC-AUC 0.9084)
+        "domain": 1.0000,
+        "will":   0.5768,
+        "avail":  0.5146,
+        "prox":   0.2115,
+        "fresh":  0.0500,
     },
-    0: {  # LOW  (ROC-AUC 0.7273)
-        "domain": 2.0000,
-        "will":   0.9761,
-        "avail":  1.0552,  # don't bother busy people for routine work
-        "prox":   1.0106,  # stay local
-        "fresh":  0.1000,
+    0: {  # LOW  (Best: LightGBM, ROC-AUC 0.7352)
+        "domain": 1.0000,
+        "will":   0.6612,
+        "avail":  0.5122,
+        "prox":   0.5363,  # strongest distance constraint — stay local
+        "fresh":  0.0653,
     },
 }
 

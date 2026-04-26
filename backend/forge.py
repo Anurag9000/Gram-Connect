@@ -446,12 +446,53 @@ def _build_one_team(
     target_size:  int,
     excluded_ids: Set[str],
 ) -> List[Dict]:
-    """Greedy marginal-coverage team builder."""
-    team: List[Dict] = []
-    team_ids: Set[str] = set()
-    covered: Set[str] = set()
-    pool = [v for v in scored_pool if v["person_id"] not in excluded_ids and v["forge_score"] > 0]
+    """
+    Two-phase greedy team builder to guarantee multi-domain coverage.
 
+    Phase 1 — Coverage sweep:
+        For each required skill not yet covered by the forming team, pick the
+        highest-scoring volunteer who covers it.  This is a hard guarantee:
+        every domain represented in `required` gets at least one specialist,
+        regardless of how much higher other volunteers score on the dominant
+        domain.  Without this phase, a pool of excellent plumbers would crowd
+        out the public-health specialist even though the task needs both.
+
+    Phase 2 — Quality fill:
+        Fill remaining slots using the effective_score bonus (current logic):
+        volunteers who cover NEW skills are preferred, redundant coverage is
+        penalised.  This is where the best generalists and backup specialists
+        are added.
+    """
+    team:     List[Dict] = []
+    team_ids: Set[str]   = set()
+    covered:  Set[str]   = set()
+    pool = [v for v in scored_pool
+            if v["person_id"] not in excluded_ids and v["forge_score"] > 0]
+
+    # ── Phase 1: coverage sweep ───────────────────────────────────────────────
+    # Iterate over every required skill.  If it is not yet covered by anyone
+    # on the team, find the best-scoring volunteer who covers it and add them.
+    for skill in required:
+        if len(team) >= target_size:
+            break
+        if skill in covered:
+            continue
+        # Candidates who cover this specific skill and are not already on team
+        candidates = [
+            v for v in pool
+            if v["person_id"] not in team_ids
+            and skill in v.get("covered_skills", set())
+        ]
+        if not candidates:
+            continue  # no one in the pool covers this domain; skip
+        best = max(candidates, key=lambda v: v["forge_score"])
+        team.append(best)
+        team_ids.add(best["person_id"])
+        covered |= best.get("covered_skills", set())
+
+    # ── Phase 2: quality fill ─────────────────────────────────────────────────
+    # Fill remaining slots.  effective_score still applies a coverage bonus so
+    # volunteers who add novel skills are preferred over redundant additions.
     while len(team) < target_size and pool:
         best, best_es = None, -1.0
         for candidate in pool:
@@ -467,6 +508,7 @@ def _build_one_team(
         covered |= best.get("covered_skills", set())
 
     return team
+
 
 
 def _team_coverage(team: List[Dict], required: List[str]) -> float:

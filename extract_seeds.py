@@ -1,50 +1,63 @@
 import csv
 import json
 import os
+import glob
 
 seeds = {}
 
 def add_seed(text):
     if not text: return
-    if isinstance(text, list):
+    if isinstance(text, (list, tuple)):
         for item in text: add_seed(item)
         return
     text = str(text).strip()
-    if text:
-        seeds[text] = text
+    # Ignore purely numeric strings, dates, and very short codes
+    if len(text) <= 2: return
+    if text.replace('.','').isdigit(): return
+    if text.startswith('http'): return
+    
+    seeds[text] = text
 
-# Parse backend/proposals_2.csv
-if os.path.exists('backend/proposals_2.csv'):
-    with open('backend/proposals_2.csv', 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            add_seed(row.get('title'))
-            add_seed(row.get('description'))
-            add_seed(row.get('village_name'))
-            add_seed(row.get('village_address'))
-            add_seed(row.get('location'))
-            add_seed(row.get('text')) # New format
-            add_seed(row.get('village'))
+def process_csv(fpath):
+    print(f"Processing {fpath}...")
+    try:
+        with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+            # Try to detect delimiter
+            sample = f.read(2048)
+            f.seek(0)
+            if not sample: return
+            
+            dialect = csv.Sniffer().sniff(sample)
+            reader = csv.reader(f, dialect)
+            
+            for row in reader:
+                for cell in row:
+                    # Handle common separators in our dataset
+                    if ';' in cell and ' ' not in cell:
+                        for s in cell.split(';'): add_seed(s)
+                    elif '|' in cell:
+                        for s in cell.split('|'): add_seed(s)
+                    elif cell.startswith('[') and cell.endswith(']'):
+                        try:
+                            items = json.loads(cell.replace("'", '"'))
+                            if isinstance(items, list):
+                                for item in items: add_seed(item)
+                        except:
+                            add_seed(cell)
+                    else:
+                        add_seed(cell)
+    except Exception as e:
+        print(f"Error processing {fpath}: {e}")
 
-# Parse backend/people_2.csv
-if os.path.exists('backend/people_2.csv'):
-    with open('backend/people_2.csv', 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            add_seed(row.get('name'))
-            add_seed(row.get('full_name'))
-            add_seed(row.get('text')) # New format
-            # Skills
-            skills = row.get('skills', '')
-            if '[' in skills:
-                try:
-                    for s in json.loads(skills):
-                        add_seed(s)
-                except:
-                    pass
-            else:
-                for s in skills.split('|'):
-                    add_seed(s)
+# Crawl backend and data directories for ALL CSVs
+target_dirs = ['backend', 'data']
+for d in target_dirs:
+    for fpath in glob.glob(os.path.join(d, "*.csv")):
+        process_csv(fpath)
+
+# Add hardcoded fallback statuses
+for s in ['available', 'busy', 'inactive', 'rarely available', 'immediately available', 'generally available', 'pending', 'in progress', 'completed']:
+    add_seed(s)
 
 with open('frontend/src/locales/en.json', 'r') as f:
     en_data = json.load(f)
@@ -52,9 +65,11 @@ with open('frontend/src/locales/en.json', 'r') as f:
 if 'seed' not in en_data:
     en_data['seed'] = {}
 
-en_data['seed'].update(seeds)
+# Merge into registry
+for k, v in seeds.items():
+    en_data['seed'][k] = v
 
 with open('frontend/src/locales/en.json', 'w') as f:
     json.dump(en_data, f, indent=4)
 
-print(f"Extracted {len(seeds)} unique seed strings.")
+print(f"Done! Registry now contains {len(en_data['seed'])} unique seed strings.")

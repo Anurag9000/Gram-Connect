@@ -15,7 +15,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900">
-              {t('home.welcome_back')} <span className="text-green-600">{profile.full_name}</span>
+              {t('home.welcome_back')} <span className="text-green-600">{t('seed.' + profile.full_name, profile.full_name)}</span>
             </h1>
           </div>
 

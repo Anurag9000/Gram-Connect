@@ -626,7 +626,7 @@ export default function CoordinatorDashboard() {
                     />
                     {selectedManualIds.size > 0 && (
                       <button onClick={() => setSelectedManualIds(new Set())} className="ml-2 text-xs text-red-500 hover:text-red-700 font-semibold shrink-0">
-                        Clear ({selectedManualIds.size})
+                        {t('dashboard.clear', 'Clear')} ({selectedManualIds.size})
                       </button>
                     )}
                   </div>
@@ -671,7 +671,7 @@ export default function CoordinatorDashboard() {
                             </div>
                             {/* Availability badge */}
                             <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${availColor}`}>
-                              {avail}
+                              {t('seed.' + avail.toLowerCase(), avail)}
                             </span>
                             {/* Expand toggle */}
                             <button
@@ -721,7 +721,7 @@ export default function CoordinatorDashboard() {
                   {selectedManualIds.size > 0 && (
                     <div className="sticky bottom-0 left-0 right-0 bg-white border-t-2 border-green-400 shadow-lg rounded-b-xl p-4 flex items-center justify-between gap-4 z-10">
                       <div className="text-sm font-semibold text-gray-800">
-                        <span className="text-green-700 text-lg font-bold">{selectedManualIds.size}</span> volunteer{selectedManualIds.size !== 1 ? 's' : ''} selected
+                        <span className="text-green-700 text-lg font-bold">{selectedManualIds.size}</span> {t('dashboard.volunteers_selected', 'volunteers selected')}
                         <div className="text-xs text-gray-500 font-normal mt-0.5">
                           {allVolunteers.filter(v => selectedManualIds.has(v.id || v.user_id)).map(v => v.profile?.full_name || v.id).join(', ')}
                         </div>

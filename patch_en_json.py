@@ -6,34 +6,27 @@ with open('frontend/src/locales/en.json', 'r') as f:
 # Update dashboard section
 if 'dashboard' not in data: data['dashboard'] = {}
 data['dashboard'].update({
-    "team_score": "Team Score:",
-    "skill_coverage": "Skill Coverage:",
-    "avg_dist": "Avg Dist:",
-    "avg_will": "Avg Will:",
-    "domain_exp": "Domain Exp.",
-    "willingness": "Willingness",
-    "distance": "Distance",
-    "avail_level": "Avail Level",
-    "skills": "Skills:",
-    "why_this_team": "Why this team? (Nexus Engine)",
-    "ranked": "Ranked",
-    "skill_coverage_label": "skill coverage",
-    "avg_will_label": "avg willingness",
-    "km_avg_dist": "km avg distance",
-    "all_local": "all local to problem village",
-    "nexus_explanation": "Individual score = DOMAIN\u00b2 * WILL * AVAIL\u2070\u22c5\u2075 * PROX * FRESH\u2070\u22c5\u2075. Multiplicative: any factor at zero eliminates the candidate regardless of other strengths. Teams ranked by skill coverage first, then by geometric mean of member scores."
+    "clear": "Clear",
+    "volunteers_selected": "volunteers selected",
+    "home_location": "Home Location",
+    "availability": "Availability",
+    "willingness_eff": "Willingness (eff)",
+    "full_skill_set": "Full Skill Set",
+    "hide": "Hide",
+    "view": "View",
+    "search_volunteer_placeholder": "Search volunteers by name or skill..."
 })
 
-# Update common section
-if 'common' not in data: data['common'] = {}
-data['common'].update({
-    "pending": "Pending",
-    "in_progress": "In Progress",
-    "completed": "Completed",
-    "high": "High",
-    "normal": "Normal",
-    "low": "Low",
-    "all": "All"
+# Add common statuses to seed
+if 'seed' not in data: data['seed'] = {}
+data['seed'].update({
+    "available": "Available",
+    "busy": "Busy",
+    "inactive": "Inactive",
+    "rarely available": "Rarely Available",
+    "immediately available": "Immediately Available",
+    "generally available": "Generally Available",
+    "unknown": "Unknown"
 })
 
 with open('frontend/src/locales/en.json', 'w') as f:

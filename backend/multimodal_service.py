@@ -492,3 +492,61 @@ def verify_resolution_proof(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     print("Multimodal Service: Gemini-first with local fallbacks for offline development.")
+
+def extract_problem_from_whatsapp(transcript: str, image_path: Optional[str] = None) -> Dict[str, Any]:
+    """Use Gemini to extract structured problem details from a raw WhatsApp message (audio transcript + optional image)."""
+    if not _has_gemini_key():
+        return {
+            "title": "Raw WhatsApp Report",
+            "description": transcript or "No audio provided.",
+            "village_name": "Unknown",
+            "category": "infrastructure",
+            "severity": "NORMAL"
+        }
+
+    try:
+        client = get_gemini_client()
+        from google.genai import types
+        
+        parts: List[Any] = []
+        if image_path and os.path.exists(image_path):
+            mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+            parts.append(types.Part.from_bytes(data=_read_file_bytes(image_path), mime_type=mime_type))
+            
+        prompt = (
+            "You are a rural coordinator AI for Gram Connect.\n"
+            "A villager has sent a WhatsApp message (a transcribed voice note and optionally a photo).\n"
+            "Extract the structured details from this message.\n\n"
+            f"Transcript: \"{transcript}\"\n\n"
+            "Categories allowed: water-sanitation, infrastructure, health-medical, agriculture, digital-literacy, environment, community.\n"
+            "Return strict JSON with keys:\n"
+            '  "title": a short 3-5 word summary,\n'
+            '  "description": a clean, readable version of their problem,\n'
+            '  "village_name": the village name if mentioned, otherwise "Unknown",\n'
+            '  "category": the best matching category from the allowed list,\n'
+            '  "severity": "LOW", "NORMAL", or "HIGH".\n'
+        )
+        parts.append(prompt)
+        
+        response = client.models.generate_content(
+            model=DEFAULT_GEMINI_MODEL,
+            contents=parts,
+        )
+        
+        parsed = _extract_json_object(response.text or "{}")
+        return {
+            "title": str(parsed.get("title") or "WhatsApp Report").strip(),
+            "description": str(parsed.get("description") or transcript).strip(),
+            "village_name": str(parsed.get("village_name") or "Unknown").strip(),
+            "category": str(parsed.get("category") or "infrastructure").strip().lower(),
+            "severity": str(parsed.get("severity") or "NORMAL").upper()
+        }
+    except Exception as exc:
+        logger.warning("Gemini WhatsApp extraction failed: %s", exc)
+        return {
+            "title": "Raw WhatsApp Report",
+            "description": transcript or "Extraction failed.",
+            "village_name": "Unknown",
+            "category": "infrastructure",
+            "severity": "NORMAL"
+        }

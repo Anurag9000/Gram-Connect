@@ -21,7 +21,7 @@ import tempfile
 from env_loader import load_local_env
 from demo_bootstrap import ensure_canonical_dataset, should_bootstrap_models
 from recommender_service import RecommenderService
-from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity
+from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity, extract_problem_from_whatsapp
 from notification_service import notify_problem_resolved, notify_team_assignment
 from path_utils import (
     ensure_runtime_dir,
@@ -177,6 +177,83 @@ class RecommendResponse(BaseModel):
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.post("/api/v1/webhooks/whatsapp")
+async def whatsapp_webhook(From: str = Form(...), MediaUrl0: str = Form(None), Body: str = Form("")):
+    # 1. Identity Resolution
+    reporter_phone = From.replace("whatsapp:", "").strip()
+    villager_id = f"wa-{hashlib.md5(reporter_phone.encode()).hexdigest()[:8]}"
+    reporter_name = "WhatsApp User"
+    
+    # In a real app we'd look up the phone in RUNTIME_PROFILES_CSV or VOLUNTEERS
+    # For now, we auto-create a mock profile
+    profile = {
+        "id": villager_id,
+        "full_name": reporter_name,
+        "phone": reporter_phone,
+        "role": "villager",
+        "created_at": _now_iso()
+    }
+    _upsert_profile(profile)
+
+    # 2. Multimodal Extraction
+    # We would normally download the media from Twilio. Since this is a demo/webhook,
+    # we simulate passing the text Body (which might be a transcript if Twilio transcribes)
+    # directly to our Gemini extraction.
+    extracted_data = extract_problem_from_whatsapp(transcript=Body, image_path=None)
+
+    # 3. Create the problem
+    problem_id = f"PROB-WA-{uuid.uuid4().hex[:6].upper()}"
+    lat, lng = _village_coordinates(extracted_data["village_name"])
+    
+    problem = {
+        "id": problem_id,
+        "villager_id": villager_id,
+        "title": extracted_data["title"],
+        "description": extracted_data["description"],
+        "category": extracted_data["category"],
+        "village_name": extracted_data["village_name"],
+        "village_address": None,
+        "reporter_name": reporter_name,
+        "reporter_phone": reporter_phone,
+        "visual_tags": [],
+        "has_audio": bool(MediaUrl0),
+        "status": "pending",
+        "lat": lat,
+        "lng": lng,
+        "created_at": _now_iso(),
+        "updated_at": _now_iso(),
+        "profiles": profile,
+        "severity": extracted_data["severity"]
+    }
+    
+    PROBLEMS.insert(0, problem)
+    persist_runtime_state()
+    
+    # 4. Trigger auto-matching
+    payload = _recommendation_payload_for_problem(problem, people_csv=_sync_runtime_people_csv())
+    try:
+        results = recommender_service.generate_recommendations(payload)
+        top_team = (results.get("teams") or [{}])[0]
+        members = list(top_team.get("members") or [])
+        matches = []
+        for rank, member in enumerate(members):
+            volunteer = _volunteer_lookup_by_candidate_id(member.get("person_id") or member.get("id"))
+            if volunteer:
+                matches.append(_build_problem_match(problem, volunteer, rank, "Initial WhatsApp Auto-match"))
+        if matches:
+            problem["matches"] = matches
+            problem["status"] = "in_progress"
+            problem["updated_at"] = _now_iso()
+            persist_runtime_state()
+    except Exception as exc:
+        logger.warning(f"Auto-match failed for WhatsApp problem {problem_id}: {exc}")
+
+    # 5. Return TwiML response
+    twiml = f"<Response><Message>Gram Connect: Issue reported! ID: {problem_id}. We are assigning a volunteer.</Message></Response>"
+    from fastapi.responses import Response
+    return Response(content=twiml, media_type="text/xml")
 
 
 @app.get("/villages")

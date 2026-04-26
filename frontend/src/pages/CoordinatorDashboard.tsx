@@ -485,7 +485,7 @@ export default function CoordinatorDashboard() {
                         problem.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-green-100 text-green-700'
                       }`}>
-                        {problem.status.replace('_', ' ')}
+                        {t('common.' + problem.status.toLowerCase(), problem.status.replace('_', ' '))}
                       </span>
                       {problem.severity && (
                         <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${
@@ -493,7 +493,7 @@ export default function CoordinatorDashboard() {
                           problem.severity === 'NORMAL' ? 'bg-amber-100 text-amber-700' :
                                                           'bg-gray-100 text-gray-500'
                         }`}>
-                          {problem.severity}
+                          {t('common.' + (problem.severity || 'normal').toLowerCase(), problem.severity || 'NORMAL')}
                         </span>
                       )}
                     </div>
@@ -585,7 +585,7 @@ export default function CoordinatorDashboard() {
             <div className="p-6 border-b flex justify-between items-center bg-gray-50">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">{t('dashboard.assign_modal_title')}</h2>
-                <p className="text-gray-500 text-sm mt-1">{t('dashboard.assign_modal_for')} <span className="font-semibold text-gray-900">{selectedProblem.title}</span></p>
+                <p className="text-gray-500 text-sm mt-1">{t('dashboard.assign_modal_for')} <span className="font-semibold text-gray-900">{t('seed.' + selectedProblem.title, selectedProblem.title)}</span></p>
               </div>
               <button onClick={() => { setShowAssignModal(false); setSelectedManualIds(new Set()); setExpandedVolunteerId(null); }} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition">
                 <X size={24} />
@@ -810,7 +810,7 @@ export default function CoordinatorDashboard() {
                           <div>
                             <h4 className="font-bold text-gray-900 text-lg flex items-center gap-2">
                               <span className="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm">{idx + 1}</span>
-                              {team.name}
+                              {t('seed.' + team.name, team.name)}
                             </h4>
                             <div className="text-xs text-gray-600 mt-2 flex flex-wrap gap-4 font-medium">
                               <span title="Team ranking score: skill_coverage x geometric_mean(member scores) - distance_penalty" className="bg-gray-100 px-2 py-1 rounded">{t('dashboard.team_score', 'Team Score:')} {(team.teamScore * 100).toFixed(1)}%</span>
@@ -833,7 +833,7 @@ export default function CoordinatorDashboard() {
                             <div key={member.person_id || member.id} className="flex flex-col gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
                               <div className="flex justify-between items-center text-sm">
                                 <span className="font-bold text-gray-900 text-base">{t('seed.' + (member.profile?.full_name || member.name || "Unknown"), member.profile?.full_name || member.name || "Unknown")}</span>
-                                <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200" title="Nexus Score = DOMAIN^2 * WILL * AVAIL^0.5 * PROX * FRESH^0.5">
+                                <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200" title={t('dashboard.nexus_formula_tooltip', 'Nexus Score = DOMAIN^2 * WILL * AVAIL^0.5 * PROX * FRESH^0.5')}>
                                   Nexus: {((member.match_score ?? member.nexus_score ?? 0) * 100).toFixed(1)}%
                                 </span>
                               </div>
@@ -868,8 +868,8 @@ export default function CoordinatorDashboard() {
 
                         <div className="mt-4 text-sm text-blue-800 bg-blue-50 p-4 rounded-lg border border-blue-100 leading-relaxed">
                           <strong className="text-blue-900 block mb-2">{t('dashboard.why_this_team')}</strong>
-                          <span className="block mb-1">Ranked #{idx + 1} — <strong>{(team.coverage * 100).toFixed(0)}% skill coverage</strong> — <strong>{(team.willingnessAvg * 100).toFixed(0)}% avg willingness</strong> — <strong>{team.avgDistanceKm.toFixed(1)} km avg distance</strong>{team.avgDistanceKm === 0 ? ' (all local to problem village)' : ''}</span>
-                          <span className="block text-blue-700 text-xs mt-1">Individual score = DOMAIN² * WILL * AVAIL⁰⋅⁵ * PROX * FRESH⁰⋅⁵. Multiplicative: any factor at zero eliminates the candidate regardless of other strengths. Teams ranked by skill coverage first, then by geometric mean of member scores.</span>
+                          <span className="block mb-1">{t('dashboard.ranked')} #{idx + 1} — <strong>{(team.coverage * 100).toFixed(0)}% {t('dashboard.skill_coverage_label', 'skill coverage')}</strong> — <strong>{(team.willingnessAvg * 100).toFixed(0)}% {t('dashboard.avg_will_label', 'avg willingness')}</strong> — <strong>{team.avgDistanceKm.toFixed(1)} {t('dashboard.km_avg_dist', 'km avg distance')}</strong>{team.avgDistanceKm === 0 ? ` (${t('dashboard.all_local', 'all local to problem village')})` : ''}</span>
+                          <span className="block text-blue-700 text-xs mt-1">{t('dashboard.nexus_explanation', 'Individual score = DOMAIN² * WILL * AVAIL⁰⋅⁵ * PROX * FRESH⁰⋅⁵. Multiplicative: any factor at zero eliminates the candidate regardless of other strengths. Teams ranked by skill coverage first, then by geometric mean of member scores.')}</span>
                           {team.coverage < 0.3 && <span className="block text-amber-700 font-semibold mt-1">{t('dashboard.low_coverage_note')}</span>}
                         </div>
                       </div>

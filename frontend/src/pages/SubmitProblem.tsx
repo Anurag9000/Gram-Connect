@@ -402,7 +402,7 @@ export default function SubmitProblem() {
                 </label>
               </div>
               <div className="mt-4 text-sm text-gray-600">
-                This saves a persistent villager profile in the backend so future reports reuse the same reporter identity.
+                {t('submit.profile_save_note')}
               </div>
             </div>
           )}
@@ -567,7 +567,7 @@ export default function SubmitProblem() {
                 <div className="mt-2 flex flex-wrap gap-2" data-testid="image-analysis-tags">
                   <span className="text-xs font-semibold text-gray-500">{t('submit.ai_detected')}</span>
                   {visualTags.map(tag => (
-                    <span key={tag} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">#{tag}</span>
+                    <span key={tag} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">#{t('seed.' + tag, tag)}</span>
                   ))}
                 </div>
               )}

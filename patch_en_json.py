@@ -3,7 +3,29 @@ import json
 with open('frontend/src/locales/en.json', 'r') as f:
     data = json.load(f)
 
-# Add missing common keys
+# Update dashboard section
+if 'dashboard' not in data: data['dashboard'] = {}
+data['dashboard'].update({
+    "team_score": "Team Score:",
+    "skill_coverage": "Skill Coverage:",
+    "avg_dist": "Avg Dist:",
+    "avg_will": "Avg Will:",
+    "domain_exp": "Domain Exp.",
+    "willingness": "Willingness",
+    "distance": "Distance",
+    "avail_level": "Avail Level",
+    "skills": "Skills:",
+    "why_this_team": "Why this team? (Nexus Engine)",
+    "ranked": "Ranked",
+    "skill_coverage_label": "skill coverage",
+    "avg_will_label": "avg willingness",
+    "km_avg_dist": "km avg distance",
+    "all_local": "all local to problem village",
+    "nexus_explanation": "Individual score = DOMAIN\u00b2 * WILL * AVAIL\u2070\u22c5\u2075 * PROX * FRESH\u2070\u22c5\u2075. Multiplicative: any factor at zero eliminates the candidate regardless of other strengths. Teams ranked by skill coverage first, then by geometric mean of member scores."
+})
+
+# Update common section
+if 'common' not in data: data['common'] = {}
 data['common'].update({
     "pending": "Pending",
     "in_progress": "In Progress",
@@ -11,61 +33,8 @@ data['common'].update({
     "high": "High",
     "normal": "Normal",
     "low": "Low",
-    "water-sanitation": "Water & Sanitation",
-    "infrastructure": "Infrastructure",
-    "health-nutrition": "Health & Nutrition",
-    "agriculture-environment": "Agriculture & Environment",
-    "education-digital": "Education & Digital",
-    "livelihood-governance": "Livelihood & Governance",
-    "others": "Others",
-    "education": "Education",
-    "health": "Health",
-    "digital": "Digital"
+    "all": "All"
 })
-
-# Add missing map keys
-data['map'] = {
-    "live_geospatial_view": "Live Geospatial View",
-    "title": "Problem locations & volunteer deployments",
-    "subtitle": "Browse reported issues on the map, filter by location or status, and inspect the live problem stream.",
-    "back_to_dashboard": "Back to dashboard",
-    "all_problems": "All problems",
-    "filter_village": "Filter by village…",
-    "showing": "Showing",
-    "problems": "problems",
-    "problem": "problem",
-    "in": "in",
-    "problem_map": "Problem map",
-    "markers": "markers",
-    "all_cases": "All cases",
-    "live_backend_state": "live backend state",
-    "loading_map": "Loading map…",
-    "loading": "Loading…",
-    "no_problems": "No problems match the current filters."
-}
-
-# Add home highlight
-data['home']['hero_heading_highlight'] = "Intelligent Action"
-
-# Add skills
-data['skills'] = {
-    "digital literacy": "Digital Literacy",
-    "teaching": "Teaching",
-    "excel training": "Excel Training",
-    "household survey": "Household Survey",
-    "Computer Repair": "Computer Repair",
-    "Teaching": "Teaching",
-    "Plumbing": "Plumbing",
-    "Electrical Work": "Electrical Work",
-    "Construction": "Construction",
-    "Digital Literacy": "Digital Literacy",
-    "Agriculture": "Agriculture",
-    "Healthcare": "Healthcare",
-    "Tutoring": "Tutoring",
-    "Web Development": "Web Development",
-    "Marketing": "Marketing",
-    "Accounting": "Accounting"
-}
 
 with open('frontend/src/locales/en.json', 'w') as f:
     json.dump(data, f, indent=4)

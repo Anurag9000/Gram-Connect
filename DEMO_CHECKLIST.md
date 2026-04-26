@@ -1,11 +1,8 @@
 # Gram Connect Demo Procedure
 
-## Model and Data
+## Engine and Data
 
-- Confirm `backend/runtime_data/canonical_model.pkl` exists.
-- Confirm checkpoint artefacts exist:
-  - `backend/runtime_data/canonical_model.best.pkl`
-  - `backend/runtime_data/canonical_model.progress.pkl`
+- Confirm the Forge engine is configured properly in `backend/forge.py` (no `.pkl` models required).
 - Confirm canonical mock data exists in `data/`:
   - `people.csv`
   - `proposals.csv`
@@ -59,7 +56,7 @@
 
 ## Presentation Summary
 
-- The recommender bundle is persisted.
+- The engine runs instantaneously on mathematically derived SHAP weights (Zero ML model persistence required).
 - The frontend uses the live backend rather than mock-only flows.
 - Problem submission, map rendering, assignment generation, and proof uploads are integrated end to end.
-- The demo runtime can be regenerated from the canonical dataset and retrained deterministically.
+- The demo runtime dynamically bootstraps from the canonical CSVs on startup without needing training.

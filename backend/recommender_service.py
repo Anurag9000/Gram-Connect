@@ -1,15 +1,15 @@
 """
-recommender_service.py — Thin service wrapper around the Forge engine.
+recommender_service.py — Thin service wrapper around the Nexus engine.
 
 Previously held ML model loading and LightGBM inference.
-Now just bridges the raw API config dict → ForgeConfig → run_forge().
+Now just bridges the raw API config dict → NexusConfig → run_nexus().
 No model file, no embeddings, no training data.
 """
 
 import logging
 from typing import Any, Dict, List, Optional
 
-from forge import ForgeConfig, run_forge, load_distance_lookup, load_village_names, read_people
+from nexus import NexusConfig, run_nexus, load_distance_lookup, load_village_names, read_people
 
 logger = logging.getLogger("recommender_service")
 
@@ -26,14 +26,14 @@ class RecommenderService:
         self._distance_lookup  = load_distance_lookup(self.distance_csv)
         self._village_names    = load_village_names(self.village_locations)
 
-        # model_path kept for API compat but unused by Forge
+        # model_path kept for API compat but unused by Nexus
         self.model_path = model_path
-        logger.info("RecommenderService ready (Forge engine — no ML model required).")
+        logger.info("RecommenderService ready (Nexus engine — no ML model required).")
 
     def set_model_path(self, model_path: str) -> None:
-        """Legacy no-op: Forge does not use a trained model."""
+        """Legacy no-op: Nexus does not use a trained model."""
         self.model_path = model_path
-        logger.debug("set_model_path called (%s) — ignored by Forge engine.", model_path)
+        logger.debug("set_model_path called (%s) — ignored by Nexus engine.", model_path)
 
     def generate_recommendations(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -42,7 +42,7 @@ class RecommenderService:
         """
         people_csv = config.get("people_csv") or self.people_csv
 
-        forge_cfg = ForgeConfig(
+        nexus_cfg = NexusConfig(
             people_csv                 = people_csv,
             proposal_text              = config.get("proposal_text", ""),
             village_locations          = config.get("village_locations") or self.village_locations,
@@ -69,16 +69,16 @@ class RecommenderService:
         )
 
         try:
-            return run_forge(forge_cfg)
+            return run_nexus(nexus_cfg)
         except Exception as e:
-            logger.error("Forge engine error: %s", e, exc_info=True)
+            logger.error("Nexus engine error: %s", e, exc_info=True)
             raise
 
     def score_team(self, proposal_text: str, member_ids: List[str]) -> Dict[str, Any]:
         """
         Evaluate a manually selected team against a proposal.
         """
-        from forge import (
+        from nexus import (
             read_people, extract_required_skills, score_volunteer,
             _team_coverage, _geometric_mean, TEAM_DISTANCE_WEIGHT,
         )
@@ -96,7 +96,7 @@ class RecommenderService:
             for v in team_members
         ]
         coverage = _team_coverage(scored, required)
-        gm       = _geometric_mean([v["forge_score"] for v in scored])
+        gm       = _geometric_mean([v["nexus_score"] for v in scored])
         avg_dist = sum(v["distance_km"] for v in scored) / max(len(scored), 1)
         team_score = coverage * gm - TEAM_DISTANCE_WEIGHT * avg_dist
 

@@ -149,7 +149,7 @@ export default function Home() {
                 <Zap className="text-blue-600" size={24} />
               </div>
               <h3 className="text-xl font-bold mb-4">Smart Matching</h3>
-              <p className="text-gray-600 leading-relaxed">Our Forge Engine finds the perfect team based on skills, logistics, and fairness.</p>
+              <p className="text-gray-600 leading-relaxed">Our Nexus Engine finds the perfect team based on skills, logistics, and fairness.</p>
             </div>
             <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition border border-gray-100">
               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">

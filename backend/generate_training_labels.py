@@ -172,4 +172,4 @@ if __name__ == "__main__":
         all_rows.extend(rows)
     write_csv(os.path.join(OUT_DIR, "training_labels.csv"), all_rows)
     print(f"\n  Combined: {stats(all_rows)} | Total: {len(all_rows):,}")
-    print("\nDone. Run: python fit_forge_weights.py --per-severity")
+    print("\nDone. Run: python fit_nexus_weights.py --per-severity")

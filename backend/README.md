@@ -2,7 +2,7 @@
 
 This document defines the backend runtime contract for Gram Connect.
 
-The team recommendation engine is **Forge** — a deterministic, interpretable scoring system with no ML model, no embeddings, and no training data. It replaces the previous LightGBM/embedding pipeline entirely.
+The team recommendation engine is **Nexus** — a deterministic, interpretable scoring system with no ML model, no embeddings, and no training data. It replaces the previous LightGBM/embedding pipeline entirely.
 
 ---
 
@@ -29,7 +29,7 @@ proposal_text + village_name
 
 ---
 
-## The Forge Scoring Formula
+## The Nexus Scoring Formula
 
 ```
 SCORE(v, T) = DOMAIN(v,T) × WILL(v) × AVAIL(v,T) × PROX(v,T) × FRESH(v)
@@ -74,7 +74,7 @@ Teams sorted by `(coverage, team_score)` descending — domain relevance first.
 
 ---
 
-## `forge.py`
+## `nexus.py`
 
 Core scoring engine. No external dependencies beyond the Python stdlib.
 
@@ -84,9 +84,9 @@ Core scoring engine. No external dependencies beyond the Python stdlib.
 - `estimate_severity(text)` → `int` (0=LOW, 1=NORMAL, 2=HIGH)
 - `score_volunteer(v, required, location, distance_lookup, severity)` → enriched dict
 - `_build_one_team(scored_pool, required, target_size, excluded_ids)` → `List[Dict]`
-- `run_forge(config: ForgeConfig)` → API-compatible response dict
+- `run_forge(config: NexusConfig)` → API-compatible response dict
 
-**ForgeConfig fields:**
+**NexusConfig fields:**
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -123,7 +123,7 @@ FastAPI service. Key endpoints:
 | `GET` | `/volunteers` | List all seeded volunteers |
 | `GET` | `/problems` | List all problems with matches |
 | `POST` | `/problems` | Submit new problem |
-| `POST` | `/recommend` | Generate team recommendations via Forge |
+| `POST` | `/recommend` | Generate team recommendations via Nexus |
 | `POST` | `/assign` | Assign volunteer(s) to a problem |
 | `DELETE` | `/problems/{id}` | Delete (nuke) a problem |
 | `PUT` | `/problems/{id}/status` | Update problem status |
@@ -135,7 +135,7 @@ FastAPI service. Key endpoints:
 
 ```bash
 python generate_canonical_dataset.py   # regenerate CSVs (480 volunteers, 180 proposals)
-python -m pytest tests/test_forge_utils.py -q   # verify Forge scoring logic
+python -m pytest tests/test_forge_utils.py -q   # verify Nexus scoring logic
 python -m uvicorn api_server:app --host 127.0.0.1 --port 8011
 ```
 
@@ -174,4 +174,4 @@ Volunteer home locations are distributed across all 5 villages (~96 per village)
 
 ---
 
-*Keep this document in sync with any API or ForgeConfig contract changes.*
+*Keep this document in sync with any API or NexusConfig contract changes.*

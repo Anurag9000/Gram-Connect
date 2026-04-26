@@ -86,7 +86,7 @@ function inferCategory(text: string): string | null {
   return bestCount > 0 ? best : null;
 }
 
-// Mirrors backend estimate_severity keyword logic (forge.py).
+// Mirrors backend estimate_severity keyword logic (nexus.py).
 function inferSeverity(text: string): 'LOW' | 'NORMAL' | 'HIGH' {
   const t = text.toLowerCase();
   const highWords = ['urgent', 'emergency', 'critical', 'broken', 'no water', 'flooding', 'collapse', 'immediate', 'danger', 'severe', 'crisis'];

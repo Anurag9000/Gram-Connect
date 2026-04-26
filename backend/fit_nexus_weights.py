@@ -1,5 +1,5 @@
 """
-fit_forge_weights.py  v3
+fit_nexus_weights.py  v3
 ========================
 Model shootout: Logistic Regression vs Random Forest vs XGBoost vs SVM.
 Weights derived from the best model per severity via mean |SHAP| values
@@ -7,8 +7,8 @@ on log-transformed features (so they are directly comparable to exponents).
 All final weights normalised to 0–1 (domain always = 1.0 as the primary gate).
 
 Usage:
-  python fit_forge_weights.py --per-severity   # recommended
-  python fit_forge_weights.py                  # combined model
+  python fit_nexus_weights.py --per-severity   # recommended
+  python fit_nexus_weights.py                  # combined model
 """
 
 import argparse, csv, json, math, os, sys
@@ -220,7 +220,7 @@ def run_per_severity(out_path):
 
     # Print paste-ready block
     print("\n\n" + "="*60)
-    print("SEVERITY_FACTOR_WEIGHTS  (0-1 normalised, paste into forge.py)")
+    print("SEVERITY_FACTOR_WEIGHTS  (0-1 normalised, paste into nexus.py)")
     print("="*60)
     print("SEVERITY_FACTOR_WEIGHTS: dict = {")
     for sev_int, sev in SEV_LABEL.items():

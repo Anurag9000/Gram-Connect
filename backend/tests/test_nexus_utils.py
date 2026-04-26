@@ -1,5 +1,5 @@
 """
-test_forge_utils.py — Unit tests for the Forge deterministic scoring engine.
+test_nexus_utils.py — Unit tests for the Nexus deterministic scoring engine.
 Replaces test_m3_recommend_utils.py.
 """
 
@@ -8,19 +8,19 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-import forge
+import nexus
 
 
 def test_sigmoid():
-    assert abs(forge._sigmoid(0) - 0.5) < 1e-6
-    assert forge._sigmoid(100) > 0.99
-    assert forge._sigmoid(-100) < 0.01
+    assert abs(nexus._sigmoid(0) - 0.5) < 1e-6
+    assert nexus._sigmoid(100) > 0.99
+    assert nexus._sigmoid(-100) < 0.01
 
 
 def test_skill_overlap_exact():
     required = ["handpump repair and maintenance", "plumbing"]
     skills   = ["plumbing", "construction"]
-    score, covered = forge._skill_overlap(skills, required)
+    score, covered = nexus._skill_overlap(skills, required)
     assert covered == {"plumbing"}
     assert abs(score - 0.5) < 1e-6
 
@@ -28,7 +28,7 @@ def test_skill_overlap_exact():
 def test_skill_overlap_partial():
     required = ["pump maintenance"]
     skills   = ["handpump pump maintenance kit"]
-    score, covered = forge._skill_overlap(skills, required)
+    score, covered = nexus._skill_overlap(skills, required)
     assert score > 0.0      # partial credit
     assert score <= 1.0
 
@@ -36,26 +36,26 @@ def test_skill_overlap_partial():
 def test_skill_overlap_no_match():
     required = ["solar energy"]
     skills   = ["plumbing", "construction"]
-    score, covered = forge._skill_overlap(skills, required)
+    score, covered = nexus._skill_overlap(skills, required)
     assert score == 0.0
     assert len(covered) == 0
 
 
 def test_estimate_severity():
-    assert forge.estimate_severity("This is an urgent emergency") == 2   # HIGH
-    assert forge.estimate_severity("Critical water failure") == 2        # HIGH
-    assert forge.estimate_severity("Routine repair of road") == 0        # LOW — "routine" matches
-    assert forge.estimate_severity("The handpump needs attention") == 1  # NORMAL — no signal words
+    assert nexus.estimate_severity("This is an urgent emergency") == 2   # HIGH
+    assert nexus.estimate_severity("Critical water failure") == 2        # HIGH
+    assert nexus.estimate_severity("Routine repair of road") == 0        # LOW — "routine" matches
+    assert nexus.estimate_severity("The handpump needs attention") == 1  # NORMAL — no signal words
 
 
 def test_extract_required_skills_handpump():
-    skills = forge.extract_required_skills("Broken handpump near the school needs repair")
+    skills = nexus.extract_required_skills("Broken handpump near the school needs repair")
     assert "plumbing" in skills
     assert "handpump repair and maintenance" in skills
 
 
 def test_extract_required_skills_solar():
-    skills = forge.extract_required_skills("Solar panel installation for rural electrification")
+    skills = nexus.extract_required_skills("Solar panel installation for rural electrification")
     assert "solar microgrid design and maintenance" in skills
 
 
@@ -68,9 +68,9 @@ def test_score_volunteer_domain_zero():
         "home_location": "Lakshmipur", "overwork_hours": 0,
     }
     required = ["plumbing", "handpump repair and maintenance"]
-    result = forge.score_volunteer(v, required, "Lakshmipur", {}, 1)
-    # DOMAIN = 0 → forge_score = 0 (multiplicative kills it)
-    assert result["forge_score"] == 0.0
+    result = nexus.score_volunteer(v, required, "Lakshmipur", {}, 1)
+    # DOMAIN = 0 → nexus_score = 0 (multiplicative kills it)
+    assert result["nexus_score"] == 0.0
     assert result["domain_score"] == 0.0
     assert result["match_score"] == 0.0
 
@@ -85,10 +85,10 @@ def test_score_volunteer_full_match():
         "home_location": "Lakshmipur", "overwork_hours": 0,
     }
     required = ["plumbing", "handpump repair and maintenance"]
-    result = forge.score_volunteer(v, required, "Lakshmipur", {}, 1)
+    result = nexus.score_volunteer(v, required, "Lakshmipur", {}, 1)
     assert result["domain_score"] == 1.0
-    assert result["forge_score"] > 0.5, f"Expected > 0.5, got {result['forge_score']}"
-    assert result["match_score"] == round(result["forge_score"], 4)
+    assert result["nexus_score"] > 0.5, f"Expected > 0.5, got {result['nexus_score']}"
+    assert result["match_score"] == round(result["nexus_score"], 4)
 
 
 def test_team_coverage():
@@ -97,14 +97,14 @@ def test_team_coverage():
         {"covered_skills": {"water quality assessment"}},
     ]
     required = ["plumbing", "construction", "water quality assessment", "gis"]
-    coverage = forge._team_coverage(team, required)
+    coverage = nexus._team_coverage(team, required)
     assert abs(coverage - 3/4) < 1e-6
 
 
 def test_geometric_mean():
-    assert abs(forge._geometric_mean([1.0, 1.0, 1.0]) - 1.0) < 1e-6
+    assert abs(nexus._geometric_mean([1.0, 1.0, 1.0]) - 1.0) < 1e-6
     # One zero member tanks the team
-    assert forge._geometric_mean([1.0, 1.0, 0.0]) < 0.01
+    assert nexus._geometric_mean([1.0, 1.0, 0.0]) < 0.01
 
 
 def test_build_one_team_selects_relevant():
@@ -117,13 +117,13 @@ def test_build_one_team_selects_relevant():
             "willingness_eff": 0.8, "willingness_bias": 0.6,
             "availability": avail, "home_location": "Lakshmipur", "overwork_hours": 0,
         }
-        return forge.score_volunteer(v, required, "Lakshmipur", {}, 1)
+        return nexus.score_volunteer(v, required, "Lakshmipur", {}, 1)
 
     plumber = make_vol("P1", ["plumbing", "handpump repair and maintenance"])
     solar   = make_vol("P2", ["solar panels", "rural electrification"])
 
-    scored  = sorted([plumber, solar], key=lambda x: x["forge_score"], reverse=True)
-    team    = forge._build_one_team(scored, required, 1, set())
+    scored  = sorted([plumber, solar], key=lambda x: x["nexus_score"], reverse=True)
+    team    = nexus._build_one_team(scored, required, 1, set())
     assert team[0]["person_id"] == "P1"
 
 
@@ -135,9 +135,9 @@ def test_two_phase_multi_domain_coverage():
     Setup:
         required = ["plumbing", "hygiene education"]  (two distinct domains)
         pool     = [
-            ExcellentPlumber1  (covers plumbing only,   high forge_score)
-            ExcellentPlumber2  (covers plumbing only,   high forge_score)
-            HygieneSpecialist  (covers hygiene education only, lower forge_score)
+            ExcellentPlumber1  (covers plumbing only,   high nexus_score)
+            ExcellentPlumber2  (covers plumbing only,   high nexus_score)
+            HygieneSpecialist  (covers hygiene education only, lower nexus_score)
         ]
         team_size = 2
 
@@ -160,23 +160,23 @@ def test_two_phase_multi_domain_coverage():
             "willingness_eff": will_eff, "willingness_bias": will_bias,
             "availability": avail, "home_location": "Lakshmipur", "overwork_hours": 0,
         }
-        return forge.score_volunteer(v, required, "Lakshmipur", {}, 1)
+        return nexus.score_volunteer(v, required, "Lakshmipur", {}, 1)
 
     plumber1  = _v("P1", ["plumbing"], will_eff=0.95, will_bias=0.95)  # high score
     plumber2  = _v("P2", ["plumbing"], will_eff=0.90, will_bias=0.90)  # high score
     hygienist = _v("H1", ["hygiene education"], will_eff=0.60, will_bias=0.60)  # lower score
 
     # Confirm the score gap exists — hygienist scores lower than both plumbers
-    assert hygienist["forge_score"] < plumber1["forge_score"]
-    assert hygienist["forge_score"] < plumber2["forge_score"]
+    assert hygienist["nexus_score"] < plumber1["nexus_score"]
+    assert hygienist["nexus_score"] < plumber2["nexus_score"]
 
     # Build team of 2
     scored = sorted([plumber1, plumber2, hygienist],
-                    key=lambda x: x["forge_score"], reverse=True)
-    team = forge._build_one_team(scored, required, 2, set())
+                    key=lambda x: x["nexus_score"], reverse=True)
+    team = nexus._build_one_team(scored, required, 2, set())
 
     team_ids = {m["person_id"] for m in team}
-    coverage = forge._team_coverage(team, required)
+    coverage = nexus._team_coverage(team, required)
 
     # Both domains must be covered
     assert coverage == 1.0, f"Expected full coverage, got {coverage}. Team: {team_ids}"
@@ -200,15 +200,15 @@ def test_phase2_quality_fill_after_coverage():
             "availability": "immediately available",
             "home_location": "Lakshmipur", "overwork_hours": 0,
         }
-        return forge.score_volunteer(v, required, "Lakshmipur", {}, 1)
+        return nexus.score_volunteer(v, required, "Lakshmipur", {}, 1)
 
     plumber   = _v("P1", ["plumbing"])
     hygienist = _v("H1", ["hygiene education"])
     backup    = _v("B1", ["plumbing", "hygiene education"], will_eff=0.70, will_bias=0.70)
 
     scored = sorted([plumber, hygienist, backup],
-                    key=lambda x: x["forge_score"], reverse=True)
+                    key=lambda x: x["nexus_score"], reverse=True)
     # team_size=3: phase 1 covers both skills with 2 people, phase 2 fills slot 3
-    team = forge._build_one_team(scored, required, 3, set())
+    team = nexus._build_one_team(scored, required, 3, set())
     assert len(team) == 3
-    assert forge._team_coverage(team, required) == 1.0
+    assert nexus._team_coverage(team, required) == 1.0

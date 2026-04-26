@@ -1,6 +1,6 @@
 # Gram-Connect Recommender Engine Architecture
 
-The Gram-Connect recommendation engine (affectionately referred to as **"Forge"**) is an advanced, severity-aware, multi-domain task assignment system. It is designed to match community volunteers with village tasks based on skill requirements, urgency, willingness, and proximity.
+The Gram-Connect recommendation engine (affectionately referred to as **"Nexus"**) is an advanced, severity-aware, multi-domain task assignment system. It is designed to match community volunteers with village tasks based on skill requirements, urgency, willingness, and proximity.
 
 ## Core Scoring Formula
 The engine evaluates volunteers using a multiplicative formula with exponent-based penalty scaling:
@@ -63,7 +63,7 @@ These weights were scientifically fitted using a robust empirical approach rathe
 ## Two-Phase Greedy Team Builder
 A common failure in multi-domain tasks (e.g., a task requiring both a *plumber* and an *electrician*) is that "high-scoring generalists" crowd out the team, leaving one of the critical domains entirely unrepresented. 
 
-To solve this, Forge uses a **Two-Phase Greedy Builder**:
+To solve this, Nexus uses a **Two-Phase Greedy Builder**:
 
 ### Phase 1: Coverage Sweep
 Before filling the team normally, the engine guarantees that **every required domain** has at least one specialist assigned. It sweeps through the requirements, finds the highest-scoring volunteer *specifically for that single domain*, and locks them into the team.

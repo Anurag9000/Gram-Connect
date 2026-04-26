@@ -2,7 +2,7 @@
 
 ## Engine and Data
 
-- Confirm the Forge engine is configured properly in `backend/forge.py` (no `.pkl` models required).
+- Confirm the Nexus engine is configured properly in `backend/nexus.py` (no `.pkl` models required).
 - Confirm canonical mock data exists in `data/`:
   - `people.csv`
   - `proposals.csv`

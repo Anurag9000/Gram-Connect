@@ -1,5 +1,5 @@
 """
-forge.py — Gram Connect Team Forge Engine
+nexus.py — Gram Connect Team Nexus Engine
 ==========================================
 Deterministic, interpretable volunteer-to-task matching.
 No ML. No embeddings. No training data. Pure arithmetic.
@@ -15,7 +15,7 @@ Individual score:
 Team building:
     Greedy marginal-coverage selection.
     At each step pick whoever maximises:
-        forge_score × (1 + α × new_skill_fraction) × (1 - β × redundancy_fraction)
+        nexus_score × (1 + α × new_skill_fraction) × (1 - β × redundancy_fraction)
     α=1.5 (bonus for covering new skills), β=0.3 (penalty for duplicating coverage)
 
 Team ranking:
@@ -30,7 +30,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-logger = logging.getLogger("forge")
+logger = logging.getLogger("nexus")
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -220,7 +220,7 @@ def estimate_severity(text: str) -> int:
 # ── Config ────────────────────────────────────────────────────────────────────
 
 @dataclass
-class ForgeConfig:
+class NexusConfig:
     people_csv:                  str
     proposal_text:               str
     village_locations:           str
@@ -398,7 +398,7 @@ def score_volunteer(
     # Pull severity-specific weights: avail/prox shift based on task urgency
     w = SEVERITY_FACTOR_WEIGHTS.get(severity_int, SEVERITY_FACTOR_WEIGHTS[1])
 
-    forge_score = (
+    nexus_score = (
         (domain ** w["domain"]) *
         (will   ** w["will"])   *
         (avail  ** w["avail"])  *
@@ -413,7 +413,7 @@ def score_volunteer(
         "rarely available":      1,
     }.get(avail_label, 2)
 
-    # match_score = the actual Forge score the engine uses for ranking.
+    # match_score = the actual Nexus score the engine uses for ranking.
     return {
         **v,
         # Component scores (all 0–1)
@@ -425,8 +425,8 @@ def score_volunteer(
         # Derived fields
         "distance_km":       round(dist_km, 2),
         "availability_level": avail_level_num,
-        "forge_score":       round(forge_score, 6),
-        "match_score":       round(forge_score, 4),  # = forge_score, exposed as display field
+        "nexus_score":       round(nexus_score, 6),
+        "match_score":       round(nexus_score, 4),  # = nexus_score, exposed as display field
         "covered_skills":    covered,
     }
 
@@ -436,7 +436,7 @@ def score_volunteer(
 def _effective_score(candidate: Dict, covered_so_far: Set[str], required: List[str]) -> float:
     """
     Score used during greedy selection:
-        forge_score × (1 + α × new_coverage_fraction) × (1 − β × redundancy_fraction)
+        nexus_score × (1 + α × new_coverage_fraction) × (1 − β × redundancy_fraction)
     """
     n = max(len(required), 1)
     cand_covered = candidate.get("covered_skills", set())
@@ -444,7 +444,7 @@ def _effective_score(candidate: Dict, covered_so_far: Set[str], required: List[s
     redundant    = cand_covered & covered_so_far
     coverage_bonus   = COVERAGE_BONUS_ALPHA   * len(new_skills) / n
     redundancy_pen   = REDUNDANCY_PENALTY_BETA * len(redundant) / n
-    return candidate["forge_score"] * (1.0 + coverage_bonus) * max(0.0, 1.0 - redundancy_pen)
+    return candidate["nexus_score"] * (1.0 + coverage_bonus) * max(0.0, 1.0 - redundancy_pen)
 
 
 def _build_one_team(
@@ -474,7 +474,7 @@ def _build_one_team(
     team_ids: Set[str]   = set()
     covered:  Set[str]   = set()
     pool = [v for v in scored_pool
-            if v["person_id"] not in excluded_ids and v["forge_score"] > 0]
+            if v["person_id"] not in excluded_ids and v["nexus_score"] > 0]
 
     # ── Phase 1: coverage sweep ───────────────────────────────────────────────
     # Iterate over every required skill.  If it is not yet covered by anyone
@@ -492,7 +492,7 @@ def _build_one_team(
         ]
         if not candidates:
             continue  # no one in the pool covers this domain; skip
-        best = max(candidates, key=lambda v: v["forge_score"])
+        best = max(candidates, key=lambda v: v["nexus_score"])
         team.append(best)
         team_ids.add(best["person_id"])
         covered |= best.get("covered_skills", set())
@@ -536,7 +536,7 @@ def _geometric_mean(values: List[float]) -> float:
 
 def _format_team(team: List[Dict], required: List[str], rank: int) -> Dict[str, Any]:
     coverage   = _team_coverage(team, required)
-    gm_score   = _geometric_mean([v["forge_score"] for v in team])
+    gm_score   = _geometric_mean([v["nexus_score"] for v in team])
     avg_dist   = sum(v["distance_km"] for v in team) / max(len(team), 1)
     will_avg   = sum(v["willingness_score"] for v in team) / max(len(team), 1)
     will_min   = min(v["willingness_score"] for v in team)
@@ -553,7 +553,7 @@ def _format_team(team: List[Dict], required: List[str], rank: int) -> Dict[str, 
             "availability_level": v["availability_level"],
             "home_location":     v.get("home_location", ""),
             "match_score":       v["match_score"],
-            "forge_score":       v["forge_score"],
+            "nexus_score":       v["nexus_score"],
             "user_id":           v.get("user_id", v["person_id"]),
             "email":             v.get("email", ""),
         }
@@ -565,7 +565,7 @@ def _format_team(team: List[Dict], required: List[str], rank: int) -> Dict[str, 
         "team_ids":        ";".join(v["person_id"] for v in team),
         "team_names":      "; ".join(v["name"] for v in team),
         "team_size":       len(team),
-        # team_score = coverage_fraction * geometric_mean(member forge scores) - 0.003 * avg_distance_km
+        # team_score = coverage_fraction * geometric_mean(member nexus scores) - 0.003 * avg_distance_km
         # Primary ranking key: a team that covers more required skills and has higher-quality members ranks first.
         "team_score":      round(team_score, 4),
         "coverage":        round(coverage, 4),
@@ -581,9 +581,9 @@ def _format_team(team: List[Dict], required: List[str], rank: int) -> Dict[str, 
 
 # ── Main Entry Point ──────────────────────────────────────────────────────────
 
-def run_forge(config: ForgeConfig) -> Dict[str, Any]:
+def run_nexus(config: NexusConfig) -> Dict[str, Any]:
     """
-    Full Forge pipeline:
+    Full Nexus pipeline:
       1. Load volunteers, distance matrix, village names
       2. Extract required skills from proposal text
       3. Score every volunteer with DOMAIN × WILL × AVAIL × PROX × FRESH
@@ -630,7 +630,7 @@ def run_forge(config: ForgeConfig) -> Dict[str, Any]:
         required = FALLBACK_SKILLS[:]
 
     logger.info(
-        "Forge: location=%r  severity=%s  required_skills=%d  volunteers=%d",
+        "Nexus: location=%r  severity=%s  required_skills=%d  volunteers=%d",
         proposal_location, SEVERITY_LABELS[severity_int], len(required), len(people),
     )
 
@@ -642,7 +642,7 @@ def run_forge(config: ForgeConfig) -> Dict[str, Any]:
         )
         for v in people
     ]
-    scored.sort(key=lambda v: v["forge_score"], reverse=True)
+    scored.sort(key=lambda v: v["nexus_score"], reverse=True)
 
     # ── Build Alternative Teams ────────────────────────────────────────────
     target_size = config.team_size or config.soft_cap

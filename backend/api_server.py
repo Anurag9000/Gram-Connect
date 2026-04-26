@@ -957,23 +957,23 @@ load_initial_data()
 
 @app.on_event("startup")
 async def bootstrap_demo_runtime():
-    """Forge engine requires no trained model — just seed the dataset and runtime state."""
+    """Nexus engine requires no trained model — just seed the dataset and runtime state."""
     if not should_bootstrap_models():
         return
     try:
         ensure_canonical_dataset()
         reset_runtime_state()
-        logger.info("Demo runtime bootstrapped (Forge engine — no model training required).")
+        logger.info("Demo runtime bootstrapped (Nexus engine — no model training required).")
     except Exception as exc:
         logger.exception("Demo bootstrap failed: %s", exc)
 
 
 @app.post("/train")
 def train_endpoint():
-    """Deprecated: Forge engine uses no ML model. Training is no longer required."""
+    """Deprecated: Nexus engine uses no ML model. Training is no longer required."""
     return {
         "status": "deprecated",
-        "message": "The Forge scoring engine is deterministic and requires no trained model. This endpoint is a no-op.",
+        "message": "The Nexus scoring engine is deterministic and requires no trained model. This endpoint is a no-op.",
     }
 
 
@@ -1322,7 +1322,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
             severity = request.severity.upper()
             severity_source = "User Selected"
         else:
-            from forge import estimate_severity, SEVERITY_LABELS
+            from nexus import estimate_severity, SEVERITY_LABELS
             severity = SEVERITY_LABELS.get(estimate_severity(full_text), "NORMAL")
             severity_source = "Auto-detected"
 

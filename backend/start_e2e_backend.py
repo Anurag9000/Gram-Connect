@@ -1,7 +1,7 @@
 """
 start_e2e_backend.py — Gram Connect end-to-end backend launcher.
 
-Forge engine requires no trained model. Boot sequence:
+Nexus engine requires no trained model. Boot sequence:
   1. Ensure canonical dataset CSVs exist
   2. Reset runtime state (fresh volunteers + problems from CSVs)
   3. Start uvicorn

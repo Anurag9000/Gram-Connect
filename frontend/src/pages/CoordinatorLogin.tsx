@@ -17,13 +17,13 @@ export default function CoordinatorLogin() {
     setLoading(true);
 
     try {
-      // Dummy account: coordinator@test.com / password
+      if (email !== 'coordinator@test.com') {
+        throw new Error(`Invalid email for coordinator. Use 'coordinator@test.com'`);
+      }
+
       const { error } = await signIn(email, password);
 
       if (error) {
-        if (email !== 'coordinator@test.com') {
-          throw new Error(`Invalid email for coordinator. Use 'coordinator@test.com'`);
-        }
         throw error;
       }
 

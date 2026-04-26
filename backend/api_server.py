@@ -944,6 +944,11 @@ def load_initial_data(force_seed: bool = False):
 def reset_runtime_state() -> None:
     if os.path.exists(RUNTIME_STATE_JSON):
         os.remove(RUNTIME_STATE_JSON)
+    if os.path.exists(RUNTIME_PEOPLE_CSV):
+        os.remove(RUNTIME_PEOPLE_CSV)
+    if os.path.exists(MEDIA_ROOT):
+        shutil.rmtree(MEDIA_ROOT, ignore_errors=True)
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
     load_initial_data(force_seed=True)
 
 # Load data on startup (or module import)

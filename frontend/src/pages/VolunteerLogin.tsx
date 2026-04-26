@@ -17,13 +17,13 @@ export default function VolunteerLogin() {
     setLoading(true);
 
     try {
-      // Dummy account: volunteer@test.com / password
+      if (email !== 'volunteer@test.com') {
+        throw new Error(`Invalid email for volunteer. Use 'volunteer@test.com'`);
+      }
+
       const { error } = await signIn(email, password);
 
       if (error) {
-        if (email !== 'volunteer@test.com') {
-          throw new Error(`Invalid email for volunteer. Use 'volunteer@test.com'`);
-        }
         throw error;
       }
 

@@ -1,6 +1,6 @@
 {
     "common": {
-        "title": "ग्राम कनेक्ट",
+        "title": "গ্ৰাম কানেক্ট",
         "home": "Home",
         "dashboard": "Dashboard",
         "submit_problem": "Submit Problem →",
@@ -14,11 +14,11 @@
         "go_to_dashboard": "Go to Dashboard →"
     },
     "home": {
-        "hero_title": "स्वयंसेवकों को गाँव की जरूरतों से जोड़ना",
+        "hero_title": "স্বেচ্ছাসেৱকসকলক গাঁৱৰ প্ৰয়োজনৰ সৈতে সংযোগ কৰা",
         "hero_subtitle": "An intelligent, multimodal platform powered by SahayAI to empower rural communities.",
         "get_started": "Get Started",
         "how_it_works": "How it Works",
-        "dashboard_title": "ग्राम कनेक्ट Dashboard",
+        "dashboard_title": "গ্ৰাম কানেক্ট Dashboard",
         "dashboard_desc": "View all reported problems, generate AI-matched volunteer teams, track assignments, and manage resolution status.",
         "submit_title": "Submit a Problem",
         "submit_desc": "Log a new village issue with photos, audio, and location data. AI will analyse the media and suggest the right team."

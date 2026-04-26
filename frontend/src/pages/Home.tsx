@@ -79,24 +79,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white pt-16">
       {/* Navigation */}
-      <nav className="fixed w-full bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center space-x-2">
-              <Globe className="text-green-600" size={32} />
-              <span className="text-2xl font-bold text-gray-900 tracking-tight">Gram Connect</span>
-            </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-600 hover:text-green-600 transition">Features</a>
-              <a href="#how-it-works" className="text-gray-600 hover:text-green-600 transition">How it Works</a>
-              <LanguageToggle />
-              <button
-                onClick={() => navigate('/volunteer-login')}
-                className="bg-green-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-green-700 transition shadow-lg shadow-green-200"
-              >
-                Sign In
-              </button>
-            </div>
+      {/* Language Toggle ONLY (Top Right) */}
+      <nav className="fixed w-full z-50 p-4 pointer-events-none">
+        <div className="max-w-7xl mx-auto flex justify-end">
+          <div className="pointer-events-auto shadow-lg rounded-lg bg-white/80 backdrop-blur-md">
+            <LanguageToggle />
           </div>
         </div>
       </nav>
@@ -162,7 +149,7 @@ export default function Home() {
                 <Zap className="text-blue-600" size={24} />
               </div>
               <h3 className="text-xl font-bold mb-4">Smart Matching</h3>
-              <p className="text-gray-600 leading-relaxed">Our M3 Recommender finds the perfect team based on skills, logistics, and fairness.</p>
+              <p className="text-gray-600 leading-relaxed">Our Forge Engine finds the perfect team based on skills, logistics, and fairness.</p>
             </div>
             <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition border border-gray-100">
               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">

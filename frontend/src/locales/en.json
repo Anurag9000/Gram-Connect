@@ -136,7 +136,17 @@
         "village_placeholder": "Village name",
         "address_placeholder": "E.g., 45, Gandhi Road",
         "coordinator_intro": "capture the problem and attach any supporting media.",
-        "villager_intro": "Report a problem as a villager. Describe what's happening and attach any evidence you have."
+        "villager_intro": "Report a problem as a villager. Describe what's happening and attach any evidence you have.",
+        "severity": {
+            "auto_label": "Auto-detect",
+            "auto_desc": "Inferred from your description",
+            "low_label": "Low",
+            "low_desc": "Routine, no immediate risk",
+            "normal_label": "Normal",
+            "normal_desc": "Needs attention within days",
+            "high_label": "High",
+            "high_desc": "Urgent / emergency"
+        }
     },
     "volunteer": {
         "dashboard_subtitle": "Your active assignments and completed tasks.",

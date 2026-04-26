@@ -481,7 +481,7 @@ export default function SubmitProblem() {
                       <cat.icon size={20} />
                     </div>
                     <p className="text-xs font-medium text-gray-700 text-center leading-tight">
-                      {cat.label}
+                      {t(`common.${cat.id}`, cat.label)}
                     </p>
                   </button>
                 ))}
@@ -507,8 +507,8 @@ export default function SubmitProblem() {
                     }`}
                   >
                     {opt.value === 'HIGH' && <AlertTriangle size={14} className="text-red-500 mb-1" />}
-                    <p className="text-sm font-semibold text-gray-800">{opt.label}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
+                    <p className="text-sm font-semibold text-gray-800">{t(`submit.severity.${opt.value.toLowerCase()}_label`, opt.label)}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{t(`submit.severity.${opt.value.toLowerCase()}_desc`, opt.description)}</p>
                   </button>
                 ))}
               </div>

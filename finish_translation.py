@@ -49,7 +49,7 @@ def main():
     with open('frontend/src/locales/en.json', 'r') as f:
         en_data = json.load(f)
         
-    langs = ['ml', 'or', 'pa', 'as']
+    langs = ['hi', 'bn', 'te', 'mr', 'ta', 'ur', 'gu', 'kn', 'ml', 'or', 'pa', 'as']
     
     for lang in langs:
         file_path = f'frontend/src/locales/{lang}.json'

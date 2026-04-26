@@ -189,7 +189,7 @@ export default function MapView() {
                   >
                     <MapPin size={14} className="text-emerald-500 mt-0.5 shrink-0" />
                     <div>
-                      <div className="font-semibold text-sm text-slate-800">{v.name}</div>
+                      <div className="font-semibold text-sm text-slate-800">{t('seed.' + v.name, v.name)}</div>
                       {(v.district || v.state) && (
                         <div className="text-xs text-slate-500">{[v.district, v.state].filter(Boolean).join(', ')}</div>
                       )}
@@ -207,7 +207,7 @@ export default function MapView() {
         {selectedVillage && (
           <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
             <MapPin size={14} />
-            <span>{t('map.showing')} <strong>{filteredProblems.length}</strong> {t('map.problem')}{filteredProblems.length !== 1 ? 's' : ''} {t('map.in')} <strong>{selectedVillage.name}</strong></span>
+            <span>{t('map.showing')} <strong>{filteredProblems.length}</strong> {t('map.problem')}{filteredProblems.length !== 1 ? 's' : ''} {t('map.in')} <strong>{t('seed.' + selectedVillage.name, selectedVillage.name)}</strong></span>
             <button onClick={clearVillage} className="ml-auto text-emerald-500 hover:text-emerald-700"><X size={14} /></button>
           </div>
         )}
@@ -232,7 +232,7 @@ export default function MapView() {
           <div className="flex flex-col gap-3">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-slate-900">
-                {selectedVillage ? `${selectedVillage.name} cases` : t('map.all_cases')}
+                {selectedVillage ? `${t('seed.' + selectedVillage.name, selectedVillage.name)} cases` : t('map.all_cases')}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
                 {filteredProblems.length} {t('map.problem')}{filteredProblems.length !== 1 ? 's' : ''} — {t('map.live_backend_state')}
@@ -250,10 +250,10 @@ export default function MapView() {
                 <div key={problem.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-slate-900 truncate">{problem.title}</h3>
+                      <h3 className="font-semibold text-slate-900 truncate">{t('seed.' + problem.title, problem.title)}</h3>
                       <div className="flex items-center gap-1 mt-0.5 text-xs text-slate-500">
                         <MapPin size={11} className="text-emerald-500 shrink-0" />
-                        <span className="truncate">{problem.village_name}</span>
+                        <span className="truncate">{t('seed.' + problem.village_name, problem.village_name)}</span>
                       </div>
                     </div>
                     <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide shrink-0 ${STATUS_STYLES[problem.status] ?? STATUS_STYLES.pending}`}>
@@ -261,7 +261,7 @@ export default function MapView() {
                     </span>
                   </div>
                   {problem.description && (
-                    <p className="mt-2 line-clamp-2 text-xs text-slate-500">{problem.description}</p>
+                    <p className="mt-2 line-clamp-2 text-xs text-slate-500">{t('seed.' + problem.description, problem.description)}</p>
                   )}
                 </div>
               ))}

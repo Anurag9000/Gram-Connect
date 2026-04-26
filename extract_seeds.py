@@ -10,21 +10,23 @@ def add_seed(text):
     if text:
         seeds[text] = text
 
-# Parse proposals.csv (problems)
-with open('data/proposals.csv', 'r') as f:
+# Parse backend/proposals_2.csv
+with open('backend/proposals_2.csv', 'r') as f:
     reader = csv.DictReader(f)
     for row in reader:
         add_seed(row.get('title'))
         add_seed(row.get('description'))
         add_seed(row.get('village_name'))
         add_seed(row.get('village_address'))
+        add_seed(row.get('location'))
 
-# Parse people.csv (volunteers & villagers)
-with open('data/people.csv', 'r') as f:
+# Parse backend/people_2.csv
+with open('backend/people_2.csv', 'r') as f:
     reader = csv.DictReader(f)
     for row in reader:
         add_seed(row.get('name'))
-        # Skills might be JSON arrays or pipe-separated
+        add_seed(row.get('full_name'))
+        # Skills
         skills = row.get('skills', '')
         if '[' in skills:
             try:
@@ -43,10 +45,6 @@ if 'seed' not in en_data:
     en_data['seed'] = {}
 
 en_data['seed'].update(seeds)
-
-# Also add common UI strings the user pointed out
-if 'common' not in en_data: en_data['common'] = {}
-en_data['common'].update({"all": "All"})
 
 with open('frontend/src/locales/en.json', 'w') as f:
     json.dump(en_data, f, indent=4)

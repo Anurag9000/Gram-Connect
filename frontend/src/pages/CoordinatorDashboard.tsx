@@ -678,7 +678,7 @@ export default function CoordinatorDashboard() {
                               onClick={() => setExpandedVolunteerId(expanded ? null : vid)}
                               className="text-gray-400 hover:text-gray-700 transition shrink-0 text-xs font-medium"
                             >
-                              {expanded ? '▲ Hide' : '▼ View'}
+                              {expanded ? '▲ ' + t('dashboard.hide', 'Hide') : '▼ ' + t('dashboard.view', 'View')}
                             </button>
                           </div>
 
@@ -687,20 +687,20 @@ export default function CoordinatorDashboard() {
                             <div className="border-t border-gray-100 p-4 bg-gray-50 rounded-b-xl">
                               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                                 <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
-                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Home Location</div>
-                                  <div className="text-sm font-semibold text-gray-800">{volunteer.home_location || '—'}</div>
+                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('dashboard.home_location', 'Home Location')}</div>
+                                  <div className="text-sm font-semibold text-gray-800">{t('seed.' + volunteer.home_location, volunteer.home_location) || '—'}</div>
                                 </div>
                                 <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
-                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Availability</div>
-                                  <div className="text-sm font-semibold text-gray-800">{volunteer.availability || volunteer.availability_status || '—'}</div>
+                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('dashboard.availability', 'Availability')}</div>
+                                  <div className="text-sm font-semibold text-gray-800">{t('seed.' + (volunteer.availability || volunteer.availability_status), volunteer.availability || volunteer.availability_status) || '—'}</div>
                                 </div>
                                 <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
-                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Willingness (eff)</div>
+                                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('dashboard.willingness_eff', 'Willingness (eff)')}</div>
                                   <div className="text-sm font-semibold text-gray-800">{volunteer.willingness_eff != null ? `${(Number(volunteer.willingness_eff) * 100).toFixed(0)}%` : '—'}</div>
                                 </div>
                               </div>
                               <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Full Skill Set</div>
+                                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t('dashboard.full_skill_set', 'Full Skill Set')}</div>
                                 <div className="flex flex-wrap gap-1.5">
                                   {volunteer.skills.map(s => (
                                     <span key={s} className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-full">{t('seed.' + s, s)}</span>
@@ -813,10 +813,10 @@ export default function CoordinatorDashboard() {
                               {team.name}
                             </h4>
                             <div className="text-xs text-gray-600 mt-2 flex flex-wrap gap-4 font-medium">
-                              <span title="Team ranking score: skill_coverage x geometric_mean(member scores) - distance_penalty" className="bg-gray-100 px-2 py-1 rounded">Team Score: {(team.teamScore * 100).toFixed(1)}%</span>
-                              <span title="Fraction of the task's required skills collectively covered by this team" className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded">Skill Coverage: {(team.coverage * 100).toFixed(1)}%</span>
-                              <span title="Average volunteer travel distance" className="bg-amber-50 text-amber-700 px-2 py-1 rounded">Avg Dist: {team.avgDistanceKm.toFixed(1)} km</span>
-                              <span title="Average willingness to participate" className="bg-blue-50 text-blue-700 px-2 py-1 rounded">Avg Will: {(team.willingnessAvg * 100).toFixed(1)}%</span>
+                              <span title="Team ranking score: skill_coverage x geometric_mean(member scores) - distance_penalty" className="bg-gray-100 px-2 py-1 rounded">{t('dashboard.team_score', 'Team Score:')} {(team.teamScore * 100).toFixed(1)}%</span>
+                              <span title="Fraction of the task's required skills collectively covered by this team" className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded">{t('dashboard.skill_coverage', 'Skill Coverage:')} {(team.coverage * 100).toFixed(1)}%</span>
+                              <span title="Average volunteer travel distance" className="bg-amber-50 text-amber-700 px-2 py-1 rounded">{t('dashboard.avg_dist', 'Avg Dist:')} {team.avgDistanceKm.toFixed(1)} km</span>
+                              <span title="Average willingness to participate" className="bg-blue-50 text-blue-700 px-2 py-1 rounded">{t('dashboard.avg_will', 'Avg Will:')} {(team.willingnessAvg * 100).toFixed(1)}%</span>
                             </div>
                           </div>
                           <button
@@ -832,7 +832,7 @@ export default function CoordinatorDashboard() {
                           {team.members.map((member) => (
                             <div key={member.person_id || member.id} className="flex flex-col gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
                               <div className="flex justify-between items-center text-sm">
-                                <span className="font-bold text-gray-900 text-base">{member.profile?.full_name || member.name || "Unknown"}</span>
+                                <span className="font-bold text-gray-900 text-base">{t('seed.' + (member.profile?.full_name || member.name || "Unknown"), member.profile?.full_name || member.name || "Unknown")}</span>
                                 <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200" title="Nexus Score = DOMAIN^2 * WILL * AVAIL^0.5 * PROX * FRESH^0.5">
                                   Nexus: {((member.match_score ?? member.nexus_score ?? 0) * 100).toFixed(1)}%
                                 </span>
@@ -840,27 +840,27 @@ export default function CoordinatorDashboard() {
 
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-gray-700 mt-1">
                                 <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
-                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">Domain Exp.</span>
+                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">{t('dashboard.domain_exp', 'Domain Exp.')}</span>
                                   <span className="font-medium">{(member.domain_score || 0).toFixed(3)}</span>
                                 </div>
                                 <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
-                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">Willingness</span>
+                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">{t('dashboard.willingness', 'Willingness')}</span>
                                   <span className="font-medium">{(member.willingness_score || 0).toFixed(3)}</span>
                                 </div>
                                 <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
-                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">Distance</span>
+                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">{t('dashboard.distance', 'Distance')}</span>
                                   <span className="font-medium">
                                     {member.distance_km != null ? `${member.distance_km.toFixed(1)} km` : 'Unknown'}
-                                    {member.home_location ? <span className="text-gray-400 ml-1">· {member.home_location}</span> : null}
+                                    {member.home_location ? <span className="text-gray-400 ml-1">· {t('seed.' + member.home_location, member.home_location)}</span> : null}
                                   </span>
                                 </div>
                                 <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
-                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">Avail Level</span>
+                                  <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">{t('dashboard.avail_level', 'Avail Level')}</span>
                                   <span className="font-medium">{member.availability_level || 1}/3</span>
                                 </div>
                               </div>
                               <div className="text-xs text-gray-600 mt-1 bg-white p-2 rounded border border-gray-100">
-                                <span className="font-bold text-gray-500 mr-1">Skills:</span> {member.skills?.join(', ')}
+                                <span className="font-bold text-gray-500 mr-1">{t('dashboard.skills', 'Skills:')}</span> {member.skills?.map((s: string) => t('seed.' + s, s)).join(', ')}
                               </div>
                             </div>
                           ))}

@@ -11,7 +11,9 @@
         "language": "Language",
         "en": "English",
         "hi": "Hindi",
-        "go_to_dashboard": "Go to Dashboard →"
+        "go_to_dashboard": "Go to Dashboard →",
+        "go_to_tasks": "Go to Tasks →",
+        "open_map": "Open Map →"
     },
     "home": {
         "hero_title": "Connecting Volunteers to Village Needs",
@@ -21,7 +23,12 @@
         "dashboard_title": "Coordination Centre",
         "dashboard_desc": "View all reported problems, generate AI-matched volunteer teams, track assignments, and manage resolution status.",
         "submit_title": "Submit a Problem",
-        "submit_desc": "Log a new village issue with photos, audio, and location data. AI will analyse the media and suggest the right team."
+        "submit_desc": "Log a new village issue with photos, audio, and location data. AI will analyse the media and suggest the right team.",
+        "welcome_back": "Welcome back, ",
+        "volunteer_portal": "Volunteer Portal",
+        "volunteer_desc": "View your assignments, track your impact, and submit \"Before & After\" proof for completed tasks.",
+        "live_map_view": "Live Map View",
+        "live_map_desc": "Inspect the live spatial distribution of problems, progress, and completed work across the network."
     },
     "dashboard": {
         "coordinator_dashboard": "Coordinator Dashboard",
@@ -45,6 +52,25 @@
         "submit_button": "Submit Problem"
     },
     "volunteer": {
-        "dashboard_subtitle": "Your active assignments and completed tasks."
+        "dashboard_subtitle": "Your active assignments and completed tasks.",
+        "profile_title": "Volunteer Profile",
+        "availability_status": "Availability Status",
+        "busy": "Busy",
+        "available": "Available",
+        "your_skills": "Your Skills",
+        "edit_profile": "Edit Profile"
+    },
+    "nav": {
+        "brand": "Gram Connect",
+        "home": "Home",
+        "new_problem": "New Problem",
+        "report_issue": "Report Issue",
+        "my_tasks": "My Tasks",
+        "profile": "Profile",
+        "dashboard": "Dashboard",
+        "map": "Map",
+        "logout": "Logout",
+        "volunteer": "Volunteer",
+        "coordinator": "Coordinator"
     }
 }

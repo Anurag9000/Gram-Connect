@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/auth-shared';
 import type { Database } from '../lib/database.types';
 import { Navigate } from 'react-router-dom';
 import { subscribeLiveRefresh } from '../lib/liveRefresh';
+import { useTranslation } from 'react-i18next';
 
 type Volunteer = Database['public']['Tables']['volunteers']['Row'];
 
@@ -32,6 +33,7 @@ const availabilityStyles = {
 
 export default function VolunteerProfile() {
   const { profile } = useAuth();
+  const { t } = useTranslation();
   const [volunteer, setVolunteer] = useState<Volunteer | null>(null);
   const [skills, setSkills] = useState<string[]>([]);
   const [customSkill, setCustomSkill] = useState('');
@@ -192,7 +194,7 @@ export default function VolunteerProfile() {
           )}
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-green-700 mb-2">Volunteer Profile</h1>
+              <h1 className="text-3xl font-bold text-green-700 mb-2">{t('volunteer.profile_title')}</h1>
               <p className="text-gray-600">{profile.full_name}</p>
             </div>
             {volunteer && !isEditing && (
@@ -200,7 +202,7 @@ export default function VolunteerProfile() {
                 onClick={() => setIsEditing(true)}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
               >
-                Edit Profile
+                {t('volunteer.edit_profile')}
               </button>
             )}
           </div>
@@ -351,7 +353,7 @@ export default function VolunteerProfile() {
           ) : (
             <div className="space-y-6">
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-2">Availability Status</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">{t('volunteer.availability_status')}</h3>
                 <span
                   className={`inline-block px-4 py-2 rounded-full text-sm font-semibold ${volunteer.availability_status === 'available'
                     ? 'bg-green-100 text-green-700'
@@ -360,12 +362,12 @@ export default function VolunteerProfile() {
                       : 'bg-gray-100 text-gray-700'
                     }`}
                 >
-                  {volunteer.availability_status.charAt(0).toUpperCase() + volunteer.availability_status.slice(1)}
+                  {t('volunteer.' + volunteer.availability_status)}
                 </span>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">Your Skills</h3>
+                <h3 className="text-sm font-medium text-gray-700 mb-3">{t('volunteer.your_skills')}</h3>
                 <div className="flex flex-wrap gap-2">
                   {volunteer.skills.map((skill: string) => (
                     <span

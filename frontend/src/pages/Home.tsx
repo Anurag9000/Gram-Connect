@@ -16,7 +16,7 @@ export default function Home() {
         <div className="max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900">
-              Welcome back, <span className="text-green-600">{profile.full_name}</span>
+              {t('home.welcome_back')} <span className="text-green-600">{profile.full_name}</span>
             </h1>
             <LanguageToggle />
           </div>
@@ -50,10 +50,10 @@ export default function Home() {
                   <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">
                     <Map className="text-purple-600" size={24} />
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Live Map View</h2>
-                  <p className="text-gray-600 mb-6">Inspect the live spatial distribution of problems, progress, and completed work across the network.</p>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.live_map_view')}</h2>
+                  <p className="text-gray-600 mb-6">{t('home.live_map_desc')}</p>
                   <div className="flex items-center text-purple-600 font-semibold">
-                    Open Map <ArrowRight className="ml-2" size={20} />
+                    {t('common.open_map')} <ArrowRight className="ml-2" size={20} />
                   </div>
                 </div>
               </>
@@ -62,10 +62,10 @@ export default function Home() {
                 <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
                   <Users className="text-green-600" size={24} />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Volunteer Portal</h2>
-                <p className="text-gray-600 mb-6">View your assignments, track your impact, and submit "Before & After" proof for completed tasks.</p>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.volunteer_portal')}</h2>
+                <p className="text-gray-600 mb-6">{t('home.volunteer_desc')}</p>
                 <div className="flex items-center text-green-600 font-semibold">
-                  Go to Tasks <ArrowRight className="ml-2" size={20} />
+                  {t('common.go_to_tasks')} <ArrowRight className="ml-2" size={20} />
                 </div>
               </div>
             )}
@@ -78,15 +78,7 @@ export default function Home() {
   // Hero section for non-logged in users
   return (
     <div className="min-h-screen bg-white pt-16">
-      {/* Navigation */}
-      {/* Language Toggle ONLY (Top Right) */}
-      <nav className="fixed w-full z-50 p-4 pointer-events-none">
-        <div className="max-w-7xl mx-auto flex justify-end">
-          <div className="pointer-events-auto shadow-lg rounded-lg bg-white/80 backdrop-blur-md">
-            <LanguageToggle />
-          </div>
-        </div>
-      </nav>
+
 
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-4">

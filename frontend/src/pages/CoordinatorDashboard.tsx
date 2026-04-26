@@ -447,7 +447,7 @@ export default function CoordinatorDashboard() {
                 onClick={() => setStatusFilter(status)}
                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${statusFilter === status ? 'bg-gray-800 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+                {t('common.' + status, status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' '))}
               </button>
             ))}
           </div>
@@ -500,18 +500,18 @@ export default function CoordinatorDashboard() {
                     <span className="text-xs text-gray-400">{new Date(problem.created_at).toLocaleDateString()}</span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{problem.title}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">{t('seed.' + problem.title, problem.title)}</h3>
 
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
                     <MapPin size={16} />
-                    <span className="truncate">{problem.village_name}, {problem.village_address}</span>
+                    <span className="truncate">{t('seed.' + problem.village_name, problem.village_name)}, {t('seed.' + problem.village_address, problem.village_address)}</span>
                   </div>
 
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">{problem.description}</p>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">{t('seed.' + problem.description, problem.description)}</p>
 
                   <div className="flex flex-wrap gap-2 mb-4 mt-auto">
                     {problem.visual_tags?.slice(0, 3).map((tag: string) => (
-                      <span key={tag} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">#{tag}</span>
+                      <span key={tag} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">#{t('seed.' + tag, tag)}</span>
                     ))}
                   </div>
 
@@ -521,7 +521,7 @@ export default function CoordinatorDashboard() {
                       <div className="space-y-2">
                         {problem.matches.map(m => (
                           <div key={m.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded border border-gray-100">
-                            <span className="font-medium text-gray-700">{m.volunteer?.profile?.full_name || "Unknown"}</span>
+                            <span className="font-medium text-gray-700">{t('seed.' + (m.volunteer?.profile?.full_name || "Unknown"), m.volunteer?.profile?.full_name || "Unknown")}</span>
                             <button onClick={() => handleUnassignVolunteer(problem.id, m.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">{t('dashboard.unassign')}</button>
                           </div>
                         ))}
@@ -542,7 +542,7 @@ export default function CoordinatorDashboard() {
                             }}
                             className="text-sm font-semibold text-green-600 hover:text-green-800 flex items-center gap-1 bg-green-50 px-3 py-1 rounded-md transition"
                         >
-                            Assign Team <ChevronRight size={16} />
+                            {t('dashboard.assign_team', 'Assign Team')} <ChevronRight size={16} />
                         </button>
                         )}
                         {problem.status === 'in_progress' && (
@@ -665,9 +665,9 @@ export default function CoordinatorDashboard() {
                                 className="font-semibold text-sm text-gray-900 hover:text-green-700 text-left truncate w-full"
                                 onClick={() => setExpandedVolunteerId(expanded ? null : vid)}
                               >
-                                {volunteer.profile?.full_name || vid}
+                                {t('seed.' + (volunteer.profile?.full_name || vid), volunteer.profile?.full_name || vid)}
                               </button>
-                              <p className="text-xs text-gray-500 truncate">{volunteer.skills.slice(0, 3).join(' · ')}{volunteer.skills.length > 3 ? ` +${volunteer.skills.length - 3}` : ''}</p>
+                              <p className="text-xs text-gray-500 truncate">{volunteer.skills.slice(0, 3).map(s => t('seed.' + s, s)).join(' · ')}{volunteer.skills.length > 3 ? ` +${volunteer.skills.length - 3}` : ''}</p>
                             </div>
                             {/* Availability badge */}
                             <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${availColor}`}>
@@ -703,7 +703,7 @@ export default function CoordinatorDashboard() {
                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Full Skill Set</div>
                                 <div className="flex flex-wrap gap-1.5">
                                   {volunteer.skills.map(s => (
-                                    <span key={s} className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-full">{s}</span>
+                                    <span key={s} className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-full">{t('seed.' + s, s)}</span>
                                   ))}
                                 </div>
                               </div>

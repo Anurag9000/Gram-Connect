@@ -225,7 +225,7 @@ export default function VolunteerProfile() {
               <fieldset disabled={saving} className="space-y-6 disabled:opacity-100">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Availability Status
+                    {t('volunteer.availability_status')}
                   </label>
                   <div className="grid grid-cols-3 gap-3">
                     {[
@@ -242,7 +242,7 @@ export default function VolunteerProfile() {
                           : 'border-gray-200 hover:border-green-300'
                           } disabled:cursor-not-allowed`}
                       >
-                        <p className="text-sm font-medium text-gray-700">{status.label}</p>
+                        <p className="text-sm font-medium text-gray-700">{t('volunteer.' + status.value, status.label)}</p>
                       </button>
                     ))}
                   </div>
@@ -250,7 +250,7 @@ export default function VolunteerProfile() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Select Your Skills
+                    {t('volunteer.select_skills', 'Select Your Skills')}
                   </label>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
                     {commonSkills.map((skill) => (
@@ -263,7 +263,7 @@ export default function VolunteerProfile() {
                           : 'border-gray-200 hover:border-green-300 text-gray-700'
                           } disabled:cursor-not-allowed`}
                       >
-                        {skill}
+                        {t('seed.' + skill, skill)}
                       </button>
                     ))}
                   </div>
@@ -273,7 +273,7 @@ export default function VolunteerProfile() {
                       type="text"
                       value={customSkill}
                       onChange={(e) => setCustomSkill(e.target.value)}
-                      placeholder="Add custom skill..."
+                      placeholder={t('volunteer.add_custom_skill', 'Add custom skill...')}
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-50"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') {
@@ -295,7 +295,7 @@ export default function VolunteerProfile() {
                 {skills.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Your Selected Skills
+                      {t('volunteer.selected_skills', 'Your Selected Skills')}
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {skills.map((skill) => (
@@ -303,7 +303,7 @@ export default function VolunteerProfile() {
                           key={skill}
                           className="inline-flex items-center bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm"
                         >
-                          {skill}
+                          {t('seed.' + skill, skill)}
                           <button
                             type="button"
                             onClick={() => removeSkill(skill)}
@@ -324,7 +324,7 @@ export default function VolunteerProfile() {
                     className="relative flex-1 overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-green-600 to-lime-500 px-6 py-3 font-semibold text-lg text-white shadow-lg shadow-emerald-200 transition hover:shadow-xl hover:shadow-emerald-200 disabled:cursor-not-allowed disabled:from-gray-400 disabled:via-gray-400 disabled:to-gray-500"
                   >
                     <span className={`flex items-center justify-center gap-3 transition ${saving ? 'opacity-0' : 'opacity-100'}`}>
-                      <span>{volunteer ? 'Save & Reassign' : 'Create Profile'}</span>
+                      <span>{volunteer ? t('volunteer.save_reassign', 'Save & Reassign') : t('volunteer.create_profile', 'Create Profile')}</span>
                     </span>
                     {saving && (
                       <span className="absolute inset-0 flex items-center justify-center gap-3">
@@ -344,7 +344,7 @@ export default function VolunteerProfile() {
                       disabled={saving}
                       className="px-6 border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition disabled:bg-gray-100 disabled:text-gray-400"
                     >
-                      Cancel
+                      {t('volunteer.cancel', 'Cancel')}
                     </button>
                   )}
                 </div>

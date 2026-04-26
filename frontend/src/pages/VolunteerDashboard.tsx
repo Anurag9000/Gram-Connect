@@ -191,12 +191,12 @@ export default function VolunteerDashboard() {
                     </button>
 
                     <div className="bg-white rounded-2xl shadow-lg p-8">
-                        <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedTask.title}</h2>
-                        <p className="text-gray-600 mb-6">{selectedTask.description}</p>
+                        <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('seed.' + selectedTask.title, selectedTask.title)}</h2>
+                        <p className="text-gray-600 mb-6">{t('seed.' + selectedTask.description, selectedTask.description)}</p>
 
                         <div className="flex items-center gap-2 text-sm text-gray-500 mb-8">
                             <MapPin size={16} className="text-green-600" />
-                            <span>{selectedTask.village}, {selectedTask.location}</span>
+                            <span>{t('seed.' + selectedTask.village, selectedTask.village)}, {t('seed.' + selectedTask.location, selectedTask.location)}</span>
                         </div>
 
                         {(selectedTask.media_assets?.length || selectedTask.proof_assets?.length) ? (
@@ -356,10 +356,10 @@ export default function VolunteerDashboard() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2 mb-1">
                                         {task.severity === 'HIGH' && <AlertTriangle size={14} className="text-red-500 shrink-0" />}
-                                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition truncate">{task.title}</h3>
+                                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition truncate">{t('seed.' + task.title, task.title)}</h3>
                                     </div>
                                     <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500">
-                                        <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
+                                        <span className="flex items-center gap-1"><MapPin size={14} /> {t('seed.' + task.village, task.village)}</span>
                                         <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{t(`common.${task.status}`, task.status)}</span>
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${SEVERITY_STYLE[task.severity] ?? SEVERITY_STYLE.NORMAL}`}>
                                             {t(`common.${(task.severity || 'normal').toLowerCase()}`, task.severity || 'NORMAL')}
@@ -389,9 +389,9 @@ export default function VolunteerDashboard() {
                                 className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center opacity-80"
                             >
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">{task.title}</h3>
+                                    <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">{t('seed.' + task.title, task.title)}</h3>
                                     <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500">
-                                        <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
+                                        <span className="flex items-center gap-1"><MapPin size={14} /> {t('seed.' + task.village, task.village)}</span>
                                         <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{t(`common.${task.status}`, task.status)}</span>
                                         {task.category && (
                                             <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400">

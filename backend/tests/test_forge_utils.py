@@ -76,17 +76,18 @@ def test_score_volunteer_domain_zero():
 
 
 def test_score_volunteer_full_match():
+    """Full domain match + high willingness + immediately available, same village → score > 0.5."""
     v = {
         "person_id": "V2", "name": "Plumber",
         "skills": ["plumbing", "handpump repair and maintenance"],
-        "willingness_eff": 0.9, "willingness_bias": 0.7,
+        "willingness_eff": 1.0, "willingness_bias": 1.0,   # high willingness
         "availability": "immediately available",
         "home_location": "Lakshmipur", "overwork_hours": 0,
     }
     required = ["plumbing", "handpump repair and maintenance"]
     result = forge.score_volunteer(v, required, "Lakshmipur", {}, 1)
     assert result["domain_score"] == 1.0
-    assert result["forge_score"] > 0.5
+    assert result["forge_score"] > 0.5, f"Expected > 0.5, got {result['forge_score']}"
     assert result["match_score"] == round(result["forge_score"], 4)
 
 

@@ -56,35 +56,42 @@ REDUNDANCY_PENALTY_BETA = 0.30  # penalty multiplier for duplicating covered ski
 PARTIAL_MATCH_CREDIT    = 0.5   # credit for substring skill overlap (vs 1.0 for exact)
 TEAM_DISTANCE_WEIGHT    = 0.003  # per-km penalty in team ranking score
 
-# Per-severity exponent weights. Severity changes what matters:
-#   HIGH (emergency): domain + availability are critical (need skilled person available NOW);
-#                     distance is more forgiven — reach farther if needed.
-#   NORMAL:           balanced. Domain primary, distance and willingness matter moderately.
-#   LOW (routine):    stay local (prox high), only immediately-available people, domain still gates.
+# Per-severity exponent weights fitted from 150k synthetic samples (50k per severity).
+# Fitting: logistic regression on log-transformed features, intercept=True, C=100,
+#          competitive-zone filter (domain 0.15–0.90), then normalised to max=2.0.
+# ROC-AUC: LOW=0.73, NORMAL=0.89, HIGH=0.91.
 #
-# Exponents: raising a factor's weight makes it more punishing when low.
-# Weights below 0.3 "soften" the factor (e.g. 0.5^0.15 = 0.90 — barely penalised).
+# Interpretation of fitted weight ordering:
+#   HIGH  : domain > will > avail > prox≈0
+#           In an emergency you need someone skilled, committed, AND free.
+#           Distance is irrelevant — reach anyone anywhere.
+#   NORMAL: domain > will ≈ avail > prox
+#           Balanced. All factors matter; proximity still a soft constraint.
+#   LOW   : domain > avail ≈ prox ≈ will
+#           Routine task: any competent local person who is free and willing.
+#           No single secondary factor dominates — spread the weight evenly.
+#   fresh : ~0 across all severities — overwork rarely tips the decision.
 SEVERITY_FACTOR_WEIGHTS: dict = {
-    2: {  # HIGH severity
-        "domain": 1.20,  # strong gate — must have relevant skill
-        "will":   0.70,  # motivation matters
-        "avail":  1.50,  # critical — person must be available NOW
-        "prox":   0.40,  # lenient — emergency justifies long travel
-        "fresh":  0.15,  # very soft — overwork rarely blocks an emergency deployment
+    2: {  # HIGH  (ROC-AUC 0.9073)
+        "domain": 2.0000,
+        "will":   1.6509,  # willingness nearly as important as availability in a crisis
+        "avail":  1.3715,
+        "prox":   0.1000,  # emergencies reach far — distance irrelevant
+        "fresh":  0.1000,
     },
-    1: {  # NORMAL severity (data-fitted baseline)
-        "domain": 1.02,
-        "will":   0.66,
-        "avail":  0.50,  # moderate — prefer available but not a hard block
-        "prox":   0.60,  # prefer local but will accept moderate distance
-        "fresh":  0.15,
+    1: {  # NORMAL  (ROC-AUC 0.8912)
+        "domain": 2.0000,
+        "will":   1.6495,
+        "avail":  1.6042,
+        "prox":   0.6143,
+        "fresh":  0.1000,
     },
-    0: {  # LOW severity (routine task)
-        "domain": 1.00,  # domain still gates, but task is less specialist
-        "will":   0.50,
-        "avail":  1.00,  # strong — only bother people who are free for routine work
-        "prox":   1.20,  # strongest — stay as local as possible
-        "fresh":  0.15,
+    0: {  # LOW  (ROC-AUC 0.7273)
+        "domain": 2.0000,
+        "will":   0.9761,
+        "avail":  1.0552,  # don't bother busy people for routine work
+        "prox":   1.0106,  # stay local
+        "fresh":  0.1000,
     },
 }
 

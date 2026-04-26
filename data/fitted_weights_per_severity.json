@@ -1,0 +1,44 @@
+{
+  "0": {
+    "weights": {
+      "domain": 1.345,
+      "will": 0.6564,
+      "avail": 0.7096,
+      "prox": 0.6796,
+      "fresh": 0.05
+    },
+    "meta": {
+      "roc_auc": 0.7273,
+      "accuracy": 0.654,
+      "n": 30211
+    }
+  },
+  "1": {
+    "weights": {
+      "domain": 3.0312,
+      "will": 2.5,
+      "avail": 2.4313,
+      "prox": 0.931,
+      "fresh": 0.05
+    },
+    "meta": {
+      "roc_auc": 0.8912,
+      "accuracy": 0.8178,
+      "n": 32000
+    }
+  },
+  "2": {
+    "weights": {
+      "domain": 3.7602,
+      "will": 3.1038,
+      "avail": 2.5786,
+      "prox": 0.05,
+      "fresh": 0.05
+    },
+    "meta": {
+      "roc_auc": 0.9073,
+      "accuracy": 0.8471,
+      "n": 31188
+    }
+  }
+}

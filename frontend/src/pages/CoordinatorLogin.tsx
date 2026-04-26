@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/auth-shared';
 import { Briefcase } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export default function CoordinatorLogin() {
   const { signIn } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('coordinator@test.com');
+  const [password, setPassword] = useState('password');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -42,14 +44,14 @@ export default function CoordinatorLogin() {
           onClick={() => navigate('/')}
           className="text-green-600 hover:text-green-700 mb-4 flex items-center"
         >
-          ← Back to Home
+          {t('auth.back_to_home')}
         </button>
 
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Briefcase className="text-green-600" size={40} />
         </div>
         <h2 className="text-3xl font-bold text-green-700 mb-6 text-center">
-          Coordinator Login
+          {t('auth.coordinator_login')}
         </h2>
 
         {error && (
@@ -61,7 +63,7 @@ export default function CoordinatorLogin() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
+              {t('auth.email')}
             </label>
             <input
               type="email"
@@ -76,7 +78,7 @@ export default function CoordinatorLogin() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
+              {t('auth.password')}
             </label>
             <input
               type="password"
@@ -94,7 +96,7 @@ export default function CoordinatorLogin() {
             disabled={loading}
             className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition disabled:bg-gray-400"
           >
-            {loading ? 'Please wait...' : 'Sign In'}
+            {loading ? 'Please wait...' : t('auth.sign_in')}
           </button>
         </form>
       </div>

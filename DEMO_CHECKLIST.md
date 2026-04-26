@@ -60,3 +60,5 @@
 - The frontend uses the live backend rather than mock-only flows.
 - Problem submission, map rendering, assignment generation, and proof uploads are integrated end to end.
 - The demo runtime dynamically bootstraps from the canonical CSVs on startup without needing training.
+- The platform is fully internationalized to 12 regional Indian languages using i18n for broad accessibility.
+- Automatic severity triage uses Google Gemini multimodal inference for context-aware problem routing.

@@ -28,7 +28,7 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
             <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
-              <span className="text-green-600 font-bold text-xl">S</span>
+              <span className="text-green-600 font-bold text-xl">G</span>
             </div>
             <h1 className="text-xl font-bold">{t('nav.brand')}</h1>
           </div>

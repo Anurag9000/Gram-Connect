@@ -187,7 +187,7 @@ export default function VolunteerDashboard() {
                         }}
                         className="flex items-center gap-2 text-green-700 font-semibold mb-6"
                     >
-                        <ArrowLeft size={20} /> Back to My Tasks
+                        <ArrowLeft size={20} /> {t('volunteer.back_to_tasks')}
                     </button>
 
                     <div className="bg-white rounded-2xl shadow-lg p-8">
@@ -203,7 +203,7 @@ export default function VolunteerDashboard() {
                             <div className="space-y-4 mb-8">
                                 {selectedTask.media_assets?.length ? (
                                     <div>
-                                        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Problem media</h3>
+                                        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">{t('volunteer.problem_media')}</h3>
                                         <div className="grid grid-cols-2 gap-3">
                                             {selectedTask.media_assets.map((asset) => (
                                                 <div key={asset.id} className="rounded-xl border border-gray-200 p-3">
@@ -223,7 +223,7 @@ export default function VolunteerDashboard() {
 
                                 {selectedTask.proof_assets?.length ? (
                                     <div>
-                                        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Stored proof</h3>
+                                        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">{t('volunteer.stored_proof')}</h3>
                                         <div className="grid grid-cols-2 gap-3">
                                             {selectedTask.proof_assets.map((asset) => (
                                                 <div key={asset.id} className="rounded-xl border border-emerald-200 p-3 bg-emerald-50/40">
@@ -244,18 +244,18 @@ export default function VolunteerDashboard() {
                         ) : null}
 
                         <div className="space-y-8">
-                            <h3 className="text-lg font-bold text-gray-800 border-b pb-2">Verification Proof (Before & After)</h3>
+                            <h3 className="text-lg font-bold text-gray-800 border-b pb-2">{t('volunteer.verification_proof')}</h3>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <p className="text-sm font-medium text-gray-700">Before Photo</p>
+                                    <p className="text-sm font-medium text-gray-700">{t('volunteer.before_photo')}</p>
                                     <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 bg-gray-50 object-cover overflow-hidden">
                                         {beforeImagePreview ? (
                                             <img src={beforeImagePreview} className="w-full h-full object-cover" />
                                         ) : (
                                             <>
                                                 <Camera size={32} className="text-gray-400 mb-2" />
-                                                <span className="text-xs text-gray-500">Capture/Upload</span>
+                                                <span className="text-xs text-gray-500">{t('volunteer.capture_upload')}</span>
                                             </>
                                         )}
                                         <input
@@ -276,14 +276,14 @@ export default function VolunteerDashboard() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <p className="text-sm font-medium text-gray-700">After Photo (Required)</p>
+                                    <p className="text-sm font-medium text-gray-700">{t('volunteer.after_photo')}</p>
                                     <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 bg-gray-50 object-cover overflow-hidden">
                                         {afterImagePreview ? (
                                             <img src={afterImagePreview} className="w-full h-full object-cover" />
                                         ) : (
                                             <>
                                                 <Camera size={32} className="text-green-600 mb-2" />
-                                                <span className="text-xs text-green-600 font-bold">Verify Completion</span>
+                                                <span className="text-xs text-green-600 font-bold">{t('volunteer.verify_completion')}</span>
                                             </>
                                         )}
                                         <input
@@ -310,7 +310,7 @@ export default function VolunteerDashboard() {
                                 className="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-green-700 transition disabled:bg-gray-400 flex items-center justify-center gap-3"
                             >
                                 {isSubmitting ? <Loader2 className="animate-spin" /> : <CheckCircle />}
-                                {isSubmitting ? 'Verifying Impact...' : 'Submit Resolution Proof'}
+                                {isSubmitting ? t('volunteer.verifying') : t('volunteer.submit_proof')}
                             </button>
                         </div>
                     </div>
@@ -324,19 +324,18 @@ export default function VolunteerDashboard() {
             <div className="max-w-4xl mx-auto">
                 <div className="flex justify-between items-center mb-8">
                     <div>
-                        <h1 className="text-3xl font-extrabold text-gray-900">Volunteer Assignment Dashboard</h1>
+                        <h1 className="text-3xl font-extrabold text-gray-900">{t('volunteer.dashboard_title')}</h1>
                         <p className="text-gray-600">{t('volunteer.dashboard_subtitle')}</p>
                     </div>
                     <div className="flex items-center gap-4">
                         <button onClick={() => navigate('/')} className="text-green-700 font-semibold">{t('common.home')}</button>
-                        <LanguageToggle />
                         {profile && <span className="text-xs text-gray-400">ID: {profile.id.slice(0, 8)}</span>}
                     </div>
                 </div>
 
                 <div className="grid gap-6">
                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        <Clock className="text-green-600" /> Active Assignments
+                        <Clock className="text-green-600" /> {t('volunteer.active_assignments')}
                     </h2>
                     {loading ? (
                         <div className="flex justify-center py-12">
@@ -344,7 +343,7 @@ export default function VolunteerDashboard() {
                         </div>
                     ) : activeTasks.length === 0 ? (
                         <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center text-gray-500">
-                            No active assignments at the moment.
+                            {t('volunteer.no_active_assignments')}
                         </div>
                     ) : (
                         activeTasks.map(task => (
@@ -382,7 +381,7 @@ export default function VolunteerDashboard() {
                 {completedTasks.length > 0 && (
                     <div className="mt-10 grid gap-6">
                         <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            <CheckCircle className="text-emerald-600" /> Completed Assignments
+                            <CheckCircle className="text-emerald-600" /> {t('volunteer.completed_assignments')}
                         </h2>
                         {completedTasks.map(task => (
                             <div

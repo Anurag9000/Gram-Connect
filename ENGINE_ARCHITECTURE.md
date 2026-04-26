@@ -77,9 +77,10 @@ This ensures the final team is perfectly balanced—containing the necessary rar
 
 ---
 
-## Auto-Inference Engine
-To reduce friction for users submitting tasks, the engine features an auto-inference pipeline. As soon as a user finishes typing a problem description, the engine parses the text and automatically predicts:
-1.  **Severity:** (LOW, NORMAL, HIGH)
-2.  **Category:** Maps it strictly to one of the 7 non-overlapping routing labels (e.g., `water-sanitation`, `education-digital`).
+## Intelligent AI-Inference Engine
+To reduce friction and error in triaging emergencies, the system uses an advanced multimodal inference pipeline powered by Google Gemini. When a user submits a problem without explicitly selecting an urgency level, the backend routes the problem title, transcript/description, and any AI-extracted visual tags (via CLIP) through Gemini.
 
-These inferred labels allow the backend queues to instantly route the task to the correct coordinator without manual tagging.
+1.  **Context-Aware Severity:** The Large Language Model evaluates the semantic context of the emergency (e.g., distinguishing a real "fire" from a routine "firewood" request) to predict urgency (LOW, NORMAL, HIGH).
+2.  **Multimodal Category Mapping:** The system maps the description and AI-detected visual elements to strictly non-overlapping routing labels (e.g., `water-sanitation`, `education-digital`).
+
+These inferred labels allow the backend queues to instantly route and prioritize the task to the correct coordinator without relying on brittle keyword matching.

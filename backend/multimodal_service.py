@@ -340,6 +340,45 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
     }
 
 
+def infer_problem_severity(title: str, description: str, tags: List[str]) -> str:
+    """Use Gemini to intelligently infer problem severity (LOW, NORMAL, HIGH) from multimodal context."""
+    if not _has_gemini_key():
+        # Fallback to simple keyword logic if offline
+        from nexus import estimate_severity, SEVERITY_LABELS
+        full_text = f"{title} {description} {' '.join(tags)}".lower()
+        return SEVERITY_LABELS.get(estimate_severity(full_text), "NORMAL")
+
+    try:
+        client = get_gemini_client()
+        tags_str = ", ".join(tags) if tags else "None"
+        prompt = (
+            "You are an AI triaging problems reported by villagers in rural India.\n"
+            "Given the problem title, description, and visual tags extracted from photos, classify the severity as LOW, NORMAL, or HIGH.\n\n"
+            "- HIGH: Medical emergencies, immediate safety hazards (e.g., live wires, fires, building collapse, flooding, violent conflict).\n"
+            "- NORMAL: Standard infrastructure issues (e.g., broken handpump, potholes, power outage, agricultural pests).\n"
+            "- LOW: Minor routine requests (e.g., asking for information, small cosmetic repairs, general cleaning).\n\n"
+            f"Title: {title}\n"
+            f"Description: {description}\n"
+            f"Visual Tags: {tags_str}\n\n"
+            "Return strict JSON only with keys:\n"
+            '  "severity": exactly one of "LOW", "NORMAL", or "HIGH"\n'
+            '  "reason": one short sentence explaining why.\n'
+        )
+        response = client.models.generate_content(
+            model=DEFAULT_GEMINI_MODEL,
+            contents=[prompt],
+        )
+        parsed = _extract_json_object(response.text or "{}")
+        severity = str(parsed.get("severity") or "NORMAL").upper()
+        if severity not in ["LOW", "NORMAL", "HIGH"]:
+            severity = "NORMAL"
+        return severity
+    except Exception as exc:
+        logger.warning("Gemini severity inference failed: %s", exc)
+        return "NORMAL"
+
+
+
 def verify_resolution_proof(
     before_image_path: Optional[str],
     after_image_path: str,

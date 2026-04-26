@@ -1,5 +1,4 @@
 import { ArrowRight, Zap, Globe, MessageSquare, Map, Users } from 'lucide-react';
-import LanguageToggle from '../components/LanguageToggle';
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -18,7 +17,6 @@ export default function Home() {
             <h1 className="text-4xl font-bold text-gray-900">
               {t('home.welcome_back')} <span className="text-green-600">{profile.full_name}</span>
             </h1>
-            <LanguageToggle />
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
@@ -85,37 +83,36 @@ export default function Home() {
         <div className="max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center space-x-2 bg-green-50 text-green-700 px-4 py-2 rounded-full mb-8 animate-fade-in">
             <Zap size={16} />
-            <span className="text-sm font-bold uppercase tracking-wider">AI-Powered Social Impact</span>
+            <span className="text-sm font-bold uppercase tracking-wider">{t('home.ai_powered_label')}</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 mb-8 tracking-tight">
-            Bridging Villages with <br />
+            {t('home.hero_heading')} <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-600 to-emerald-600">
-              Intelligent Action
+              {t('home.hero_heading_highlight', 'Intelligent Action')}
             </span>
           </h1>
           <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Gram Connect uses multimodal AI to match student volunteers with critical village needs,
-            ensuring expertise goes exactly where it's needed most.
+            {t('home.hero_body')}
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <button
               onClick={() => navigate('/volunteer-login')}
               className="bg-gray-900 text-white px-8 py-4 rounded-full font-bold text-lg hover:bg-gray-800 transition flex items-center group"
             >
-              Start Volunteering
+              {t('home.start_volunteering')}
               <ArrowRight className="ml-2 group-hover:translate-x-1 transition" size={20} />
             </button>
             <button
               onClick={() => navigate('/villager-onboarding')}
               className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-green-600 hover:text-green-600 transition"
             >
-              Report a Problem
+              {t('home.report_problem')}
             </button>
             <button
               onClick={() => navigate('/map')}
               className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-green-600 hover:text-green-600 transition"
             >
-              Explore Projects
+              {t('home.explore_projects')}
             </button>
           </div>
         </div>
@@ -125,30 +122,30 @@ export default function Home() {
       <section id="features" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Empowering Communities</h2>
-            <p className="text-gray-600">Next-generation tools for grassroots development.</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">{t('home.features_heading')}</h2>
+            <p className="text-gray-600">{t('home.features_subheading')}</p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition border border-gray-100">
               <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
                 <MessageSquare className="text-green-600" size={24} />
               </div>
-              <h3 className="text-xl font-bold mb-4">Multimodal AI</h3>
-              <p className="text-gray-600 leading-relaxed">Villagers can report problems using audio, photos, or text in their local language.</p>
+              <h3 className="text-xl font-bold mb-4">{t('home.feature_multimodal_title')}</h3>
+              <p className="text-gray-600 leading-relaxed">{t('home.feature_multimodal_desc')}</p>
             </div>
             <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition border border-gray-100">
               <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
                 <Zap className="text-blue-600" size={24} />
               </div>
-              <h3 className="text-xl font-bold mb-4">Smart Matching</h3>
-              <p className="text-gray-600 leading-relaxed">Our Nexus Engine finds the perfect team based on skills, logistics, and fairness.</p>
+              <h3 className="text-xl font-bold mb-4">{t('home.feature_matching_title')}</h3>
+              <p className="text-gray-600 leading-relaxed">{t('home.feature_matching_desc')}</p>
             </div>
             <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-md transition border border-gray-100">
               <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">
                 <Map className="text-purple-600" size={24} />
               </div>
-              <h3 className="text-xl font-bold mb-4">Geo-Spatial Map</h3>
-              <p className="text-gray-600 leading-relaxed">Coordinators visualize problems and volunteer deployments on an interactive map.</p>
+              <h3 className="text-xl font-bold mb-4">{t('home.feature_map_title')}</h3>
+              <p className="text-gray-600 leading-relaxed">{t('home.feature_map_desc')}</p>
             </div>
           </div>
         </div>
@@ -159,15 +156,15 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-3 gap-12 text-center text-white">
           <div>
             <div className="text-5xl font-extrabold mb-2">50+</div>
-            <div className="text-green-100 font-medium">Villages Empowered</div>
+            <div className="text-green-100 font-medium">{t('home.stat_villages')}</div>
           </div>
           <div>
             <div className="text-5xl font-extrabold mb-2">1.2k</div>
-            <div className="text-green-100 font-medium">Volunteer Hours</div>
+            <div className="text-green-100 font-medium">{t('home.stat_hours')}</div>
           </div>
           <div>
             <div className="text-5xl font-extrabold mb-2">98%</div>
-            <div className="text-green-100 font-medium">Resolution Rate</div>
+            <div className="text-green-100 font-medium">{t('home.stat_resolution')}</div>
           </div>
         </div>
       </section>

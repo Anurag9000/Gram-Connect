@@ -6,7 +6,6 @@ import {
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import AudioRecorder from '../components/AudioRecorder';
-import LanguageToggle from '../components/LanguageToggle';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { loadStoredProfile, saveStoredProfile, type ProfileRecord } from '../lib/profileStorage';
@@ -307,22 +306,22 @@ export default function SubmitProblem() {
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <CheckCircle className="text-green-600" size={32} />
           </div>
-          <h2 className="text-2xl font-bold text-green-700 mb-4">Submitted Successfully!</h2>
+          <h2 className="text-2xl font-bold text-green-700 mb-4">{t('submit.success_title')}</h2>
           <p className="text-gray-600 mb-6">
-            Your problem has been saved with persistent reporter data and media attachments.
+            {t('submit.success_desc')}
           </p>
           <div className="space-y-3">
             <button
               onClick={() => setSuccess(false)}
               className="w-full bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
             >
-              Submit Another Problem
+              {t('submit.submit_another')}
             </button>
             <button
               onClick={() => navigate('/map')}
               className="w-full border border-green-600 text-green-600 px-6 py-2 rounded-lg font-semibold hover:bg-green-50 transition"
             >
-              View on Map
+              {t('submit.view_on_map')}
             </button>
           </div>
         </div>
@@ -335,71 +334,70 @@ export default function SubmitProblem() {
       <div className="max-w-3xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <button onClick={() => navigate('/')} className="text-green-700 font-semibold">&larr; {t('common.home')}</button>
-          <LanguageToggle />
         </div>
         <div className="bg-white rounded-xl shadow-lg p-8">
           <h1 className="text-3xl font-bold text-green-700 mb-2">{t('submit.submit_heading')}</h1>
           <p className="text-gray-600 mb-8">
             {canSubmitAsCoordinator
-              ? `${profile?.full_name}, capture the problem and attach any supporting media.`
-              : 'Report a problem as a villager and keep the reporter profile persisted for future submissions.'}
+              ? `${profile?.full_name}, ${t('submit.coordinator_intro')}`
+              : t('submit.villager_intro')}
           </p>
 
           {needsReporterProfile && (
             <div className="mb-8 rounded-2xl border border-emerald-100 bg-emerald-50/70 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <UserRound size={18} className="text-emerald-700" />
-                <h2 className="text-lg font-bold text-emerald-900">Villager onboarding</h2>
+                <h2 className="text-lg font-bold text-emerald-900">{t('submit.villager_onboarding')}</h2>
               </div>
               <div className="grid md:grid-cols-2 gap-4">
                 <label className="block">
                   <span className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                     <UserRound size={14} className="text-emerald-700" />
-                    Full name
+                    {t('submit.full_name')}
                   </span>
                   <input
                     value={reporterName}
                     onChange={(event) => setReporterName(event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-green-500 focus:outline-none"
-                    placeholder="Reporter name"
+                    placeholder={t('submit.reporter_name_placeholder')}
                   />
                 </label>
                 <label className="block">
                   <span className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                     <Phone size={14} className="text-emerald-700" />
-                    Phone
+                    {t('submit.phone')}
                   </span>
                   <input
                     value={reporterPhone}
                     onChange={(event) => setReporterPhone(event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-green-500 focus:outline-none"
-                    placeholder="Optional"
+                    placeholder={t('submit.optional')}
                   />
                 </label>
                 <label className="block">
                   <span className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                     <Mail size={14} className="text-emerald-700" />
-                    Email
+                    {t('submit.email')}
                   </span>
                   <input
                     type="email"
                     value={reporterEmail}
                     onChange={(event) => setReporterEmail(event.target.value)}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-green-500 focus:outline-none"
-                    placeholder="Optional"
+                    placeholder={t('submit.optional')}
                   />
                 </label>
                 <label className="block">
                   <span className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                     <MapPin size={14} className="text-emerald-700" />
-                    Village
+                    {t('submit.village_label')}
                   </span>
                   <input
                     value={villageName}
                     onChange={(event) => setVillageName(event.target.value)}
                     required
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-green-500 focus:outline-none"
-                    placeholder="Village name"
+                    placeholder={t('submit.village_placeholder')}
                   />
                 </label>
               </div>
@@ -418,7 +416,7 @@ export default function SubmitProblem() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Village Name <span className="text-red-500">*</span>
+                {t('submit.village_name')} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
@@ -443,7 +441,7 @@ export default function SubmitProblem() {
                 data-testid="village-address-input"
                 value={villageAddress}
                 onChange={(e) => setVillageAddress(e.target.value)}
-                placeholder="E.g., 45, Gandhi Road"
+                placeholder={t('submit.address_placeholder')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
               />
             </div>
@@ -465,8 +463,8 @@ export default function SubmitProblem() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Category <span className="text-red-500">*</span>
-                {categoryAutoSet && <span className="ml-2 text-xs text-green-600 font-normal">Auto-detected from your description</span>}
+                {t('submit.category')} <span className="text-red-500">*</span>
+                {categoryAutoSet && <span className="ml-2 text-xs text-green-600 font-normal">{t('submit.category_auto')}</span>}
               </label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {categories.map((cat) => (
@@ -492,7 +490,7 @@ export default function SubmitProblem() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
-                Urgency Level
+                {t('submit.urgency_level')}
               </label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {SEVERITY_OPTIONS.map((opt) => (
@@ -562,12 +560,12 @@ export default function SubmitProblem() {
               {isAnalyzingImage && (
                 <div className="mt-2 flex items-center gap-2 text-blue-600 text-sm italic">
                   <Loader2 size={16} className="animate-spin" />
-                  <span>AI is analyzing image contents...</span>
+                  <span>{t('submit.ai_analyzing')}</span>
                 </div>
               )}
               {visualTags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2" data-testid="image-analysis-tags">
-                  <span className="text-xs font-semibold text-gray-500">AI Detected:</span>
+                  <span className="text-xs font-semibold text-gray-500">{t('submit.ai_detected')}</span>
                   {visualTags.map(tag => (
                     <span key={tag} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">#{tag}</span>
                   ))}
@@ -580,7 +578,7 @@ export default function SubmitProblem() {
               disabled={loading || savingProfile || !category || !description}
               className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-green-700 transition disabled:bg-gray-400"
             >
-              {loading ? 'Submitting...' : 'Submit Problem'}
+              {loading ? t('submit.submitting') : t('submit.submit_button')}
             </button>
           </form>
         </div>

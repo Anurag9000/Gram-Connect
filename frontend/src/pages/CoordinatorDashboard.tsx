@@ -4,7 +4,7 @@ import {
   BarChart3, LayoutGrid, List, MapPin, ChevronRight, X, UserCheck, Cpu, Trash2
 } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
-import LanguageToggle from '../components/LanguageToggle';
+import { useTranslation } from 'react-i18next';
 import { api, type MediaRecord, type ProblemRecord, type ProofRecord, type TeamMember, type VolunteerRecord } from '../services/api';
 import { Navigate, useNavigate } from 'react-router-dom';
 import type { Database } from '../lib/database.types';
@@ -58,6 +58,7 @@ function normalizePositiveInt(value: string, fallback: number, min: number, max:
 
 export default function CoordinatorDashboard() {
   const { profile } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   const [problems, setProblems] = useState<ProblemWithDetails[]>([]);
@@ -332,7 +333,7 @@ export default function CoordinatorDashboard() {
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <div className="flex flex-col items-center">
           <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4"></div>
-          <p className="text-gray-500 font-medium">Loading Dashboard...</p>
+          <p className="text-gray-500 font-medium">{t('dashboard.loading')}</p>
         </div>
       </div>
     );
@@ -346,14 +347,13 @@ export default function CoordinatorDashboard() {
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center gap-2">
               <Activity className="text-green-600" />
-              <h1 className="text-xl font-bold text-gray-900">Coordination Center</h1>
+              <h1 className="text-xl font-bold text-gray-900">{t('dashboard.coordinator_dashboard')}</h1>
             </div>
             <div className="flex items-center gap-4">
               <button onClick={() => navigate('/')} className="text-gray-500 hover:text-green-600 font-medium transition">
-                Home
+                {t('dashboard.home_btn')}
               </button>
               <div className="h-6 w-px bg-gray-200"></div>
-              <LanguageToggle />
               <div className="flex items-center gap-2 ml-2">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm">
                   {profile?.full_name?.charAt(0) || "C"}
@@ -368,28 +368,28 @@ export default function CoordinatorDashboard() {
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col">
-            <span className="text-gray-500 text-sm font-medium mb-1">Total Issues</span>
+            <span className="text-gray-500 text-sm font-medium mb-1">{t('dashboard.total_issues')}</span>
             <div className="flex items-end justify-between">
               <span className="text-3xl font-bold text-gray-900">{problems.length}</span>
               <BarChart3 className="text-gray-300 mb-1" size={20} />
             </div>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col border-l-4 border-l-red-500">
-            <span className="text-gray-500 text-sm font-medium mb-1">Needs Attention (Open)</span>
+            <span className="text-gray-500 text-sm font-medium mb-1">{t('dashboard.needs_attention')}</span>
             <div className="flex items-end justify-between">
               <span className="text-3xl font-bold text-red-600">{stats.pending}</span>
               <AlertTriangle className="text-red-200 mb-1" size={20} />
             </div>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col border-l-4 border-l-yellow-500">
-            <span className="text-gray-500 text-sm font-medium mb-1">In Progress</span>
+            <span className="text-gray-500 text-sm font-medium mb-1">{t('dashboard.in_progress')}</span>
             <div className="flex items-end justify-between">
               <span className="text-3xl font-bold text-yellow-600">{stats.inProgress}</span>
               <Clock className="text-yellow-200 mb-1" size={20} />
             </div>
           </div>
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col border-l-4 border-l-green-500">
-            <span className="text-gray-500 text-sm font-medium mb-1">Resolved</span>
+            <span className="text-gray-500 text-sm font-medium mb-1">{t('dashboard.resolved')}</span>
             <div className="flex items-end justify-between">
               <span className="text-3xl font-bold text-green-600">{stats.resolved}</span>
               <CheckCircle className="text-green-200 mb-1" size={20} />
@@ -401,14 +401,14 @@ export default function CoordinatorDashboard() {
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Live problem map</h2>
-                <p className="text-sm text-gray-500">Markers are driven by the persisted backend records.</p>
+                <h2 className="text-lg font-bold text-gray-900">{t('dashboard.live_map')}</h2>
+                <p className="text-sm text-gray-500">{t('dashboard.live_map_desc')}</p>
               </div>
               <button
                 onClick={() => navigate('/map')}
                 className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-semibold text-green-700 hover:bg-green-100"
               >
-                Open full view
+                {t('dashboard.open_full_view')}
               </button>
             </div>
             <div className="h-[420px] overflow-hidden rounded-xl">
@@ -417,11 +417,11 @@ export default function CoordinatorDashboard() {
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-            <h3 className="text-lg font-bold text-gray-900 mb-3">Map notes</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-3">{t('dashboard.map_notes_title')}</h3>
             <div className="space-y-3 text-sm text-gray-600">
-              <p>• Villager reports are stored with persistent profile and media records.</p>
-              <p>• Completed tasks keep proof attachments on the same case record.</p>
-              <p>• The map can be filtered by status using the controls below.</p>
+              <p>• {t('dashboard.map_note_1')}</p>
+              <p>• {t('dashboard.map_note_2')}</p>
+              <p>• {t('dashboard.map_note_3')}</p>
             </div>
           </div>
         </div>
@@ -432,7 +432,7 @@ export default function CoordinatorDashboard() {
             <Search className="text-gray-400 ml-2" size={20} />
             <input
               type="text"
-              placeholder="Search problems..."
+              placeholder={t('dashboard.search_placeholder')}
               data-testid="problem-search-input"
               className="px-3 py-2 outline-none w-full md:w-64"
               value={searchTerm}
@@ -471,7 +471,7 @@ export default function CoordinatorDashboard() {
         {/* Problems Grid/List */}
         {filteredProblems.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-            <p className="text-gray-500">No problems found matching your filters.</p>
+            <p className="text-gray-500">{t('dashboard.no_problems_found')}</p>
           </div>
         ) : (
           <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
@@ -517,12 +517,12 @@ export default function CoordinatorDashboard() {
 
                   {problem.matches && problem.matches.length > 0 && (
                     <div className="mb-4">
-                      <p className="text-xs font-bold text-gray-500 mb-2 uppercase">Assigned Volunteers:</p>
+                      <p className="text-xs font-bold text-gray-500 mb-2 uppercase">{t('dashboard.assigned_volunteers')}</p>
                       <div className="space-y-2">
                         {problem.matches.map(m => (
                           <div key={m.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded border border-gray-100">
                             <span className="font-medium text-gray-700">{m.volunteer?.profile?.full_name || "Unknown"}</span>
-                            <button onClick={() => handleUnassignVolunteer(problem.id, m.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">Unassign</button>
+                            <button onClick={() => handleUnassignVolunteer(problem.id, m.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">{t('dashboard.unassign')}</button>
                           </div>
                         ))}
                       </div>
@@ -550,7 +550,7 @@ export default function CoordinatorDashboard() {
                             onClick={() => handleStatusChange(problem.id, 'completed')}
                             className="text-sm bg-blue-50 text-blue-700 px-3 py-1 rounded-md hover:bg-blue-100 font-medium transition"
                         >
-                            Force Resolve
+                            {t('dashboard.force_resolve')}
                         </button>
                         )}
                         {problem.status === 'completed' && (
@@ -558,7 +558,7 @@ export default function CoordinatorDashboard() {
                             onClick={() => handleStatusChange(problem.id, 'in_progress')}
                             className="text-sm bg-yellow-50 text-yellow-700 px-3 py-1 rounded-md hover:bg-yellow-100 font-medium transition"
                         >
-                            Reopen Task
+                            {t('dashboard.reopen_task')}
                         </button>
                         )}
                     </div>
@@ -584,8 +584,8 @@ export default function CoordinatorDashboard() {
             {/* Modal Header */}
             <div className="p-6 border-b flex justify-between items-center bg-gray-50">
               <div>
-                <h2 className="text-2xl font-bold text-gray-800">Assign Resolution Team</h2>
-                <p className="text-gray-500 text-sm mt-1">For issue: <span className="font-semibold text-gray-900">{selectedProblem.title}</span></p>
+                <h2 className="text-2xl font-bold text-gray-800">{t('dashboard.assign_modal_title')}</h2>
+                <p className="text-gray-500 text-sm mt-1">{t('dashboard.assign_modal_for')} <span className="font-semibold text-gray-900">{selectedProblem.title}</span></p>
               </div>
               <button onClick={() => { setShowAssignModal(false); setSelectedManualIds(new Set()); setExpandedVolunteerId(null); }} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition">
                 <X size={24} />
@@ -598,13 +598,13 @@ export default function CoordinatorDashboard() {
                 onClick={() => setModalTab('manual')}
                 className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${modalTab === 'manual' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                <div className="flex items-center justify-center gap-2"><UserCheck size={18} /> Manual Assignment</div>
+                <div className="flex items-center justify-center gap-2"><UserCheck size={18} /> {t('dashboard.tab_manual')}</div>
               </button>
               <button
                 onClick={() => setModalTab('ai')}
                 className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${modalTab === 'ai' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                <div className="flex items-center justify-center gap-2"><Cpu size={18} /> AI Team Builder (Explainable)</div>
+                <div className="flex items-center justify-center gap-2"><Cpu size={18} /> {t('dashboard.tab_ai')}</div>
               </button>
             </div>
 
@@ -619,7 +619,7 @@ export default function CoordinatorDashboard() {
                     <Search size={18} className="text-gray-400 mr-2 shrink-0" />
                     <input
                       type="text"
-                      placeholder="Search by name or skill…"
+                      placeholder={t('dashboard.search_volunteer_placeholder')}
                       className="flex-1 outline-none text-sm"
                       value={individualSearch}
                       onChange={(e) => setIndividualSearch(e.target.value)}
@@ -731,7 +731,7 @@ export default function CoordinatorDashboard() {
                         disabled={confirmingManual}
                         className="bg-green-600 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition shadow-md shrink-0"
                       >
-                        {confirmingManual ? 'Assigning…' : `Confirm Team (${selectedManualIds.size})`}
+                        {confirmingManual ? t('dashboard.assigning') : `${t('dashboard.confirm_team')} (${selectedManualIds.size})`}
                       </button>
                     </div>
                   )}
@@ -744,7 +744,7 @@ export default function CoordinatorDashboard() {
                   <div className="bg-white p-4 rounded-lg border-gray-200 border mb-6 shadow-sm">
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">TEAM SIZE</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">{t('dashboard.team_size_label')}</label>
                         <input
                           type="number"
                           min="1"
@@ -755,7 +755,7 @@ export default function CoordinatorDashboard() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">SOLUTIONS TO GENERATE</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">{t('dashboard.solutions_label')}</label>
                         <input
                           type="number"
                           min="1"
@@ -773,7 +773,7 @@ export default function CoordinatorDashboard() {
                       className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 disabled:bg-gray-300 flex justify-center gap-2 items-center transition shadow-md"
                     >
                       {aiLoading ? <span className="animate-spin">⌛</span> : <Cpu size={20} />}
-                      {aiLoading ? 'Analyzing Context & Skills...' : 'Generate Explainable Teams'}
+                      {aiLoading ? t('dashboard.ai_analyzing') : t('dashboard.find_teams')}
                     </button>
                   </div>
 
@@ -781,7 +781,7 @@ export default function CoordinatorDashboard() {
                     <div className="bg-red-50 text-red-700 p-4 rounded-lg mb-6 text-sm border border-red-200 flex items-start gap-2">
                       <AlertTriangle size={18} className="shrink-0 mt-0.5" />
                       <div>
-                        <div className="font-bold mb-1">AI Generation Failed</div>
+                        <div className="font-bold mb-1">{t('dashboard.ai_failed')}</div>
                         <div>{aiError}</div>
                       </div>
                     </div>
@@ -790,14 +790,14 @@ export default function CoordinatorDashboard() {
                   {aiSummary && (
                     <div className="flex gap-3 mb-6 text-sm font-medium">
                       <span className="bg-orange-100 text-orange-800 px-3 py-1.5 rounded-lg border border-orange-200 flex items-center gap-1">
-                        <AlertTriangle size={14} /> Severity: {aiSummary.severity}
+                        <AlertTriangle size={14} /> {t('dashboard.severity_label')} {aiSummary.severity}
                       </span>
                       <span className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg border border-blue-200 flex items-center gap-1">
-                        <Activity size={14} /> Origin: {aiSummary.origin}
+                        <Activity size={14} /> {t('dashboard.origin_label')} {aiSummary.origin}
                       </span>
                       {aiSummary.location && (
                         <span className="bg-gray-100 text-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 flex items-center gap-1">
-                            <MapPin size={14} /> Loc: {aiSummary.location}
+                            <MapPin size={14} /> {t('dashboard.loc_label')} {aiSummary.location}
                         </span>
                       )}
                     </div>
@@ -824,7 +824,7 @@ export default function CoordinatorDashboard() {
                             data-testid={`assign-ai-team-${idx + 1}`}
                             className="bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 px-5 py-2.5 rounded-lg shadow-sm transition"
                           >
-                            Assign Team
+                            {t('dashboard.assign_team_btn')}
                           </button>
                         </div>
 
@@ -867,10 +867,10 @@ export default function CoordinatorDashboard() {
                         </div>
 
                         <div className="mt-4 text-sm text-blue-800 bg-blue-50 p-4 rounded-lg border border-blue-100 leading-relaxed">
-                          <strong className="text-blue-900 block mb-2">Why this team? (Nexus Engine)</strong>
+                          <strong className="text-blue-900 block mb-2">{t('dashboard.why_this_team')}</strong>
                           <span className="block mb-1">Ranked #{idx + 1} — <strong>{(team.coverage * 100).toFixed(0)}% skill coverage</strong> — <strong>{(team.willingnessAvg * 100).toFixed(0)}% avg willingness</strong> — <strong>{team.avgDistanceKm.toFixed(1)} km avg distance</strong>{team.avgDistanceKm === 0 ? ' (all local to problem village)' : ''}</span>
                           <span className="block text-blue-700 text-xs mt-1">Individual score = DOMAIN² * WILL * AVAIL⁰⋅⁵ * PROX * FRESH⁰⋅⁵. Multiplicative: any factor at zero eliminates the candidate regardless of other strengths. Teams ranked by skill coverage first, then by geometric mean of member scores.</span>
-                          {team.coverage < 0.3 && <span className="block text-amber-700 font-semibold mt-1">Note: skill coverage is below 30%. Consider increasing the team size or selecting domain specialists manually.</span>}
+                          {team.coverage < 0.3 && <span className="block text-amber-700 font-semibold mt-1">{t('dashboard.low_coverage_note')}</span>}
                         </div>
                       </div>
                     ))}

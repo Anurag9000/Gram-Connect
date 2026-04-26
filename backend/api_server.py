@@ -21,7 +21,7 @@ import tempfile
 from env_loader import load_local_env
 from demo_bootstrap import ensure_canonical_dataset, should_bootstrap_models
 from recommender_service import RecommenderService
-from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof
+from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity
 from notification_service import notify_problem_resolved, notify_team_assignment
 from path_utils import (
     ensure_runtime_dir,
@@ -1316,15 +1316,14 @@ async def submit_problem_endpoint(request: ProblemRequest):
 
         lat, lng = _village_coordinates(request.village_name)
         
-        # Auto-infer severity from text if not supplied by the user
-        full_text = " ".join(filter(None, [request.title, request.description]))
+        # Auto-infer severity from text and tags if not supplied by the user
         if request.severity:
             severity = request.severity.upper()
             severity_source = "User Selected"
         else:
-            from nexus import estimate_severity, SEVERITY_LABELS
-            severity = SEVERITY_LABELS.get(estimate_severity(full_text), "NORMAL")
-            severity_source = "Auto-detected"
+            tags = request.visual_tags or []
+            severity = infer_problem_severity(request.title, request.description, tags)
+            severity_source = "AI Inferred"
 
         new_problem = {
             "id": new_id,

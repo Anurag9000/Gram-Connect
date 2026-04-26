@@ -106,7 +106,22 @@
         "volunteer_selected": "volunteer selected",
         "volunteers_selected": "volunteers selected",
         "confirm_team": "Confirm Team",
-        "assigning": "Assigning\u2026"
+        "assigning": "Assigning\u2026",
+        "hide": "Hide",
+        "view": "View",
+        "home_location": "Home Location",
+        "availability": "Availability",
+        "willingness_eff": "Willingness (eff)",
+        "full_skill_set": "Full Skill Set",
+        "team_score": "Team Score:",
+        "skill_coverage": "Skill Coverage:",
+        "avg_dist": "Avg Dist:",
+        "avg_will": "Avg Will:",
+        "domain_exp": "Domain Exp.",
+        "willingness": "Willingness",
+        "distance": "Distance",
+        "avail_level": "Avail Level",
+        "skills": "Skills:"
     },
     "submit": {
         "submit_heading": "Submit a New Problem",

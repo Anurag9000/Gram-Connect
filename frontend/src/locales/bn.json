@@ -13,7 +13,23 @@
         "go_to_dashboard": "ড্যাশবোর্ডে যান →",
         "go_to_tasks": "টাস্ক → এ যান",
         "open_map": "মানচিত্র খুলুন →",
-        "submit_problem": "জমা দিন সমস্যা →"
+        "submit_problem": "জমা দিন সমস্যা →",
+        "pending": "মুলতুবি",
+        "in_progress": "চলছে",
+        "completed": "সম্পন্ন",
+        "high": "উচ্চ",
+        "normal": "স্বাভাবিক",
+        "low": "কম",
+        "water-sanitation": "জল এবং স্যানিটেশন",
+        "infrastructure": "অবকাঠামো",
+        "health-nutrition": "স্বাস্থ্য ও পুষ্টি",
+        "agriculture-environment": "কৃষি ও পরিবেশ",
+        "education-digital": "শিক্ষা ও ডিজিটাল",
+        "livelihood-governance": "জীবিকা ও শাসন",
+        "others": "অন্যরা",
+        "education": "শিক্ষা",
+        "health": "স্বাস্থ্য",
+        "digital": "ডিজিটাল"
     },
     "home": {
         "hero_title": "গ্রামের প্রয়োজনে স্বেচ্ছাসেবকদের সংযুক্ত করা",
@@ -45,7 +61,8 @@
         "feature_map_desc": "সমন্বয়কারীরা একটি ইন্টারেক্টিভ মানচিত্রে সমস্যা এবং স্বেচ্ছাসেবক স্থাপনার কল্পনা করে।",
         "stat_villages": "গ্রামগুলো ক্ষমতায়িত",
         "stat_hours": "স্বেচ্ছাসেবক ঘন্টা",
-        "stat_resolution": "রেজোলিউশন রেট"
+        "stat_resolution": "রেজোলিউশন রেট",
+        "hero_heading_highlight": "বুদ্ধিমান অ্যাকশন"
     },
     "dashboard": {
         "coordinator_dashboard": "সমন্বয় কেন্দ্র",
@@ -165,5 +182,42 @@
         "password": "পাসওয়ার্ড",
         "sign_in": "সাইন ইন করুন",
         "back_to_home": "← হোমে ফিরে যান"
+    },
+    "map": {
+        "live_geospatial_view": "লাইভ জিওস্পেশিয়াল ভিউ",
+        "title": "সমস্যা অবস্থান এবং স্বেচ্ছাসেবক স্থাপন",
+        "subtitle": "মানচিত্রে রিপোর্ট করা সমস্যাগুলি ব্রাউজ করুন, অবস্থান বা স্থিতি অনুসারে ফিল্টার করুন এবং লাইভ সমস্যা স্ট্রীম পরিদর্শন করুন।",
+        "back_to_dashboard": "ড্যাশবোর্ডে ফিরে যান",
+        "all_problems": "সব সমস্যা",
+        "filter_village": "গ্রাম অনুসারে ফিল্টার করুন...",
+        "showing": "দেখাচ্ছে",
+        "problems": "সমস্যা",
+        "problem": "সমস্যা",
+        "in": "মধ্যে",
+        "problem_map": "সমস্যা মানচিত্র",
+        "markers": "চিহ্নিতকারী",
+        "all_cases": "সব ক্ষেত্রে",
+        "live_backend_state": "লাইভ ব্যাকএন্ড অবস্থা",
+        "loading_map": "মানচিত্র লোড হচ্ছে...",
+        "loading": "লোড হচ্ছে...",
+        "no_problems": "কোন সমস্যা বর্তমান ফিল্টার মেলে না."
+    },
+    "skills": {
+        "digital literacy": "ডিজিটাল লিটারেসি",
+        "teaching": "শিক্ষাদান",
+        "excel training": "এক্সেল প্রশিক্ষণ",
+        "household survey": "পরিবারের জরিপ",
+        "Computer Repair": "কম্পিউটার মেরামত",
+        "Teaching": "শিক্ষাদান",
+        "Plumbing": "প্লাম্বিং",
+        "Electrical Work": "বৈদ্যুতিক কাজ",
+        "Construction": "নির্মাণ",
+        "Digital Literacy": "ডিজিটাল লিটারেসি",
+        "Agriculture": "কৃষি",
+        "Healthcare": "স্বাস্থ্যসেবা",
+        "Tutoring": "টিউটরিং",
+        "Web Development": "ওয়েব ডেভেলপমেন্ট",
+        "Marketing": "মার্কেটিং",
+        "Accounting": "হিসাববিজ্ঞান"
     }
 }

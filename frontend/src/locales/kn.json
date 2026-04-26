@@ -13,7 +13,23 @@
         "hi": "ಹಿಂದಿ",
         "go_to_dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ → ಗೆ ಹೋಗಿ",
         "go_to_tasks": "ಕಾರ್ಯಗಳು → ಗೆ ಹೋಗಿ",
-        "open_map": "ನಕ್ಷೆ → ತೆರೆಯಿರಿ"
+        "open_map": "ನಕ್ಷೆ → ತೆರೆಯಿರಿ",
+        "pending": "ಬಾಕಿಯಿದೆ",
+        "in_progress": "ಪ್ರಗತಿಯಲ್ಲಿದೆ",
+        "completed": "ಪೂರ್ಣಗೊಂಡಿದೆ",
+        "high": "ಹೆಚ್ಚು",
+        "normal": "ಸಾಮಾನ್ಯ",
+        "low": "ಕಡಿಮೆ",
+        "water-sanitation": "ನೀರು ಮತ್ತು ನೈರ್ಮಲ್ಯ",
+        "infrastructure": "ಮೂಲಸೌಕರ್ಯ",
+        "health-nutrition": "ಆರೋಗ್ಯ ಮತ್ತು ಪೋಷಣೆ",
+        "agriculture-environment": "ಕೃಷಿ ಮತ್ತು ಪರಿಸರ",
+        "education-digital": "ಶಿಕ್ಷಣ ಮತ್ತು ಡಿಜಿಟಲ್",
+        "livelihood-governance": "ಜೀವನೋಪಾಯ ಮತ್ತು ಆಡಳಿತ",
+        "others": "ಇತರರು",
+        "education": "ಶಿಕ್ಷಣ",
+        "health": "ಆರೋಗ್ಯ",
+        "digital": "ಡಿಜಿಟಲ್"
     },
     "home": {
         "hero_title": "ಗ್ರಾಮದ ಅಗತ್ಯಗಳಿಗೆ ಸ್ವಯಂಸೇವಕರನ್ನು ಸಂಪರ್ಕಿಸುವುದು",
@@ -45,7 +61,8 @@
         "feature_map_desc": "ಸಂಯೋಜಕರು ಸಂವಾದಾತ್ಮಕ ನಕ್ಷೆಯಲ್ಲಿ ಸಮಸ್ಯೆಗಳನ್ನು ಮತ್ತು ಸ್ವಯಂಸೇವಕ ನಿಯೋಜನೆಗಳನ್ನು ದೃಶ್ಯೀಕರಿಸುತ್ತಾರೆ.",
         "stat_villages": "ಸಶಕ್ತ ಗ್ರಾಮಗಳು",
         "stat_hours": "ಸ್ವಯಂಸೇವಕ ಗಂಟೆಗಳು",
-        "stat_resolution": "ರೆಸಲ್ಯೂಶನ್ ದರ"
+        "stat_resolution": "ರೆಸಲ್ಯೂಶನ್ ದರ",
+        "hero_heading_highlight": "ಬುದ್ಧಿವಂತ ಕ್ರಿಯೆ"
     },
     "dashboard": {
         "coordinator_dashboard": "ಸಂಯೋಜಕ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್",
@@ -168,5 +185,42 @@
         "password": "ಪಾಸ್ವರ್ಡ್",
         "sign_in": "ಸೈನ್ ಇನ್ ಮಾಡಿ",
         "back_to_home": "← ಮನೆಗೆ ಹಿಂತಿರುಗಿ"
+    },
+    "map": {
+        "live_geospatial_view": "ಲೈವ್ ಜಿಯೋಸ್ಪೇಷಿಯಲ್ ವ್ಯೂ",
+        "title": "ಸಮಸ್ಯೆಯ ಸ್ಥಳಗಳು ಮತ್ತು ಸ್ವಯಂಸೇವಕ ನಿಯೋಜನೆಗಳು",
+        "subtitle": "ನಕ್ಷೆಯಲ್ಲಿ ವರದಿ ಮಾಡಿದ ಸಮಸ್ಯೆಗಳನ್ನು ಬ್ರೌಸ್ ಮಾಡಿ, ಸ್ಥಳ ಅಥವಾ ಸ್ಥಿತಿಯ ಮೂಲಕ ಫಿಲ್ಟರ್ ಮಾಡಿ ಮತ್ತು ಲೈವ್ ಸಮಸ್ಯೆಯ ಸ್ಟ್ರೀಮ್ ಅನ್ನು ಪರೀಕ್ಷಿಸಿ.",
+        "back_to_dashboard": "ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಹಿಂತಿರುಗಿ",
+        "all_problems": "ಎಲ್ಲಾ ಸಮಸ್ಯೆಗಳು",
+        "filter_village": "ಗ್ರಾಮದ ಮೂಲಕ ಫಿಲ್ಟರ್ ಮಾಡಿ...",
+        "showing": "ತೋರಿಸಲಾಗುತ್ತಿದೆ",
+        "problems": "ಸಮಸ್ಯೆಗಳು",
+        "problem": "ಸಮಸ್ಯೆ",
+        "in": "ಒಳಗೆ",
+        "problem_map": "ಸಮಸ್ಯೆ ನಕ್ಷೆ",
+        "markers": "ಗುರುತುಗಳು",
+        "all_cases": "ಎಲ್ಲಾ ಪ್ರಕರಣಗಳು",
+        "live_backend_state": "ಲೈವ್ ಬ್ಯಾಕೆಂಡ್ ಸ್ಟೇಟ್",
+        "loading_map": "ನಕ್ಷೆಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ...",
+        "loading": "ಲೋಡ್ ಆಗುತ್ತಿದೆ...",
+        "no_problems": "ಪ್ರಸ್ತುತ ಫಿಲ್ಟರ್‌ಗಳಿಗೆ ಯಾವುದೇ ಸಮಸ್ಯೆಗಳು ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ."
+    },
+    "skills": {
+        "digital literacy": "ಡಿಜಿಟಲ್ ಸಾಕ್ಷರತೆ",
+        "teaching": "ಬೋಧನೆ",
+        "excel training": "ಎಕ್ಸೆಲ್ ತರಬೇತಿ",
+        "household survey": "ಮನೆಯ ಸಮೀಕ್ಷೆ",
+        "Computer Repair": "ಕಂಪ್ಯೂಟರ್ ದುರಸ್ತಿ",
+        "Teaching": "ಬೋಧನೆ",
+        "Plumbing": "ಕೊಳಾಯಿ",
+        "Electrical Work": "ವಿದ್ಯುತ್ ಕೆಲಸ",
+        "Construction": "ನಿರ್ಮಾಣ",
+        "Digital Literacy": "ಡಿಜಿಟಲ್ ಸಾಕ್ಷರತೆ",
+        "Agriculture": "ಕೃಷಿ",
+        "Healthcare": "ಆರೋಗ್ಯ ರಕ್ಷಣೆ",
+        "Tutoring": "ಬೋಧನೆ",
+        "Web Development": "ವೆಬ್ ಅಭಿವೃದ್ಧಿ",
+        "Marketing": "ಮಾರ್ಕೆಟಿಂಗ್",
+        "Accounting": "ಲೆಕ್ಕಪತ್ರ ನಿರ್ವಹಣೆ"
     }
 }

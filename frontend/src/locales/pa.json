@@ -13,7 +13,23 @@
         "hi": "ਹਿੰਦੀ",
         "go_to_dashboard": "ਡੈਸ਼ਬੋਰਡ → 'ਤੇ ਜਾਓ",
         "go_to_tasks": "Tasks → 'ਤੇ ਜਾਓ",
-        "open_map": "ਨਕਸ਼ਾ → ਖੋਲ੍ਹੋ"
+        "open_map": "ਨਕਸ਼ਾ → ਖੋਲ੍ਹੋ",
+        "pending": "ਬਕਾਇਆ",
+        "in_progress": "ਤਰੱਕੀ ਹੋ ਰਹੀ ਹੈ",
+        "completed": "ਪੂਰਾ ਹੋਇਆ",
+        "high": "ਉੱਚ",
+        "normal": "ਸਧਾਰਣ",
+        "low": "ਘੱਟ",
+        "water-sanitation": "ਪਾਣੀ ਅਤੇ ਸੈਨੀਟੇਸ਼ਨ",
+        "infrastructure": "ਬੁਨਿਆਦੀ ਢਾਂਚਾ",
+        "health-nutrition": "ਸਿਹਤ ਅਤੇ ਪੋਸ਼ਣ",
+        "agriculture-environment": "ਖੇਤੀਬਾੜੀ ਅਤੇ ਵਾਤਾਵਰਣ",
+        "education-digital": "ਸਿੱਖਿਆ ਅਤੇ ਡਿਜੀਟਲ",
+        "livelihood-governance": "ਰੋਜ਼ੀ-ਰੋਟੀ ਅਤੇ ਸ਼ਾਸਨ",
+        "others": "ਹੋਰ",
+        "education": "ਸਿੱਖਿਆ",
+        "health": "ਸਿਹਤ",
+        "digital": "ਡਿਜੀਟਲ"
     },
     "home": {
         "hero_title": "ਵਲੰਟੀਅਰਾਂ ਨੂੰ ਪਿੰਡਾਂ ਦੀਆਂ ਲੋੜਾਂ ਨਾਲ ਜੋੜਨਾ",
@@ -45,7 +61,8 @@
         "feature_map_desc": "ਕੋਆਰਡੀਨੇਟਰ ਇੱਕ ਇੰਟਰਐਕਟਿਵ ਨਕਸ਼ੇ 'ਤੇ ਸਮੱਸਿਆਵਾਂ ਅਤੇ ਵਲੰਟੀਅਰ ਤੈਨਾਤੀਆਂ ਦੀ ਕਲਪਨਾ ਕਰਦੇ ਹਨ।",
         "stat_villages": "ਪਿੰਡਾਂ ਨੂੰ ਤਾਕਤ ਦਿੱਤੀ",
         "stat_hours": "ਵਲੰਟੀਅਰ ਘੰਟੇ",
-        "stat_resolution": "ਰੈਜ਼ੋਲਿਊਸ਼ਨ ਦਰ"
+        "stat_resolution": "ਰੈਜ਼ੋਲਿਊਸ਼ਨ ਦਰ",
+        "hero_heading_highlight": "ਬੁੱਧੀਮਾਨ ਕਾਰਵਾਈ"
     },
     "dashboard": {
         "coordinator_dashboard": "ਕੋਆਰਡੀਨੇਟਰ ਡੈਸ਼ਬੋਰਡ",
@@ -168,5 +185,42 @@
         "password": "ਪਾਸਵਰਡ",
         "sign_in": "ਸਾਈਨ - ਇਨ",
         "back_to_home": "← ਘਰ ਵਾਪਸ ਜਾਓ"
+    },
+    "map": {
+        "live_geospatial_view": "ਲਾਈਵ ਭੂ-ਸਥਾਨਕ ਦ੍ਰਿਸ਼",
+        "title": "ਸਮੱਸਿਆ ਵਾਲੇ ਸਥਾਨ ਅਤੇ ਵਲੰਟੀਅਰ ਤੈਨਾਤੀਆਂ",
+        "subtitle": "ਨਕਸ਼ੇ 'ਤੇ ਰਿਪੋਰਟ ਕੀਤੀਆਂ ਸਮੱਸਿਆਵਾਂ ਨੂੰ ਬ੍ਰਾਊਜ਼ ਕਰੋ, ਸਥਾਨ ਜਾਂ ਸਥਿਤੀ ਦੁਆਰਾ ਫਿਲਟਰ ਕਰੋ, ਅਤੇ ਲਾਈਵ ਸਮੱਸਿਆ ਸਟ੍ਰੀਮ ਦੀ ਜਾਂਚ ਕਰੋ।",
+        "back_to_dashboard": "ਡੈਸ਼ਬੋਰਡ 'ਤੇ ਵਾਪਸ ਜਾਓ",
+        "all_problems": "ਸਾਰੀਆਂ ਸਮੱਸਿਆਵਾਂ",
+        "filter_village": "ਪਿੰਡ ਅਨੁਸਾਰ ਫਿਲਟਰ ਕਰੋ...",
+        "showing": "ਦਿਖਾ ਰਿਹਾ ਹੈ",
+        "problems": "ਸਮੱਸਿਆਵਾਂ",
+        "problem": "ਸਮੱਸਿਆ",
+        "in": "ਵਿੱਚ",
+        "problem_map": "ਸਮੱਸਿਆ ਦਾ ਨਕਸ਼ਾ",
+        "markers": "ਮਾਰਕਰ",
+        "all_cases": "ਸਾਰੇ ਮਾਮਲੇ",
+        "live_backend_state": "ਲਾਈਵ ਬੈਕਐਂਡ ਰਾਜ",
+        "loading_map": "ਨਕਸ਼ਾ ਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+        "loading": "ਲੋਡ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
+        "no_problems": "ਮੌਜੂਦਾ ਫਿਲਟਰਾਂ ਨਾਲ ਕੋਈ ਸਮੱਸਿਆ ਮੇਲ ਨਹੀਂ ਖਾਂਦੀ।"
+    },
+    "skills": {
+        "digital literacy": "ਡਿਜੀਟਲ ਸਾਖਰਤਾ",
+        "teaching": "ਪੜ੍ਹਾਉਣਾ",
+        "excel training": "ਐਕਸਲ ਸਿਖਲਾਈ",
+        "household survey": "ਘਰੇਲੂ ਸਰਵੇਖਣ",
+        "Computer Repair": "ਕੰਪਿਊਟਰ ਮੁਰੰਮਤ",
+        "Teaching": "ਪੜ੍ਹਾਉਣਾ",
+        "Plumbing": "ਪਲੰਬਿੰਗ",
+        "Electrical Work": "ਇਲੈਕਟ੍ਰੀਕਲ ਕੰਮ",
+        "Construction": "ਉਸਾਰੀ",
+        "Digital Literacy": "ਡਿਜੀਟਲ ਸਾਖਰਤਾ",
+        "Agriculture": "ਖੇਤੀਬਾੜੀ",
+        "Healthcare": "ਸਿਹਤ ਸੰਭਾਲ",
+        "Tutoring": "ਟਿਊਸ਼ਨ",
+        "Web Development": "ਵੈੱਬ ਵਿਕਾਸ",
+        "Marketing": "ਮਾਰਕੀਟਿੰਗ",
+        "Accounting": "ਲੇਖਾ"
     }
 }

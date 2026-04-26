@@ -10,10 +10,26 @@
         "language": "Language",
         "en": "English",
         "hi": "Hindi",
-        "go_to_dashboard": "Go to Dashboard →",
-        "go_to_tasks": "Go to Tasks →",
-        "open_map": "Open Map →",
-        "submit_problem": "Submit Problem →"
+        "go_to_dashboard": "Go to Dashboard \u2192",
+        "go_to_tasks": "Go to Tasks \u2192",
+        "open_map": "Open Map \u2192",
+        "submit_problem": "Submit Problem \u2192",
+        "pending": "Pending",
+        "in_progress": "In Progress",
+        "completed": "Completed",
+        "high": "High",
+        "normal": "Normal",
+        "low": "Low",
+        "water-sanitation": "Water & Sanitation",
+        "infrastructure": "Infrastructure",
+        "health-nutrition": "Health & Nutrition",
+        "agriculture-environment": "Agriculture & Environment",
+        "education-digital": "Education & Digital",
+        "livelihood-governance": "Livelihood & Governance",
+        "others": "Others",
+        "education": "Education",
+        "health": "Health",
+        "digital": "Digital"
     },
     "home": {
         "hero_title": "Connecting Volunteers to Village Needs",
@@ -45,7 +61,8 @@
         "feature_map_desc": "Coordinators visualize problems and volunteer deployments on an interactive map.",
         "stat_villages": "Villages Empowered",
         "stat_hours": "Volunteer Hours",
-        "stat_resolution": "Resolution Rate"
+        "stat_resolution": "Resolution Rate",
+        "hero_heading_highlight": "Intelligent Action"
     },
     "dashboard": {
         "coordinator_dashboard": "Coordination Center",
@@ -54,7 +71,7 @@
         "in_progress": "In Progress",
         "resolved": "Resolved",
         "search_placeholder": "Search problems...",
-        "assign_team": "Assign Team →",
+        "assign_team": "Assign Team \u2192",
         "force_resolve": "Force Resolve",
         "reopen_task": "Reopen Task",
         "find_teams": "Generate Explainable Teams",
@@ -84,11 +101,11 @@
         "ai_failed": "AI Generation Failed",
         "loading": "Loading Dashboard...",
         "home_btn": "Home",
-        "search_volunteer_placeholder": "Search by name or skill…",
+        "search_volunteer_placeholder": "Search by name or skill\u2026",
         "volunteer_selected": "volunteer selected",
         "volunteers_selected": "volunteers selected",
         "confirm_team": "Confirm Team",
-        "assigning": "Assigning…"
+        "assigning": "Assigning\u2026"
     },
     "submit": {
         "submit_heading": "Submit a New Problem",
@@ -164,6 +181,43 @@
         "email": "Email",
         "password": "Password",
         "sign_in": "Sign In",
-        "back_to_home": "← Back to Home"
+        "back_to_home": "\u2190 Back to Home"
+    },
+    "map": {
+        "live_geospatial_view": "Live Geospatial View",
+        "title": "Problem locations & volunteer deployments",
+        "subtitle": "Browse reported issues on the map, filter by location or status, and inspect the live problem stream.",
+        "back_to_dashboard": "Back to dashboard",
+        "all_problems": "All problems",
+        "filter_village": "Filter by village\u2026",
+        "showing": "Showing",
+        "problems": "problems",
+        "problem": "problem",
+        "in": "in",
+        "problem_map": "Problem map",
+        "markers": "markers",
+        "all_cases": "All cases",
+        "live_backend_state": "live backend state",
+        "loading_map": "Loading map\u2026",
+        "loading": "Loading\u2026",
+        "no_problems": "No problems match the current filters."
+    },
+    "skills": {
+        "digital literacy": "Digital Literacy",
+        "teaching": "Teaching",
+        "excel training": "Excel Training",
+        "household survey": "Household Survey",
+        "Computer Repair": "Computer Repair",
+        "Teaching": "Teaching",
+        "Plumbing": "Plumbing",
+        "Electrical Work": "Electrical Work",
+        "Construction": "Construction",
+        "Digital Literacy": "Digital Literacy",
+        "Agriculture": "Agriculture",
+        "Healthcare": "Healthcare",
+        "Tutoring": "Tutoring",
+        "Web Development": "Web Development",
+        "Marketing": "Marketing",
+        "Accounting": "Accounting"
     }
 }

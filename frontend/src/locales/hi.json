@@ -13,7 +13,23 @@
         "go_to_dashboard": "डैशबोर्ड → पर जाएँ",
         "go_to_tasks": "कार्य → पर जाएँ",
         "open_map": "मानचित्र खोलें →",
-        "submit_problem": "समस्या सबमिट करें →"
+        "submit_problem": "समस्या सबमिट करें →",
+        "pending": "लंबित",
+        "in_progress": "प्रगति पर है",
+        "completed": "पुरा होना।",
+        "high": "उच्च",
+        "normal": "सामान्य",
+        "low": "कम",
+        "water-sanitation": "जल एवं स्वच्छता",
+        "infrastructure": "आधारभूत संरचना",
+        "health-nutrition": "स्वास्थ्य एवं पोषण",
+        "agriculture-environment": "कृषि एवं पर्यावरण",
+        "education-digital": "शिक्षा एवं डिजिटल",
+        "livelihood-governance": "आजीविका एवं शासन",
+        "others": "अन्य",
+        "education": "शिक्षा",
+        "health": "स्वास्थ्य",
+        "digital": "डिजिटल"
     },
     "home": {
         "hero_title": "स्वयंसेवकों को गाँव की ज़रूरतों से जोड़ना",
@@ -45,7 +61,8 @@
         "feature_map_desc": "समन्वयक एक इंटरैक्टिव मानचित्र पर समस्याओं और स्वयंसेवकों की तैनाती की कल्पना करते हैं।",
         "stat_villages": "गाँव सशक्त",
         "stat_hours": "स्वयंसेवक घंटे",
-        "stat_resolution": "संकल्प दर"
+        "stat_resolution": "संकल्प दर",
+        "hero_heading_highlight": "बुद्धिमान कार्रवाई"
     },
     "dashboard": {
         "coordinator_dashboard": "समन्वय केंद्र",
@@ -165,5 +182,42 @@
         "password": "पासवर्ड",
         "sign_in": "दाखिल करना",
         "back_to_home": "← घर वापस"
+    },
+    "map": {
+        "live_geospatial_view": "लाइव भू-स्थानिक दृश्य",
+        "title": "समस्या स्थान और स्वयंसेवक तैनाती",
+        "subtitle": "मानचित्र पर रिपोर्ट की गई समस्याओं को ब्राउज़ करें, स्थान या स्थिति के आधार पर फ़िल्टर करें और लाइव समस्या स्ट्रीम का निरीक्षण करें।",
+        "back_to_dashboard": "डैशबोर्ड पर वापस जाएँ",
+        "all_problems": "सारी समस्याएँ",
+        "filter_village": "गांव के अनुसार फ़िल्टर करें...",
+        "showing": "दिखा",
+        "problems": "समस्याएँ",
+        "problem": "संकट",
+        "in": "में",
+        "problem_map": "समस्या मानचित्र",
+        "markers": "मार्कर",
+        "all_cases": "सभी मामले",
+        "live_backend_state": "लाइव बैकएंड स्थिति",
+        "loading_map": "मानचित्र लोड हो रहा है...",
+        "loading": "लोड हो रहा है...",
+        "no_problems": "कोई भी समस्या वर्तमान फ़िल्टर से मेल नहीं खाती."
+    },
+    "skills": {
+        "digital literacy": "डिजिटल साक्षरता",
+        "teaching": "शिक्षण",
+        "excel training": "एक्सेल प्रशिक्षण",
+        "household survey": "परिवार सवेक्षण",
+        "Computer Repair": "कंप्यूटर मरम्मत",
+        "Teaching": "शिक्षण",
+        "Plumbing": "पाइपलाइन",
+        "Electrical Work": "विद्युत कार्य",
+        "Construction": "निर्माण",
+        "Digital Literacy": "डिजिटल साक्षरता",
+        "Agriculture": "कृषि",
+        "Healthcare": "स्वास्थ्य देखभाल",
+        "Tutoring": "ट्यूशन",
+        "Web Development": "वेब विकास",
+        "Marketing": "मार्केटिंग",
+        "Accounting": "लेखांकन"
     }
 }

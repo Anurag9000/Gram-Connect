@@ -360,13 +360,13 @@ export default function VolunteerDashboard() {
                                     </div>
                                     <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500">
                                         <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
-                                        <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{task.status}</span>
+                                        <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{t(`common.${task.status}`, task.status)}</span>
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${SEVERITY_STYLE[task.severity] ?? SEVERITY_STYLE.NORMAL}`}>
-                                            {task.severity ?? 'NORMAL'}
+                                            {t(`common.${(task.severity || 'normal').toLowerCase()}`, task.severity || 'NORMAL')}
                                         </span>
                                         {task.category && (
                                             <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400">
-                                                <Tag size={10} />{CATEGORY_LABEL[task.category] ?? task.category}
+                                                <Tag size={10} />{t(`common.${task.category}`, CATEGORY_LABEL[task.category] ?? task.category)}
                                             </span>
                                         )}
                                     </div>
@@ -392,10 +392,10 @@ export default function VolunteerDashboard() {
                                     <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">{task.title}</h3>
                                     <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500">
                                         <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
-                                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{task.status}</span>
+                                        <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{t(`common.${task.status}`, task.status)}</span>
                                         {task.category && (
                                             <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400">
-                                                <Tag size={10} />{CATEGORY_LABEL[task.category] ?? task.category}
+                                                <Tag size={10} />{t(`common.${task.category}`, CATEGORY_LABEL[task.category] ?? task.category)}
                                             </span>
                                         )}
                                     </div>

@@ -13,7 +13,23 @@
         "hi": "হিন্দী",
         "go_to_dashboard": "ডেচব'ৰ্ড → লৈ যাওক",
         "go_to_tasks": "কাৰ্য্যসমূহ → লৈ যাওক",
-        "open_map": "মানচিত্ৰ খোলক →"
+        "open_map": "মানচিত্ৰ খোলক →",
+        "pending": "বাকী থকা",
+        "in_progress": "ইন প্ৰগ্ৰেছ",
+        "completed": "সম্পূৰ্ণ হ’ল",
+        "high": "ওখ",
+        "normal": "স্বাভাৱিক",
+        "low": "নিম্ন",
+        "water-sanitation": "পানী আৰু অনাময়",
+        "infrastructure": "আন্তঃগাঁথনি",
+        "health-nutrition": "স্বাস্থ্য আৰু পুষ্টি",
+        "agriculture-environment": "কৃষি আৰু পৰিৱেশ",
+        "education-digital": "শিক্ষা আৰু ডিজিটেল",
+        "livelihood-governance": "জীৱিকা আৰু শাসন ব্যৱস্থা",
+        "others": "আন কিছুমান",
+        "education": "শিক্ষা",
+        "health": "স্বাস্থ্য",
+        "digital": "ডিজিটেল"
     },
     "home": {
         "hero_title": "গাঁৱৰ প্ৰয়োজনীয়তাৰ সৈতে স্বেচ্ছাসেৱকক সংযোগ কৰা",
@@ -45,7 +61,8 @@
         "feature_map_desc": "সমন্বয়কসকলে সমস্যা আৰু স্বেচ্ছাসেৱী নিয়োগসমূহ এটা পাৰস্পৰিক মানচিত্ৰত কল্পনা কৰে।",
         "stat_villages": "গাঁও সবলীকৰণ",
         "stat_hours": "স্বেচ্ছাসেৱকৰ সময়",
-        "stat_resolution": "ৰিজ’লিউচনৰ হাৰ"
+        "stat_resolution": "ৰিজ’লিউচনৰ হাৰ",
+        "hero_heading_highlight": "বুদ্ধিমান ক্ৰিয়া"
     },
     "dashboard": {
         "coordinator_dashboard": "সমন্বয়ক ডেচব'ৰ্ড",
@@ -168,5 +185,42 @@
         "password": "পাছৱৰ্ড",
         "sign_in": "চাইন ইন কৰক",
         "back_to_home": "← ঘৰলৈ উভতি যাওক"
+    },
+    "map": {
+        "live_geospatial_view": "লাইভ জিঅ'স্পেচিয়েল ভিউ",
+        "title": "সমস্যাৰ স্থান আৰু স্বেচ্ছাসেৱী নিয়োগ",
+        "subtitle": "মেপত প্ৰতিবেদন কৰা সমস্যাসমূহ ব্ৰাউজ কৰক, অৱস্থান বা অৱস্থা অনুসৰি ফিল্টাৰ কৰক, আৰু লাইভ সমস্যা প্ৰবাহ পৰিদৰ্শন কৰক।",
+        "back_to_dashboard": "ডেচব'ৰ্ডলৈ উভতি যাওক",
+        "all_problems": "সকলো সমস্যা",
+        "filter_village": "গ্রাম দ্বারা ফিল্টাৰ...",
+        "showing": "দেখুৱাইছে",
+        "problems": "সমস্যা",
+        "problem": "সমস্যা",
+        "in": "ভিতৰত",
+        "problem_map": "সমস্যাৰ মানচিত্ৰ",
+        "markers": "মাৰ্কাৰ",
+        "all_cases": "সকলো ক্ষেত্ৰতে",
+        "live_backend_state": "লাইভ বেকএণ্ড অৱস্থা",
+        "loading_map": "মানচিত্র লোড হচ্ছে...",
+        "loading": "লোড হচ্ছে...",
+        "no_problems": "বৰ্তমানৰ ফিল্টাৰসমূহৰ সৈতে কোনো সমস্যা মিল নাই।"
+    },
+    "skills": {
+        "digital literacy": "ডিজিটেল সাক্ষৰতা",
+        "teaching": "পাঠদান",
+        "excel training": "এক্সেল ট্ৰেইনিং",
+        "household survey": "ঘৰুৱা জৰীপ",
+        "Computer Repair": "কম্পিউটাৰ মেৰামতি",
+        "Teaching": "পাঠদান",
+        "Plumbing": "প্লাম্বিং",
+        "Electrical Work": "বৈদ্যুতিক কাম",
+        "Construction": "নিৰ্মাণ",
+        "Digital Literacy": "ডিজিটেল সাক্ষৰতা",
+        "Agriculture": "কৃষি",
+        "Healthcare": "স্বাস্থ্যসেৱা",
+        "Tutoring": "টিউচন",
+        "Web Development": "ৱেব ডেভেলপমেন্ট",
+        "Marketing": "বিপণন",
+        "Accounting": "একাউণ্টিং"
     }
 }

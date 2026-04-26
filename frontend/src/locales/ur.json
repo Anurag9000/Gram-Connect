@@ -13,7 +13,23 @@
         "go_to_dashboard": "ڈیش بورڈ → پر جائیں۔",
         "go_to_tasks": "Tasks → پر جائیں۔",
         "open_map": "کھولیں نقشہ →",
-        "submit_problem": "مسئلہ جمع کروائیں →"
+        "submit_problem": "مسئلہ جمع کروائیں →",
+        "pending": "زیر التواء",
+        "in_progress": "جاری ہے۔",
+        "completed": "مکمل",
+        "high": "اعلی",
+        "normal": "نارمل",
+        "low": "کم",
+        "water-sanitation": "پانی اور صفائی",
+        "infrastructure": "انفراسٹرکچر",
+        "health-nutrition": "صحت اور غذائیت",
+        "agriculture-environment": "زراعت اور ماحولیات",
+        "education-digital": "تعلیم اور ڈیجیٹل",
+        "livelihood-governance": "معاش اور گورننس",
+        "others": "دوسرے",
+        "education": "تعلیم",
+        "health": "صحت",
+        "digital": "ڈیجیٹل"
     },
     "home": {
         "hero_title": "رضاکاروں کو گاؤں کی ضروریات سے جوڑنا",
@@ -45,7 +61,8 @@
         "feature_map_desc": "رابطہ کار ایک انٹرایکٹو نقشے پر مسائل اور رضاکارانہ تعیناتیوں کا تصور کرتے ہیں۔",
         "stat_villages": "گاؤں بااختیار",
         "stat_hours": "رضاکارانہ اوقات",
-        "stat_resolution": "ریزولوشن ریٹ"
+        "stat_resolution": "ریزولوشن ریٹ",
+        "hero_heading_highlight": "ذہین عمل"
     },
     "dashboard": {
         "coordinator_dashboard": "رابطہ مرکز",
@@ -165,5 +182,42 @@
         "password": "پاس ورڈ",
         "sign_in": "سائن ان کریں۔",
         "back_to_home": "← واپس گھر پر"
+    },
+    "map": {
+        "live_geospatial_view": "لائیو جغرافیائی منظر",
+        "title": "مسائل کے مقامات اور رضاکاروں کی تعیناتی۔",
+        "subtitle": "نقشے پر رپورٹ کردہ مسائل کو براؤز کریں، مقام یا حیثیت کے لحاظ سے فلٹر کریں، اور لائیو مسئلے کے سلسلے کا معائنہ کریں۔",
+        "back_to_dashboard": "ڈیش بورڈ پر واپس جائیں۔",
+        "all_problems": "تمام مسائل",
+        "filter_village": "گاؤں کے لحاظ سے فلٹر کریں…",
+        "showing": "دکھا رہا ہے۔",
+        "problems": "مسائل",
+        "problem": "مسئلہ",
+        "in": "میں",
+        "problem_map": "مسئلہ کا نقشہ",
+        "markers": "مارکر",
+        "all_cases": "تمام معاملات",
+        "live_backend_state": "زندہ پسدید ریاست",
+        "loading_map": "نقشہ لوڈ ہو رہا ہے…",
+        "loading": "لوڈ ہو رہا ہے…",
+        "no_problems": "موجودہ فلٹرز سے کوئی مسئلہ نہیں ملتا۔"
+    },
+    "skills": {
+        "digital literacy": "ڈیجیٹل خواندگی",
+        "teaching": "پڑھانا",
+        "excel training": "ایکسل ٹریننگ",
+        "household survey": "گھریلو سروے",
+        "Computer Repair": "کمپیوٹر کی مرمت",
+        "Teaching": "پڑھانا",
+        "Plumbing": "پلمبنگ",
+        "Electrical Work": "بجلی کا کام",
+        "Construction": "تعمیر",
+        "Digital Literacy": "ڈیجیٹل خواندگی",
+        "Agriculture": "زراعت",
+        "Healthcare": "صحت کی دیکھ بھال",
+        "Tutoring": "ٹیوشن",
+        "Web Development": "ویب ڈویلپمنٹ",
+        "Marketing": "مارکیٹنگ",
+        "Accounting": "حساب کتاب"
     }
 }

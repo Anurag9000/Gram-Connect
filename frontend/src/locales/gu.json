@@ -13,7 +13,23 @@
         "go_to_dashboard": "ડેશબોર્ડ → પર જાઓ",
         "go_to_tasks": "Tasks → પર જાઓ",
         "open_map": "નકશો ખોલો →",
-        "submit_problem": "સમસ્યા સબમિટ કરો →"
+        "submit_problem": "સમસ્યા સબમિટ કરો →",
+        "pending": "બાકી છે",
+        "in_progress": "પ્રગતિમાં છે",
+        "completed": "પૂર્ણ થયું",
+        "high": "ઉચ્ચ",
+        "normal": "સામાન્ય",
+        "low": "નીચું",
+        "water-sanitation": "પાણી અને સ્વચ્છતા",
+        "infrastructure": "ઈન્ફ્રાસ્ટ્રક્ચર",
+        "health-nutrition": "આરોગ્ય અને પોષણ",
+        "agriculture-environment": "કૃષિ અને પર્યાવરણ",
+        "education-digital": "શિક્ષણ અને ડિજિટલ",
+        "livelihood-governance": "આજીવિકા અને શાસન",
+        "others": "અન્ય",
+        "education": "શિક્ષણ",
+        "health": "આરોગ્ય",
+        "digital": "ડિજિટલ"
     },
     "home": {
         "hero_title": "સ્વયંસેવકોને ગામની જરૂરિયાતો સાથે જોડવા",
@@ -45,7 +61,8 @@
         "feature_map_desc": "સંયોજકો ઇન્ટરેક્ટિવ નકશા પર સમસ્યાઓ અને સ્વયંસેવક જમાવટની કલ્પના કરે છે.",
         "stat_villages": "ગામો સશક્ત",
         "stat_hours": "સ્વયંસેવક કલાકો",
-        "stat_resolution": "રિઝોલ્યુશન રેટ"
+        "stat_resolution": "રિઝોલ્યુશન રેટ",
+        "hero_heading_highlight": "બુદ્ધિશાળી ક્રિયા"
     },
     "dashboard": {
         "coordinator_dashboard": "સંકલન કેન્દ્ર",
@@ -165,5 +182,42 @@
         "password": "પાસવર્ડ",
         "sign_in": "સાઇન ઇન કરો",
         "back_to_home": "← ઘરે પાછા ફરો"
+    },
+    "map": {
+        "live_geospatial_view": "લાઈવ જીઓસ્પેશિયલ વ્યુ",
+        "title": "સમસ્યા સ્થાનો અને સ્વયંસેવકોની જમાવટ",
+        "subtitle": "નકશા પર રિપોર્ટ કરેલી સમસ્યાઓ બ્રાઉઝ કરો, સ્થાન અથવા સ્થિતિ દ્વારા ફિલ્ટર કરો અને લાઇવ સમસ્યા સ્ટ્રીમનું નિરીક્ષણ કરો.",
+        "back_to_dashboard": "ડેશબોર્ડ પર પાછા જાઓ",
+        "all_problems": "બધી સમસ્યાઓ",
+        "filter_village": "ગામ પ્રમાણે ફિલ્ટર કરો...",
+        "showing": "દર્શાવે છે",
+        "problems": "સમસ્યાઓ",
+        "problem": "સમસ્યા",
+        "in": "માં",
+        "problem_map": "સમસ્યા નકશો",
+        "markers": "માર્કર",
+        "all_cases": "બધા કેસો",
+        "live_backend_state": "જીવંત બેકએન્ડ રાજ્ય",
+        "loading_map": "નકશો લોડ કરી રહ્યું છે...",
+        "loading": "લોડ કરી રહ્યું છે...",
+        "no_problems": "વર્તમાન ફિલ્ટર્સ સાથે કોઈ સમસ્યા મેળ ખાતી નથી."
+    },
+    "skills": {
+        "digital literacy": "ડિજિટલ સાક્ષરતા",
+        "teaching": "અધ્યાપન",
+        "excel training": "એક્સેલ તાલીમ",
+        "household survey": "ઘરગથ્થુ સર્વેક્ષણ",
+        "Computer Repair": "કમ્પ્યુટર સમારકામ",
+        "Teaching": "અધ્યાપન",
+        "Plumbing": "પ્લમ્બિંગ",
+        "Electrical Work": "વિદ્યુત કાર્ય",
+        "Construction": "બાંધકામ",
+        "Digital Literacy": "ડિજિટલ સાક્ષરતા",
+        "Agriculture": "કૃષિ",
+        "Healthcare": "હેલ્થકેર",
+        "Tutoring": "ટ્યુટરિંગ",
+        "Web Development": "વેબ ડેવલપમેન્ટ",
+        "Marketing": "માર્કેટિંગ",
+        "Accounting": "એકાઉન્ટિંગ"
     }
 }

@@ -13,7 +13,23 @@
         "hi": "ହିନ୍ଦୀ",
         "go_to_dashboard": "ଡ୍ୟାସବୋର୍ଡ to କୁ ଯାଆନ୍ତୁ |",
         "go_to_tasks": "କାର୍ଯ୍ୟ → କୁ ଯାଆନ୍ତୁ |",
-        "open_map": "ମାନଚିତ୍ର ଖୋଲନ୍ତୁ →"
+        "open_map": "ମାନଚିତ୍ର ଖୋଲନ୍ତୁ →",
+        "pending": "ବିଚାରାଧୀନ ଅଛି",
+        "in_progress": "ପ୍ରଗତିରେ",
+        "completed": "ସମାପ୍ତ",
+        "high": "ଉଚ୍ଚ",
+        "normal": "ସାଧାରଣ",
+        "low": "ନିମ୍ନ",
+        "water-sanitation": "ଜଳ ଏବଂ ପରିମଳ",
+        "infrastructure": "ଭିତ୍ତିଭୂମି",
+        "health-nutrition": "ସ୍ୱାସ୍ଥ୍ୟ ଏବଂ ପୁଷ୍ଟିକର",
+        "agriculture-environment": "କୃଷି ଏବଂ ପରିବେଶ",
+        "education-digital": "ଶିକ୍ଷା ଏବଂ ଡିଜିଟାଲ୍ |",
+        "livelihood-governance": "ଜୀବିକା ଏବଂ ଶାସନ",
+        "others": "ଅନ୍ୟମାନେ |",
+        "education": "ଶିକ୍ଷା",
+        "health": "ସ୍ୱାସ୍ଥ୍ୟ",
+        "digital": "ଡିଜିଟାଲ୍ |"
     },
     "home": {
         "hero_title": "ସ୍ Village େଚ୍ଛାସେବୀମାନଙ୍କୁ ଗ୍ରାମ ଆବଶ୍ୟକତା ସହିତ ସଂଯୋଗ କରିବା |",
@@ -45,7 +61,8 @@
         "feature_map_desc": "ସଂଯୋଜକମାନେ ଏକ ଇଣ୍ଟରାକ୍ଟିଭ୍ ମାନଚିତ୍ରରେ ସମସ୍ୟା ଏବଂ ସ୍ୱେଚ୍ଛାସେବୀ ନିୟୋଜନକୁ ଭିଜୁଆଲ୍ କରନ୍ତି |",
         "stat_villages": "ଗ୍ରାମଗୁଡିକ ସଶକ୍ତ",
         "stat_hours": "ସ୍ବେଚ୍ଛାସେବୀ ଘଣ୍ଟା |",
-        "stat_resolution": "ରେଜୋଲୁସନ ହାର"
+        "stat_resolution": "ରେଜୋଲୁସନ ହାର",
+        "hero_heading_highlight": "ବୁଦ୍ଧିଜୀବୀ କାର୍ଯ୍ୟ"
     },
     "dashboard": {
         "coordinator_dashboard": "ସଂଯୋଜକ ଡ୍ୟାସବୋର୍ଡ |",
@@ -168,5 +185,42 @@
         "password": "ପାସୱାର୍ଡ",
         "sign_in": "ସାଇନ୍ ଇନ୍ କରନ୍ତୁ |",
         "back_to_home": "Home ଘରକୁ ଫେରନ୍ତୁ |"
+    },
+    "map": {
+        "live_geospatial_view": "ଲାଇଭ୍ ଭ osp ଗୋଳିକ ଦୃଶ୍ୟ |",
+        "title": "ସମସ୍ୟା ଅବସ୍ଥାନ ଏବଂ ସ୍ୱେଚ୍ଛାସେବୀ ନିୟୋଜନ |",
+        "subtitle": "ମାନଚିତ୍ରରେ ରିପୋର୍ଟ ହୋଇଥିବା ସମସ୍ୟାଗୁଡିକ ବ୍ରାଉଜ୍ କରନ୍ତୁ, ଅବସ୍ଥାନ କିମ୍ବା ସ୍ଥିତି ଅନୁଯାୟୀ ଫିଲ୍ଟର୍ କରନ୍ତୁ ଏବଂ ଲାଇଭ୍ ସମସ୍ୟା ଷ୍ଟ୍ରିମ୍ ଯାଞ୍ଚ କରନ୍ତୁ |",
+        "back_to_dashboard": "ଡ୍ୟାସବୋର୍ଡକୁ ଫେରନ୍ତୁ |",
+        "all_problems": "ସମସ୍ତ ସମସ୍ୟା |",
+        "filter_village": "ଗାଁ ଦ୍ୱାରା ଫିଲ୍ଟର୍…",
+        "showing": "ଦେଖାଉଛି |",
+        "problems": "ସମସ୍ୟାଗୁଡିକ |",
+        "problem": "ସମସ୍ୟା",
+        "in": "ଭିତରେ",
+        "problem_map": "ସମସ୍ୟା ମାନଚିତ୍ର",
+        "markers": "ମାର୍କରଗୁଡିକ",
+        "all_cases": "ସମସ୍ତ ମାମଲା |",
+        "live_backend_state": "ଲାଇଭ୍ ବ୍ୟାକେଣ୍ଡ୍ ଷ୍ଟେଟ୍ |",
+        "loading_map": "ମାନଚିତ୍ର ଲୋଡିଂ…",
+        "loading": "ଲୋଡିଂ…",
+        "no_problems": "ସାମ୍ପ୍ରତିକ ଫିଲ୍ଟରଗୁଡିକ ସହିତ କ problems ଣସି ଅସୁବିଧା ମେଳ ଖାଉ ନାହିଁ |"
+    },
+    "skills": {
+        "digital literacy": "ଡିଜିଟାଲ୍ ସାକ୍ଷରତା |",
+        "teaching": "ଶିକ୍ଷାଦାନ",
+        "excel training": "Excel ତାଲିମ |",
+        "household survey": "ଘର ସର୍ବେକ୍ଷଣ |",
+        "Computer Repair": "କମ୍ପ୍ୟୁଟର ମରାମତି |",
+        "Teaching": "ଶିକ୍ଷାଦାନ",
+        "Plumbing": "ଜଳଯୋଗାଣ",
+        "Electrical Work": "ବ Elect ଦ୍ୟୁତିକ କାର୍ଯ୍ୟ",
+        "Construction": "ନିର୍ମାଣ",
+        "Digital Literacy": "ଡିଜିଟାଲ୍ ସାକ୍ଷରତା |",
+        "Agriculture": "କୃଷି",
+        "Healthcare": "ସ୍ୱାସ୍ଥ୍ୟସେବା",
+        "Tutoring": "ଶିକ୍ଷାଦାନ",
+        "Web Development": "ୱେବ୍ ବିକାଶ",
+        "Marketing": "ମାର୍କେଟିଂ |",
+        "Accounting": "ଆକାଉଣ୍ଟିଂ"
     }
 }

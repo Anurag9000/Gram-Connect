@@ -13,7 +13,23 @@
         "go_to_dashboard": "डॅशबोर्ड → वर जा",
         "go_to_tasks": "टास्क → वर जा",
         "open_map": "नकाशा उघडा →",
-        "submit_problem": "समस्या सबमिट करा →"
+        "submit_problem": "समस्या सबमिट करा →",
+        "pending": "प्रलंबित",
+        "in_progress": "प्रगतीपथावर आहे",
+        "completed": "पूर्ण झाले",
+        "high": "उच्च",
+        "normal": "सामान्य",
+        "low": "कमी",
+        "water-sanitation": "पाणी आणि स्वच्छता",
+        "infrastructure": "पायाभूत सुविधा",
+        "health-nutrition": "आरोग्य आणि पोषण",
+        "agriculture-environment": "शेती आणि पर्यावरण",
+        "education-digital": "शिक्षण आणि डिजिटल",
+        "livelihood-governance": "उपजीविका आणि शासन",
+        "others": "इतर",
+        "education": "शिक्षण",
+        "health": "आरोग्य",
+        "digital": "डिजिटल"
     },
     "home": {
         "hero_title": "स्वयंसेवकांना गावातील गरजांशी जोडणे",
@@ -45,7 +61,8 @@
         "feature_map_desc": "समन्वयक संवादात्मक नकाशावर समस्या आणि स्वयंसेवक तैनातीची कल्पना करतात.",
         "stat_villages": "गावे सशक्त",
         "stat_hours": "स्वयंसेवक तास",
-        "stat_resolution": "ठराव दर"
+        "stat_resolution": "ठराव दर",
+        "hero_heading_highlight": "बुद्धिमान कृती"
     },
     "dashboard": {
         "coordinator_dashboard": "समन्वय केंद्र",
@@ -165,5 +182,42 @@
         "password": "पासवर्ड",
         "sign_in": "साइन इन करा",
         "back_to_home": "← घरी परत"
+    },
+    "map": {
+        "live_geospatial_view": "थेट भौगोलिक दृश्य",
+        "title": "समस्या स्थाने आणि स्वयंसेवक तैनाती",
+        "subtitle": "नकाशावर नोंदवलेल्या समस्या ब्राउझ करा, स्थान किंवा स्थितीनुसार फिल्टर करा आणि थेट समस्या प्रवाहाची तपासणी करा.",
+        "back_to_dashboard": "डॅशबोर्डवर परत",
+        "all_problems": "सर्व समस्या",
+        "filter_village": "गावानुसार फिल्टर करा...",
+        "showing": "दाखवत आहे",
+        "problems": "समस्या",
+        "problem": "समस्या",
+        "in": "मध्ये",
+        "problem_map": "समस्या नकाशा",
+        "markers": "मार्कर",
+        "all_cases": "सर्व प्रकरणे",
+        "live_backend_state": "थेट बॅकएंड स्थिती",
+        "loading_map": "नकाशा लोड करत आहे...",
+        "loading": "लोड करत आहे...",
+        "no_problems": "कोणतीही समस्या वर्तमान फिल्टरशी जुळत नाही."
+    },
+    "skills": {
+        "digital literacy": "डिजिटल साक्षरता",
+        "teaching": "शिकवणे",
+        "excel training": "एक्सेल प्रशिक्षण",
+        "household survey": "घरगुती सर्वेक्षण",
+        "Computer Repair": "संगणक दुरुस्ती",
+        "Teaching": "शिकवणे",
+        "Plumbing": "प्लंबिंग",
+        "Electrical Work": "इलेक्ट्रिकल काम",
+        "Construction": "बांधकाम",
+        "Digital Literacy": "डिजिटल साक्षरता",
+        "Agriculture": "शेती",
+        "Healthcare": "आरोग्यसेवा",
+        "Tutoring": "शिकवणी",
+        "Web Development": "वेब विकास",
+        "Marketing": "मार्केटिंग",
+        "Accounting": "हिशेब"
     }
 }

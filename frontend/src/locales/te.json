@@ -13,7 +13,23 @@
         "go_to_dashboard": "డాష్‌బోర్డ్ →కి వెళ్లండి",
         "go_to_tasks": "టాస్క్‌లు →కి వెళ్లండి",
         "open_map": "మ్యాప్ → తెరవండి",
-        "submit_problem": "సమస్యను సమర్పించండి →"
+        "submit_problem": "సమస్యను సమర్పించండి →",
+        "pending": "పెండింగ్‌లో ఉంది",
+        "in_progress": "పురోగతిలో ఉంది",
+        "completed": "పూర్తయింది",
+        "high": "అధిక",
+        "normal": "సాధారణ",
+        "low": "తక్కువ",
+        "water-sanitation": "నీరు & పారిశుధ్యం",
+        "infrastructure": "మౌలిక సదుపాయాలు",
+        "health-nutrition": "ఆరోగ్యం & పోషకాహారం",
+        "agriculture-environment": "వ్యవసాయం & పర్యావరణం",
+        "education-digital": "విద్య & డిజిటల్",
+        "livelihood-governance": "జీవనోపాధి & పాలన",
+        "others": "ఇతరులు",
+        "education": "విద్య",
+        "health": "ఆరోగ్యం",
+        "digital": "డిజిటల్"
     },
     "home": {
         "hero_title": "గ్రామ అవసరాలకు వాలంటీర్లను కనెక్ట్ చేయడం",
@@ -45,7 +61,8 @@
         "feature_map_desc": "సమన్వయకర్తలు ఇంటరాక్టివ్ మ్యాప్‌లో సమస్యలను మరియు స్వచ్చంద విస్తరణలను దృశ్యమానం చేస్తారు.",
         "stat_villages": "గ్రామాలు సాధికారత",
         "stat_hours": "వాలంటీర్ గంటలు",
-        "stat_resolution": "రిజల్యూషన్ రేటు"
+        "stat_resolution": "రిజల్యూషన్ రేటు",
+        "hero_heading_highlight": "ఇంటెలిజెంట్ యాక్షన్"
     },
     "dashboard": {
         "coordinator_dashboard": "సమన్వయ కేంద్రం",
@@ -165,5 +182,42 @@
         "password": "పాస్వర్డ్",
         "sign_in": "సైన్ ఇన్ చేయండి",
         "back_to_home": "← ఇంటికి తిరిగి వెళ్ళు"
+    },
+    "map": {
+        "live_geospatial_view": "లైవ్ జియోస్పేషియల్ వ్యూ",
+        "title": "సమస్య స్థానాలు & వాలంటీర్ విస్తరణలు",
+        "subtitle": "మ్యాప్‌లో నివేదించబడిన సమస్యలను బ్రౌజ్ చేయండి, స్థానం లేదా స్థితి ద్వారా ఫిల్టర్ చేయండి మరియు ప్రత్యక్ష సమస్య స్ట్రీమ్‌ను తనిఖీ చేయండి.",
+        "back_to_dashboard": "తిరిగి డాష్‌బోర్డ్‌కి",
+        "all_problems": "అన్ని సమస్యలు",
+        "filter_village": "గ్రామం వారీగా ఫిల్టర్ చేయండి...",
+        "showing": "చూపిస్తున్నారు",
+        "problems": "సమస్యలు",
+        "problem": "సమస్య",
+        "in": "లో",
+        "problem_map": "సమస్య మ్యాప్",
+        "markers": "గుర్తులు",
+        "all_cases": "అన్ని కేసులు",
+        "live_backend_state": "ప్రత్యక్ష నేపథ్య స్థితి",
+        "loading_map": "మ్యాప్ లోడ్ అవుతోంది…",
+        "loading": "లోడ్ అవుతోంది...",
+        "no_problems": "ప్రస్తుత ఫిల్టర్‌లకు ఏ సమస్యలు సరిపోలలేదు."
+    },
+    "skills": {
+        "digital literacy": "డిజిటల్ అక్షరాస్యత",
+        "teaching": "బోధన",
+        "excel training": "ఎక్సెల్ శిక్షణ",
+        "household survey": "గృహ సర్వే",
+        "Computer Repair": "కంప్యూటర్ రిపేర్",
+        "Teaching": "బోధన",
+        "Plumbing": "ప్లంబింగ్",
+        "Electrical Work": "ఎలక్ట్రికల్ పని",
+        "Construction": "నిర్మాణం",
+        "Digital Literacy": "డిజిటల్ అక్షరాస్యత",
+        "Agriculture": "వ్యవసాయం",
+        "Healthcare": "ఆరోగ్య సంరక్షణ",
+        "Tutoring": "ట్యూటరింగ్",
+        "Web Development": "వెబ్ అభివృద్ధి",
+        "Marketing": "మార్కెటింగ్",
+        "Accounting": "అకౌంటింగ్"
     }
 }

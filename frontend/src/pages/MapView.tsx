@@ -4,6 +4,7 @@ import { api, type ProblemRecord } from '../services/api';
 import ProblemMap from '../components/ProblemMap';
 import { useNavigate } from 'react-router-dom';
 import { subscribeLiveRefresh } from '../lib/liveRefresh';
+import { useTranslation } from 'react-i18next';
 
 type Village = { name: string; district: string; state: string; lat?: number; lng?: number };
 
@@ -15,6 +16,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function MapView() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [problems, setProblems] = useState<ProblemRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
@@ -106,27 +108,27 @@ export default function MapView() {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-              <MapPinned size={16} /> Live Geospatial View
+              <MapPinned size={16} /> {t('map.live_geospatial_view')}
             </div>
-            <h1 className="mt-3 text-4xl font-bold text-slate-900">Problem locations &amp; volunteer deployments</h1>
+            <h1 className="mt-3 text-4xl font-bold text-slate-900">{t('map.title')}</h1>
             <p className="mt-2 max-w-2xl text-slate-600">
-              Browse reported issues on the map, filter by location or status, and inspect the live problem stream.
+              {t('map.subtitle')}
             </p>
           </div>
           <button
             onClick={() => navigate('/dashboard')}
             className="rounded-xl border border-emerald-200 bg-white px-4 py-2 font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50"
           >
-            Back to dashboard
+            {t('map.back_to_dashboard')}
           </button>
         </div>
 
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-3">
           {[
-            { label: 'Pending', count: pending, icon: <AlertTriangle className="text-rose-500" size={20} />, color: 'text-rose-600' },
-            { label: 'In Progress', count: active, icon: <Clock className="text-amber-500" size={20} />, color: 'text-amber-600' },
-            { label: 'Resolved', count: completed, icon: <CheckCircle className="text-emerald-500" size={20} />, color: 'text-emerald-600' },
+            { label: t('map.pending', 'Pending'), count: pending, icon: <AlertTriangle className="text-rose-500" size={20} />, color: 'text-rose-600' },
+            { label: t('map.in_progress', 'In Progress'), count: active, icon: <Clock className="text-amber-500" size={20} />, color: 'text-amber-600' },
+            { label: t('map.resolved', 'Resolved'), count: completed, icon: <CheckCircle className="text-emerald-500" size={20} />, color: 'text-emerald-600' },
           ].map(s => (
             <div key={s.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between">
@@ -152,7 +154,7 @@ export default function MapView() {
                     : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                {v === 'all' ? 'All problems' : v.replace('_', ' ')}
+                {v === 'all' ? t('map.all_problems') : t('map.' + v, v.replace('_', ' '))}
               </button>
             ))}
           </div>
@@ -163,7 +165,7 @@ export default function MapView() {
               <Search size={16} className="text-slate-400 shrink-0" />
               <input
                 type="text"
-                placeholder="Filter by village…"
+                placeholder={t('map.filter_village')}
                 className="flex-1 text-sm outline-none bg-transparent text-slate-800 placeholder-slate-400"
                 value={locationSearch}
                 onChange={e => { setLocationSearch(e.target.value); setShowDropdown(true); if (!e.target.value) clearVillage(); }}
@@ -205,7 +207,7 @@ export default function MapView() {
         {selectedVillage && (
           <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
             <MapPin size={14} />
-            <span>Showing <strong>{filteredProblems.length}</strong> problem{filteredProblems.length !== 1 ? 's' : ''} in <strong>{selectedVillage.name}</strong></span>
+            <span>{t('map.showing')} <strong>{filteredProblems.length}</strong> {t('map.problem')}{filteredProblems.length !== 1 ? 's' : ''} {t('map.in')} <strong>{selectedVillage.name}</strong></span>
             <button onClick={clearVillage} className="ml-auto text-emerald-500 hover:text-emerald-700"><X size={14} /></button>
           </div>
         )}
@@ -214,12 +216,12 @@ export default function MapView() {
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)]">
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-lg">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">Problem map</h2>
-              <span className="text-sm text-slate-500">{filteredProblems.length} of {problems.length} markers</span>
+              <h2 className="text-lg font-bold text-slate-900">{t('map.problem_map')}</h2>
+              <span className="text-sm text-slate-500">{filteredProblems.length} / {problems.length} {t('map.markers')}</span>
             </div>
             <div className="h-[640px] overflow-hidden rounded-2xl">
               {loading ? (
-                <div className="flex h-full items-center justify-center text-slate-500">Loading map…</div>
+                <div className="flex h-full items-center justify-center text-slate-500">{t('map.loading_map')}</div>
               ) : (
                 <ProblemMap problems={filteredProblems} center={mapCenter} zoom={mapZoom} />
               )}
@@ -230,19 +232,19 @@ export default function MapView() {
           <div className="flex flex-col gap-3">
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-bold text-slate-900">
-                {selectedVillage ? `${selectedVillage.name} cases` : 'All cases'}
+                {selectedVillage ? `${selectedVillage.name} cases` : t('map.all_cases')}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                {filteredProblems.length} problem{filteredProblems.length !== 1 ? 's' : ''} — live backend state
+                {filteredProblems.length} {t('map.problem')}{filteredProblems.length !== 1 ? 's' : ''} — {t('map.live_backend_state')}
               </p>
             </div>
 
             <div className="overflow-y-auto max-h-[580px] pr-1 space-y-3">
               {loading ? (
-                <div className="text-center py-8 text-slate-400">Loading…</div>
+                <div className="text-center py-8 text-slate-400">{t('map.loading')}</div>
               ) : filteredProblems.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-slate-400">
-                  No problems match the current filters.
+                  {t('map.no_problems')}
                 </div>
               ) : filteredProblems.map(problem => (
                 <div key={problem.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition">
@@ -255,7 +257,7 @@ export default function MapView() {
                       </div>
                     </div>
                     <span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide shrink-0 ${STATUS_STYLES[problem.status] ?? STATUS_STYLES.pending}`}>
-                      {problem.status.replace('_', ' ')}
+                      {t(`common.${problem.status.toLowerCase()}`, problem.status.replace('_', ' '))}
                     </span>
                   </div>
                   {problem.description && (

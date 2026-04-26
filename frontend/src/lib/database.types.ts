@@ -33,7 +33,9 @@ export interface Database {
           villager_id: string;
           title: string;
           description: string;
-          category: 'education' | 'health' | 'infrastructure' | 'digital' | 'others' | string;
+          category: 'water-sanitation' | 'infrastructure' | 'health-nutrition' | 'agriculture-environment' | 'education-digital' | 'livelihood-governance' | 'others' | string;
+          severity: 'LOW' | 'NORMAL' | 'HIGH';
+          severity_source?: string;
           village_name: string;
           village_address?: string | null;
           status: 'pending' | 'in_progress' | 'completed' | string;

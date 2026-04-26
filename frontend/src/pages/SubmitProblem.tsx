@@ -1,7 +1,7 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import {
-  GraduationCap, Heart, Building, Laptop, MoreHorizontal,
-  CheckCircle, Upload, MapPin, Loader2, UserRound, Phone, Mail
+  Droplets, HeartPulse, Building2, BookOpen, Sprout, Landmark, MoreHorizontal,
+  CheckCircle, Upload, MapPin, Loader2, UserRound, Phone, Mail, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
@@ -11,13 +11,90 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { loadStoredProfile, saveStoredProfile, type ProfileRecord } from '../lib/profileStorage';
 
+// Non-overlapping problem categories.
+// Category is a routing/display label only. Actual multi-domain skill matching
+// is driven by required_skills extracted from the problem description text.
 const categories = [
-  { id: 'education', label: 'Education', icon: GraduationCap, color: 'bg-blue-100 text-blue-600' },
-  { id: 'health', label: 'Health', icon: Heart, color: 'bg-red-100 text-red-600' },
-  { id: 'infrastructure', label: 'Infrastructure', icon: Building, color: 'bg-orange-100 text-orange-600' },
-  { id: 'digital', label: 'Digital Help', icon: Laptop, color: 'bg-green-100 text-green-600' },
-  { id: 'others', label: 'Others', icon: MoreHorizontal, color: 'bg-gray-100 text-gray-600' },
+  {
+    id: 'water-sanitation',
+    label: 'Water & Sanitation',
+    icon: Droplets,
+    color: 'bg-blue-100 text-blue-600',
+    keywords: ['water', 'pump', 'handpump', 'drain', 'sanitation', 'toilet', 'latrine', 'contamination', 'borewell', 'pipe', 'sewage', 'wash'],
+  },
+  {
+    id: 'infrastructure',
+    label: 'Infrastructure',
+    icon: Building2,
+    color: 'bg-orange-100 text-orange-600',
+    keywords: ['road', 'bridge', 'culvert', 'building', 'wall', 'house', 'electricity', 'solar', 'grid', 'wiring', 'path', 'construction'],
+  },
+  {
+    id: 'health-nutrition',
+    label: 'Health & Nutrition',
+    icon: HeartPulse,
+    color: 'bg-red-100 text-red-600',
+    keywords: ['health', 'disease', 'fever', 'nutrition', 'anganwadi', 'vaccination', 'outbreak', 'medicine', 'hospital', 'malnutrition'],
+  },
+  {
+    id: 'agriculture-environment',
+    label: 'Agriculture & Environment',
+    icon: Sprout,
+    color: 'bg-green-100 text-green-600',
+    keywords: ['agriculture', 'farm', 'crop', 'irrigation', 'drip', 'soil', 'harvest', 'forest', 'tree', 'erosion', 'plantation', 'livestock'],
+  },
+  {
+    id: 'education-digital',
+    label: 'Education & Digital',
+    icon: BookOpen,
+    color: 'bg-purple-100 text-purple-600',
+    keywords: ['education', 'school', 'digital', 'literacy', 'computer', 'smartphone', 'internet', 'training', 'vocational', 'teacher'],
+  },
+  {
+    id: 'livelihood-governance',
+    label: 'Livelihood & Governance',
+    icon: Landmark,
+    color: 'bg-yellow-100 text-yellow-700',
+    keywords: ['panchayat', 'mgnrega', 'shg', 'self help', 'women', 'microfinance', 'cooperative', 'gram sabha', 'beneficiary', 'survey', 'census'],
+  },
+  {
+    id: 'others',
+    label: 'Others',
+    icon: MoreHorizontal,
+    color: 'bg-gray-100 text-gray-600',
+    keywords: [],
+  },
 ];
+
+const SEVERITY_OPTIONS = [
+  { value: 'auto',   label: 'Auto-detect', description: 'Inferred from your description' },
+  { value: 'LOW',    label: 'Low',         description: 'Routine, no immediate risk' },
+  { value: 'NORMAL', label: 'Normal',      description: 'Needs attention within days' },
+  { value: 'HIGH',   label: 'High',        description: 'Urgent / emergency' },
+];
+
+// Infer most likely category from free text by counting keyword hits.
+function inferCategory(text: string): string | null {
+  const t = text.toLowerCase();
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const cat of categories) {
+    if (cat.id === 'others') continue;
+    const count = cat.keywords.filter(kw => t.includes(kw)).length;
+    if (count > bestCount) { bestCount = count; best = cat.id; }
+  }
+  return bestCount > 0 ? best : null;
+}
+
+// Mirrors backend estimate_severity keyword logic (forge.py).
+function inferSeverity(text: string): 'LOW' | 'NORMAL' | 'HIGH' {
+  const t = text.toLowerCase();
+  const highWords = ['urgent', 'emergency', 'critical', 'broken', 'no water', 'flooding', 'collapse', 'immediate', 'danger', 'severe', 'crisis'];
+  const lowWords  = ['minor', 'low priority', 'routine', 'request', 'small'];
+  if (highWords.some(w => t.includes(w))) return 'HIGH';
+  if (lowWords.some(w => t.includes(w))) return 'LOW';
+  return 'NORMAL';
+}
 
 export default function SubmitProblem() {
   const { t } = useTranslation();
@@ -29,6 +106,8 @@ export default function SubmitProblem() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<string>('');
+  const [categoryAutoSet, setCategoryAutoSet] = useState(false);
+  const [severityChoice, setSeverityChoice] = useState<'auto' | 'LOW' | 'NORMAL' | 'HIGH'>('auto');
   const [villageName, setVillageName] = useState(reporterProfile?.village_name ?? '');
   const [villageAddress, setVillageAddress] = useState('');
   const [reporterName, setReporterName] = useState(reporterProfile?.full_name ?? '');
@@ -47,6 +126,18 @@ export default function SubmitProblem() {
 
   const canSubmitAsCoordinator = profile?.role === 'coordinator';
   const needsReporterProfile = !canSubmitAsCoordinator;
+
+  // Auto-infer category when user leaves the description field,
+  // unless they have already manually selected a category.
+  const handleDescriptionBlur = useCallback(() => {
+    if (category && !categoryAutoSet) return;
+    const inferred = inferCategory(`${title} ${description}`);
+    if (inferred && inferred !== category) {
+      setCategory(inferred);
+      setCategoryAutoSet(true);
+    }
+  }, [title, description, category, categoryAutoSet]);
+
 
   const handleSaveReporterProfile = async (): Promise<ProfileRecord> => {
     if (!needsReporterProfile) {
@@ -132,6 +223,10 @@ export default function SubmitProblem() {
         villagerProfile = await handleSaveReporterProfile();
       }
 
+      const resolvedSeverity: 'LOW' | 'NORMAL' | 'HIGH' = severityChoice === 'auto'
+        ? inferSeverity(`${title} ${description}`)
+        : severityChoice;
+
       const submission = await api.submitProblem({
         coordinator_id: canSubmitAsCoordinator ? profile?.id : undefined,
         villager_id: canSubmitAsCoordinator ? undefined : villagerProfile?.id,
@@ -140,6 +235,7 @@ export default function SubmitProblem() {
         title,
         description,
         category,
+        severity: resolvedSeverity,
         village_name: villageName,
         village_address: villageAddress,
         visual_tags: visualTags,
@@ -370,24 +466,51 @@ export default function SubmitProblem() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 Category <span className="text-red-500">*</span>
+                {categoryAutoSet && <span className="ml-2 text-xs text-green-600 font-normal">Auto-detected from your description</span>}
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {categories.map((cat) => (
                   <button
                     key={cat.id}
                     type="button"
-                    onClick={() => setCategory(cat.id)}
+                    onClick={() => { setCategory(cat.id); setCategoryAutoSet(false); }}
                     className={`p-4 rounded-lg border-2 transition ${category === cat.id
                       ? 'border-green-600 bg-green-50'
                       : 'border-gray-200 hover:border-green-300'
                       }`}
                   >
-                    <div className={`w-12 h-12 ${cat.color} rounded-full flex items-center justify-center mx-auto mb-2`}>
-                      <cat.icon size={24} />
+                    <div className={`w-10 h-10 ${cat.color} rounded-full flex items-center justify-center mx-auto mb-2`}>
+                      <cat.icon size={20} />
                     </div>
-                    <p className="text-sm font-medium text-gray-700 text-center">
+                    <p className="text-xs font-medium text-gray-700 text-center leading-tight">
                       {cat.label}
                     </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Urgency Level
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {SEVERITY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setSeverityChoice(opt.value as typeof severityChoice)}
+                    className={`p-3 rounded-lg border-2 text-left transition ${
+                      severityChoice === opt.value
+                        ? opt.value === 'HIGH' ? 'border-red-500 bg-red-50'
+                          : opt.value === 'LOW' ? 'border-gray-400 bg-gray-50'
+                          : 'border-green-600 bg-green-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {opt.value === 'HIGH' && <AlertTriangle size={14} className="text-red-500 mb-1" />}
+                    <p className="text-sm font-semibold text-gray-800">{opt.label}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{opt.description}</p>
                   </button>
                 ))}
               </div>
@@ -412,6 +535,7 @@ export default function SubmitProblem() {
                 data-testid="problem-description-input"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                onBlur={handleDescriptionBlur}
                 placeholder={t('submit.description')}
                 rows={6}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
@@ -453,7 +577,7 @@ export default function SubmitProblem() {
 
             <button
               type="submit"
-              disabled={loading || savingProfile || !category}
+              disabled={loading || savingProfile || !category || !description}
               className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold text-lg hover:bg-green-700 transition disabled:bg-gray-400"
             >
               {loading ? 'Submitting...' : 'Submit Problem'}

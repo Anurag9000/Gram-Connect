@@ -1,8 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     CheckCircle, Clock, Camera, MapPin,
-    ChevronRight, ArrowLeft, Loader2
+    ChevronRight, ArrowLeft, Loader2, AlertTriangle, Tag
 } from 'lucide-react';
+
+const SEVERITY_STYLE: Record<string, string> = {
+    HIGH:   'bg-red-600 text-white',
+    NORMAL: 'bg-amber-100 text-amber-700',
+    LOW:    'bg-gray-100 text-gray-500',
+};
+
+const CATEGORY_LABEL: Record<string, string> = {
+    'water-sanitation':       'Water & Sanitation',
+    'infrastructure':         'Infrastructure',
+    'health-nutrition':       'Health & Nutrition',
+    'agriculture-environment':'Agriculture & Environment',
+    'education-digital':      'Education & Digital',
+    'livelihood-governance':  'Livelihood & Governance',
+    'others':                 'Others',
+    // legacy labels (seed data)
+    'education':              'Education',
+    'health':                 'Health',
+    'digital':                'Digital',
+};
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../components/LanguageToggle';
@@ -331,19 +351,31 @@ export default function VolunteerDashboard() {
                             <div
                                 key={task.id}
                                 data-testid={`task-card-${task.id}`}
-                                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer flex justify-between items-center group"
+                                className={`bg-white p-6 rounded-2xl shadow-sm border hover:shadow-md transition cursor-pointer flex justify-between items-center group ${task.severity === 'HIGH' ? 'border-red-200' : 'border-gray-100'}`}
                                 onClick={() => setSelectedTask(task)}
                             >
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition mb-1">{task.title}</h3>
-                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        {task.severity === 'HIGH' && <AlertTriangle size={14} className="text-red-500 shrink-0" />}
+                                        <h3 className="text-xl font-bold text-gray-900 group-hover:text-green-600 transition truncate">{task.title}</h3>
+                                    </div>
+                                    <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500">
                                         <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
                                         <span className="bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{task.status}</span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${SEVERITY_STYLE[task.severity] ?? SEVERITY_STYLE.NORMAL}`}>
+                                            {task.severity ?? 'NORMAL'}
+                                        </span>
+                                        {task.category && (
+                                            <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400">
+                                                <Tag size={10} />{CATEGORY_LABEL[task.category] ?? task.category}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                                <ChevronRight className="text-gray-300 group-hover:text-green-600 group-hover:translate-x-1 transition" />
+                                <ChevronRight className="text-gray-300 group-hover:text-green-600 group-hover:translate-x-1 transition shrink-0 ml-4" />
                             </div>
                         ))
+
                     )}
                 </div>
 
@@ -355,16 +387,21 @@ export default function VolunteerDashboard() {
                         {completedTasks.map(task => (
                             <div
                                 key={`completed-${task.id}`}
-                                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center opacity-90"
+                                className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex justify-between items-center opacity-80"
                             >
-                                <div>
-                                    <h3 className="text-xl font-bold text-gray-900 mb-1">{task.title}</h3>
-                                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-xl font-bold text-gray-900 mb-1 truncate">{task.title}</h3>
+                                    <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500">
                                         <span className="flex items-center gap-1"><MapPin size={14} /> {task.village}</span>
                                         <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">{task.status}</span>
+                                        {task.category && (
+                                            <span className="flex items-center gap-1 text-[10px] font-medium text-gray-400">
+                                                <Tag size={10} />{CATEGORY_LABEL[task.category] ?? task.category}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                                <CheckCircle className="text-emerald-500" />
+                                <CheckCircle className="text-emerald-500 shrink-0 ml-4" />
                             </div>
                         ))}
                     </div>

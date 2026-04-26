@@ -479,12 +479,24 @@ export default function CoordinatorDashboard() {
               <div key={problem.id} data-testid={`problem-card-${problem.id}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
                 <div className="p-6 flex-1 flex flex-col">
                   <div className="flex justify-between items-start mb-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${problem.status === 'pending' ? 'bg-red-100 text-red-700' :
-                      problem.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase ${
+                        problem.status === 'pending' ? 'bg-red-100 text-red-700' :
+                        problem.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
                         'bg-green-100 text-green-700'
                       }`}>
-                      {problem.status.replace('_', ' ')}
-                    </span>
+                        {problem.status.replace('_', ' ')}
+                      </span>
+                      {problem.severity && (
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide ${
+                          problem.severity === 'HIGH'   ? 'bg-red-600 text-white' :
+                          problem.severity === 'NORMAL' ? 'bg-amber-100 text-amber-700' :
+                                                          'bg-gray-100 text-gray-500'
+                        }`}>
+                          {problem.severity}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-xs text-gray-400">{new Date(problem.created_at).toLocaleDateString()}</span>
                   </div>
 

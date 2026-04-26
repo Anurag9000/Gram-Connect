@@ -1,0 +1,16 @@
+{
+  "weights": {
+    "domain": 1.0187,
+    "will": 0.6575,
+    "avail": 0.1,
+    "prox": 0.1,
+    "fresh": 0.1
+  },
+  "meta": {
+    "roc_auc_mean": 0.8055,
+    "roc_auc_std": 0.0075,
+    "accuracy_mean": 0.7332,
+    "n_train": 18822,
+    "n_skipped": 6178
+  }
+}

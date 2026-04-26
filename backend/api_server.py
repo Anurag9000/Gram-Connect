@@ -115,6 +115,7 @@ class ProblemRequest(BaseModel):
     media_ids: List[str] = Field(default_factory=list)
     transcript: Optional[str] = None
     transcript_language: Optional[str] = None
+    severity: Optional[str] = Field(None, pattern="^(LOW|NORMAL|HIGH)$")
 
 
 class ProfileRequest(BaseModel):
@@ -1092,12 +1093,20 @@ async def get_volunteer_tasks(volunteer_id: str):
                 "location": problem.get("village_address") or problem["village_name"],
                 "status": problem.get("status", "assigned"),
                 "description": problem["description"],
+                "category": problem.get("category", "others"),
+                "severity": problem.get("severity", "NORMAL"),
+                "severity_source": problem.get("severity_source", "Auto-detected"),
                 "assigned_at": assigned_at,
                 "media_assets": [asset for asset in (_asset_by_id(media_id) for media_id in problem.get("media_ids", [])) if asset],
                 "proof": problem.get("proof"),
                 "proof_assets": [asset for asset in (_asset_by_id(media_id) for media_id in problem.get("proof", {}).get("media_ids", [])) if asset],
             }
-    return sorted(tasks_by_problem.values(), key=lambda task: task["assigned_at"], reverse=True)
+    # Sort: HIGH severity first, then NORMAL, then LOW; within same severity by assigned_at desc
+    severity_order = {"HIGH": 0, "NORMAL": 1, "LOW": 2}
+    return sorted(
+        tasks_by_problem.values(),
+        key=lambda t: (severity_order.get(t.get("severity", "NORMAL"), 1), t["assigned_at"]),
+    )
 
 @app.post("/problems/{problem_id}/assign")
 async def assign_task(problem_id: str, payload: Dict[str, str]):
@@ -1302,12 +1311,24 @@ async def submit_problem_endpoint(request: ProblemRequest):
 
         lat, lng = _village_coordinates(request.village_name)
         
+        # Auto-infer severity from text if not supplied by the user
+        full_text = " ".join(filter(None, [request.title, request.description]))
+        if request.severity:
+            severity = request.severity.upper()
+            severity_source = "User Selected"
+        else:
+            from forge import estimate_severity, SEVERITY_LABELS
+            severity = SEVERITY_LABELS.get(estimate_severity(full_text), "NORMAL")
+            severity_source = "Auto-detected"
+
         new_problem = {
             "id": new_id,
             "villager_id": reporter_id,
             "title": request.title,
             "description": request.description,
             "category": request.category,
+            "severity": severity,
+            "severity_source": severity_source,
             "village_name": request.village_name,
             "village_address": request.village_address,
             "visual_tags": request.visual_tags or [],
@@ -1325,7 +1346,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
         }
         PROBLEMS.insert(0, new_problem)
         persist_runtime_state()
-        logger.info(f"Problem submitted and saved: {request.title} in {request.village_name}")
+        logger.info(f"Problem submitted: {request.title!r} in {request.village_name} severity={severity} ({severity_source})")
         return {"status": "success", "id": new_id}
     except Exception as exc:
         logger.exception("Problem submission failed")

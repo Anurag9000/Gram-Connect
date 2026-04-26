@@ -92,12 +92,14 @@ export interface RecommendedTeam {
     team_names: string;
     team_size: number;
     goodness: number;
+    team_score: number;
     coverage: number;
     k_robustness: number;
     redundancy: number;
     set_size: number;
     willingness_avg: number;
     willingness_min: number;
+    avg_distance_km?: number;
     members: TeamMember[];
 }
 
@@ -112,6 +114,7 @@ export interface ProblemSubmission {
     title: string;
     description: string;
     category: string;
+    severity?: 'LOW' | 'NORMAL' | 'HIGH';
     village_name: string;
     village_address?: string;
     coordinator_id?: string;
@@ -162,6 +165,9 @@ export interface VolunteerTask {
     location: string;
     status: string;
     description: string;
+    category: string;
+    severity: 'LOW' | 'NORMAL' | 'HIGH';
+    severity_source: string;
     assigned_at: string;
     media_assets?: MediaRecord[];
     proof?: ProofRecord;

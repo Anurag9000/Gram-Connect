@@ -5,14 +5,12 @@ Deterministic, interpretable volunteer-to-task matching.
 No ML. No embeddings. No training data. Pure arithmetic.
 
 Individual score:
-    SCORE(v, T) = (DOMAIN^w_d) × (WILL^w_w) × (AVAIL^w_a) × (PROX^w_p) × (FRESH^w_f)
+    SCORE(v, T) = (DOMAIN^w_d) * (WILL^w_w) * (AVAIL^w_a) * (PROX^w_p) * (FRESH^w_f)
 
-    Weights:
-        w_d (Domain) = 2.0  (Skill match is paramount)
-        w_w (Will)   = 1.0  (Motivation matters linearly)
-        w_p (Prox)   = 1.0  (Distance penalty applies linearly)
-        w_a (Avail)  = 0.5  (Availability is a softer constraint)
-        w_f (Fresh)  = 0.5  (Workload penalty is softened)
+    Weights are severity-conditional (see SEVERITY_FACTOR_WEIGHTS):
+        HIGH emergency : avail weight raised (need someone free NOW), prox lenient
+        NORMAL         : balanced data-fitted weights
+        LOW routine    : prox weight raised (stay local), avail weight raised (don't bother busy people)
 
 Team building:
     Greedy marginal-coverage selection.
@@ -58,15 +56,36 @@ REDUNDANCY_PENALTY_BETA = 0.30  # penalty multiplier for duplicating covered ski
 PARTIAL_MATCH_CREDIT    = 0.5   # credit for substring skill overlap (vs 1.0 for exact)
 TEAM_DISTANCE_WEIGHT    = 0.003  # per-km penalty in team ranking score
 
-# Factor exponents to tune relative importance in the multiplicative score.
-# Higher weight = factor is more punishing when near zero.
-# Lower weight (< 1) = factor is softened (e.g. 0.5^0.5 = 0.707).
-FACTOR_WEIGHTS = {
-    "domain": 2.0,   # skill match is paramount
-    "will":   1.0,
-    "prox":   1.0,
-    "avail":  0.5,   # availability level is a softer constraint
-    "fresh":  0.5,   # overwork penalty is softened
+# Per-severity exponent weights. Severity changes what matters:
+#   HIGH (emergency): domain + availability are critical (need skilled person available NOW);
+#                     distance is more forgiven — reach farther if needed.
+#   NORMAL:           balanced. Domain primary, distance and willingness matter moderately.
+#   LOW (routine):    stay local (prox high), only immediately-available people, domain still gates.
+#
+# Exponents: raising a factor's weight makes it more punishing when low.
+# Weights below 0.3 "soften" the factor (e.g. 0.5^0.15 = 0.90 — barely penalised).
+SEVERITY_FACTOR_WEIGHTS: dict = {
+    2: {  # HIGH severity
+        "domain": 1.20,  # strong gate — must have relevant skill
+        "will":   0.70,  # motivation matters
+        "avail":  1.50,  # critical — person must be available NOW
+        "prox":   0.40,  # lenient — emergency justifies long travel
+        "fresh":  0.15,  # very soft — overwork rarely blocks an emergency deployment
+    },
+    1: {  # NORMAL severity (data-fitted baseline)
+        "domain": 1.02,
+        "will":   0.66,
+        "avail":  0.50,  # moderate — prefer available but not a hard block
+        "prox":   0.60,  # prefer local but will accept moderate distance
+        "fresh":  0.15,
+    },
+    0: {  # LOW severity (routine task)
+        "domain": 1.00,  # domain still gates, but task is less specialist
+        "will":   0.50,
+        "avail":  1.00,  # strong — only bother people who are free for routine work
+        "prox":   1.20,  # strongest — stay as local as possible
+        "fresh":  0.15,
+    },
 }
 
 SEVERITY_MAP    = {"LOW": 0, "NORMAL": 1, "HIGH": 2}
@@ -369,19 +388,15 @@ def score_volunteer(
     prox, dist_km    = _prox_score(v, proposal_location, distance_lookup, severity_int)
     fresh            = _fresh_score(v, weekly_quota, overwork_penalty)
 
-    # Apply exponential weights to tune relative importance
-    wd = FACTOR_WEIGHTS["domain"]
-    ww = FACTOR_WEIGHTS["will"]
-    wa = FACTOR_WEIGHTS["avail"]
-    wp = FACTOR_WEIGHTS["prox"]
-    wf = FACTOR_WEIGHTS["fresh"]
+    # Pull severity-specific weights: avail/prox shift based on task urgency
+    w = SEVERITY_FACTOR_WEIGHTS.get(severity_int, SEVERITY_FACTOR_WEIGHTS[1])
 
     forge_score = (
-        (domain ** wd) * 
-        (will ** ww) * 
-        (avail ** wa) * 
-        (prox ** wp) * 
-        (fresh ** wf)
+        (domain ** w["domain"]) *
+        (will   ** w["will"])   *
+        (avail  ** w["avail"])  *
+        (prox   ** w["prox"])   *
+        (fresh  ** w["fresh"])
     )
 
     avail_label = v.get("availability", "").lower().strip()

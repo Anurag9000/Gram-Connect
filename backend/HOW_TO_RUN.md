@@ -2,52 +2,35 @@
 
 ## Purpose
 
-This document defines the standard local sequence for preparing, verifying, and serving the Gram Connect backend.
+This document covers the current Gram Connect backend runtime. The live recommendation path uses the Nexus engine and does not require model training.
 
-## Prerequisites
+## Setup
 
 ```bash
-cd /home/anurag-basistha/Projects/TODO/Gram-Connect/backend
-python3 -m venv .venv
-source .venv/bin/activate
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 python -m pip install -r requirements.txt
-python -m pip install pytest
-```
-
-## Verification
-
-```bash
 python generate_canonical_dataset.py
-python -m pytest tests -q
-python - <<'PY'
-from api_server import RecommendRequest, recommend_endpoint
-res = recommend_endpoint(RecommendRequest(
-    proposal_text='Urgent handpump repair needed in Village A',
-    task_start='2026-01-01T10:00:00',
-    task_end='2026-01-01T12:00:00',
-    team_size=2,
-    num_teams=1,
-    auto_extract=True,
-))
-print({
-    'severity': res.severity_detected,
-    'location': res.proposal_location,
-    'team_count': len(res.teams),
-})
-PY
 ```
 
-## Service Startup
+## Run
+
+Seeded demo launcher:
 
 ```bash
-python -m uvicorn api_server:app --host 127.0.0.1 --port 8011
+python start_e2e_backend.py
 ```
 
-## Operational Notes
+Bare API server:
 
-- The trained demo model persists at `backend/runtime_data/canonical_model.pkl`.
-- If that bundle is absent, run `python run_full_verification.py` or start the demo backend once so that training and persistence occur before serving.
-- CSV inputs resolve from the repository defaults or from `GRAM_CONNECT_*` environment variables.
-- If port `8000` is occupied, continue using `8011` or select another available port.
+```bash
+python -m uvicorn api_server:app --host 0.0.0.0 --port 8000
+```
+
+## Notes
+
+- `backend/runtime_data/` is created automatically and holds runtime state.
+- `GRAM_CONNECT_SKIP_BOOTSTRAP=1` disables startup seeding when you want a manual boot.
+- The backend expects `data/*.csv` to be present, or alternative paths via `GRAM_CONNECT_*` environment variables.
+

@@ -27,7 +27,7 @@ def test_resolve_people_csv_prefers_existing_repo_file(monkeypatch, tmp_path):
     fake_data = tmp_path / "data"
     fake_backend.mkdir()
     fake_data.mkdir()
-    bundled = fake_backend / "people_2.csv"
+    bundled = fake_data / "people.csv"
     bundled.write_text("person_id,name,text\np1,Alice,skills\n", encoding="utf-8")
 
     monkeypatch.setattr(

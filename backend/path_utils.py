@@ -55,7 +55,6 @@ def resolve_people_csv() -> str:
         [
             paths.data_dir / "people.csv",
             paths.backend_dir / "people.csv",
-            paths.backend_dir / "people_2.csv",
         ]
     )
     if resolved:
@@ -73,7 +72,6 @@ def resolve_proposals_csv() -> str:
         [
             paths.data_dir / "proposals.csv",
             paths.backend_dir / "proposals.csv",
-            paths.backend_dir / "proposals_2.csv",
             paths.runtime_dir / "proposals.csv",
         ]
     )

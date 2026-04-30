@@ -82,6 +82,20 @@ def _read_file_bytes(path: str) -> bytes:
         return handle.read()
 
 
+def _build_binary_part(path: str):
+    mime_type = mimetypes.guess_type(path)[0] or "application/octet-stream"
+    payload = _read_file_bytes(path)
+    try:
+        from google.genai import types
+
+        return types.Part.from_bytes(data=payload, mime_type=mime_type)
+    except Exception:
+        return {
+            "mime_type": mime_type,
+            "data": payload,
+        }
+
+
 def _extract_json_object(text: str) -> Dict[str, Any]:
     cleaned = text.strip()
     if not cleaned:
@@ -94,6 +108,18 @@ def _extract_json_object(text: str) -> Dict[str, Any]:
         if match:
             return json.loads(match.group(0))
         raise
+
+
+def _coerce_string_list(value: Any) -> List[str]:
+    if isinstance(value, list):
+        raw_items = value
+    elif isinstance(value, tuple):
+        raw_items = list(value)
+    elif isinstance(value, str):
+        raw_items = [part.strip() for part in value.split(",")]
+    else:
+        raw_items = []
+    return [str(item).strip() for item in raw_items if str(item).strip()]
 
 
 def _normalize_tags(raw_tags: Any, top_label: str) -> List[str]:
@@ -185,11 +211,7 @@ def transcribe_audio(audio_path: str) -> Dict[str, Any]:
     if _has_gemini_key():
         try:
             client = get_gemini_client()
-            mime_type = mimetypes.guess_type(audio_path)[0] or "audio/wav"
-            audio_bytes = _read_file_bytes(audio_path)
-            from google.genai import types
-
-            audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
+            audio_part = _build_binary_part(audio_path)
             response = client.models.generate_content(
                 model=DEFAULT_AUDIO_MODEL,
                 contents=[
@@ -251,11 +273,7 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
     if _has_gemini_key():
         try:
             client = get_gemini_client()
-            image_bytes = _read_file_bytes(image_path)
-            mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
-            from google.genai import types
-
-            image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
+            image_part = _build_binary_part(image_path)
             prompt = (
                 "You are classifying rural community problem photos for Gram Connect.\n"
                 f"Choose the best label from this candidate set: {', '.join(labels)}.\n"
@@ -405,14 +423,11 @@ def verify_resolution_proof(
         }
 
     client = get_gemini_client()
-    from google.genai import types
 
     parts: List[Any] = []
     if before_image_path and os.path.exists(before_image_path):
-        before_mime = mimetypes.guess_type(before_image_path)[0] or "image/jpeg"
-        parts.append(types.Part.from_bytes(data=_read_file_bytes(before_image_path), mime_type=before_mime))
-    after_mime = mimetypes.guess_type(after_image_path)[0] or "image/jpeg"
-    parts.append(types.Part.from_bytes(data=_read_file_bytes(after_image_path), mime_type=after_mime))
+        parts.append(_build_binary_part(before_image_path))
+    parts.append(_build_binary_part(after_image_path))
 
     tags_text = ", ".join(visual_tags or [])
     prompt = (
@@ -506,12 +521,9 @@ def extract_problem_from_whatsapp(transcript: str, image_path: Optional[str] = N
 
     try:
         client = get_gemini_client()
-        from google.genai import types
-        
         parts: List[Any] = []
         if image_path and os.path.exists(image_path):
-            mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
-            parts.append(types.Part.from_bytes(data=_read_file_bytes(image_path), mime_type=mime_type))
+            parts.append(_build_binary_part(image_path))
             
         prompt = (
             "You are a rural coordinator AI for Gram Connect.\n"
@@ -550,3 +562,169 @@ def extract_problem_from_whatsapp(transcript: str, image_path: Optional[str] = N
             "category": "infrastructure",
             "severity": "NORMAL"
         }
+
+def chat_with_database(query: str, problems_data: str, volunteers_data: str) -> str:
+    """Use Gemini 1.5 Pro to answer questions based on the current system state."""
+    if not _has_gemini_key():
+        return "Chat feature is offline (Gemini key not configured)."
+
+    try:
+        client = get_gemini_client()
+        prompt = (
+            "You are Gram-Sahayaka, an intelligent assistant for rural coordinators.\n"
+            "Answer the user's query based ONLY on the provided system data (Problems and Volunteers).\n"
+            "Be concise, analytical, and professional. If the data doesn't answer the question, say so.\n\n"
+            f"--- SYSTEM DATA: PROBLEMS ---\n{problems_data}\n\n"
+            f"--- SYSTEM DATA: VOLUNTEERS ---\n{volunteers_data}\n\n"
+            f"--- USER QUERY ---\n{query}\n"
+        )
+        response = client.models.generate_content(
+            model=DEFAULT_GEMINI_MODEL,
+            contents=[prompt],
+        )
+        return response.text or "I could not generate an answer."
+    except Exception as exc:
+        logger.warning("Gram-Sahayaka chat failed: %s", exc)
+        return f"Sorry, I encountered an error analyzing the data: {exc}"
+
+
+def cluster_problems(problems_data: str) -> Dict[str, Any]:
+    """Use Gemini to identify epidemic risks or systemic infrastructure issues by clustering recent problems."""
+    if not _has_gemini_key():
+        return {"clusters": [], "summary": "Offline. Cannot perform clustering."}
+
+    try:
+        client = get_gemini_client()
+        prompt = (
+            "You are a predictive analytics AI for Gram Connect.\n"
+            "Analyze the following list of recent problems reported across various villages.\n"
+            "Identify any macro-level trends, geographic clusters, or epidemic risks (e.g., Malaria outbreak, systemic water pump failures).\n"
+            "Group similar problems that might indicate a larger systemic issue rather than isolated incidents.\n\n"
+            f"--- RECENT PROBLEMS ---\n{problems_data}\n\n"
+            "Return strict JSON only with keys:\n"
+            '  "summary": an overarching 1-2 sentence summary of systemic risks,\n'
+            '  "clusters": a list of objects, each containing:\n'
+            '      "name": (e.g. "Dengue Risk Cluster", "Brand X Pump Failures"),\n'
+            '      "villages": [list of affected villages],\n'
+            '      "related_problem_ids": [list of problem IDs involved],\n'
+            '      "recommendation": one sentence on proactive action the coordinator should take.\n'
+        )
+        response = client.models.generate_content(
+            model=DEFAULT_GEMINI_MODEL,
+            contents=[prompt],
+        )
+        parsed = _extract_json_object(response.text or "{}")
+        return {
+            "summary": str(parsed.get("summary") or "No major systemic issues found."),
+            "clusters": parsed.get("clusters") or []
+        }
+    except Exception as exc:
+        logger.warning("Epidemic clustering failed: %s", exc)
+        return {"clusters": [], "summary": "Error during clustering analysis."}
+
+
+def generate_jugaad_fix_guidance(
+    broken_image_path: str,
+    materials_image_path: str,
+    *,
+    problem_title: str,
+    problem_description: str,
+    category: Optional[str] = None,
+    village_name: Optional[str] = None,
+    problem_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Generate a temporary, safe field-fix plan from the broken part and available materials."""
+    if not broken_image_path or not os.path.exists(broken_image_path):
+        raise FileNotFoundError("Broken mechanism image is required.")
+    if not materials_image_path or not os.path.exists(materials_image_path):
+        raise FileNotFoundError("Available materials image is required.")
+
+    safe_fallback = {
+        "source": "fallback",
+        "confidence": 0.0,
+        "situation_summary": (
+            "I could not access the Gemini vision path, so this is a generic safe temporary-repair plan. "
+            "Use it only if the mechanism is visibly stable and there is no live electrical, gas, or high-pressure hazard."
+        ),
+        "materials_identified": [],
+        "temporary_fix_steps": [
+            "Shut off power or water flow before touching the mechanism.",
+            "Inspect the visible failure point and clean away mud, debris, or loose fragments.",
+            "Use the available materials only as an external brace, tie, or short-term seal, not as a permanent replacement.",
+            "Test the fix gently and stop immediately if you see heat, sparks, cracking, or increasing leakage.",
+        ],
+        "safety_warnings": [
+            "Do not work on live electrical components or pressurized pipes.",
+            "Do not seal over a structural crack or bypass a safety valve.",
+            "Escalate immediately if the part is smoking, arcing, leaking violently, or unstable.",
+        ],
+        "when_to_stop": "Stop if the repair needs internal dismantling, wiring, pressure release, or force.",
+        "escalation": "Record the failure, keep the area safe, and request the official replacement part as soon as possible.",
+        "problem_context": {
+            "problem_id": problem_id,
+            "title": problem_title,
+            "category": category,
+            "village_name": village_name,
+        },
+    }
+
+    if not _has_gemini_key():
+        return safe_fallback
+
+    try:
+        client = get_gemini_client()
+        broken_part = _build_binary_part(broken_image_path)
+        materials_part = _build_binary_part(materials_image_path)
+        prompt = (
+            "You are Gram Connect's Jugaad Engine for volunteer field repairs.\n"
+            "Analyze the BROKEN mechanism photo and the AVAILABLE MATERIALS photo.\n"
+            "Provide only a safe, temporary, reversible repair plan to keep water, power, or access functioning until the official part arrives.\n"
+            "Do not suggest unsafe permanent fixes, bypassing safety devices, live electrical work, or pressurizing a damaged system.\n"
+            "If the risk is too high or the photos do not match the task, tell the volunteer to stop and escalate.\n"
+            "Focus on practical frugal innovation using the available materials.\n\n"
+            f"Problem ID: {problem_id or 'unknown'}\n"
+            f"Title: {problem_title}\n"
+            f"Description: {problem_description}\n"
+            f"Category: {category or 'unknown'}\n"
+            f"Village: {village_name or 'unknown'}\n\n"
+            "Return strict JSON with keys:\n"
+            '  "source": "gemini",\n'
+            '  "confidence": number from 0 to 1,\n'
+            '  "situation_summary": one short paragraph describing the likely failure and whether a temporary fix is feasible,\n'
+            '  "materials_identified": [list of visible materials or usable items from the second photo],\n'
+            '  "temporary_fix_steps": [3-6 concise steps in order],\n'
+            '  "safety_warnings": [2-5 warnings],\n'
+            '  "when_to_stop": one sentence describing when to abandon the temporary fix,\n'
+            '  "escalation": one sentence explaining what to do next if the temporary fix is not safe or sufficient.\n'
+            "Keep the answer practical, specific, and bounded to a temporary patch."
+        )
+        response = client.models.generate_content(
+            model=DEFAULT_GEMINI_MODEL,
+            contents=[broken_part, materials_part, prompt],
+        )
+        parsed = _extract_json_object(response.text or "{}")
+        result = dict(safe_fallback)
+        try:
+            confidence = float(parsed.get("confidence", 0.0) or 0.0)
+        except (TypeError, ValueError):
+            confidence = 0.0
+        result.update(
+            {
+                "source": str(parsed.get("source") or "gemini"),
+                "confidence": confidence,
+                "situation_summary": str(parsed.get("situation_summary") or result["situation_summary"]).strip(),
+                "materials_identified": _coerce_string_list(parsed.get("materials_identified")),
+                "temporary_fix_steps": _coerce_string_list(parsed.get("temporary_fix_steps")),
+                "safety_warnings": _coerce_string_list(parsed.get("safety_warnings")),
+                "when_to_stop": str(parsed.get("when_to_stop") or result["when_to_stop"]).strip(),
+                "escalation": str(parsed.get("escalation") or result["escalation"]).strip(),
+            }
+        )
+        if not result["temporary_fix_steps"]:
+            result["temporary_fix_steps"] = list(safe_fallback["temporary_fix_steps"])
+        if not result["safety_warnings"]:
+            result["safety_warnings"] = list(safe_fallback["safety_warnings"])
+        return result
+    except Exception as exc:
+        logger.warning("Jugaad guidance failed: %s", exc)
+        return safe_fallback

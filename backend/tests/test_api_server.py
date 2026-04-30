@@ -49,6 +49,52 @@ def test_recommend_endpoint(mock_generate, mock_notify):
     mock_notify.assert_called_once()
 
 
+@patch("api_server.chat_with_database")
+def test_chat_endpoint(mock_chat):
+    mock_chat.return_value = "Water issues are concentrated in Sundarpur."
+    response = asyncio.run(
+        api_server.chat_endpoint(
+            api_server.ChatRequest(query="Which villages have the most water problems?")
+        )
+    )
+
+    assert response["answer"] == "Water issues are concentrated in Sundarpur."
+    assert response["analysis"]["problem_count"] >= 0
+    assert response["analysis"]["volunteer_count"] >= 0
+
+
+@patch("api_server.cluster_problems")
+def test_clusters_endpoint(mock_cluster):
+    mock_cluster.return_value = {
+        "summary": "One high-priority cluster detected.",
+        "risk_level": "HIGH",
+        "total_problems": 3,
+        "clusters": [
+            {
+                "id": "cluster-1",
+                "name": "Recurring water infrastructure failures",
+                "risk_type": "infrastructure",
+                "severity": "HIGH",
+                "confidence": 0.91,
+                "problem_count": 2,
+                "village_count": 1,
+                "villages": ["Sundarpur"],
+                "categories": ["water-sanitation"],
+                "related_problem_ids": ["p-1", "p-2"],
+                "dominant_terms": ["pump", "water"],
+                "signals": ["repeated-infrastructure-failure"],
+                "avg_geo_distance_km": 1.52,
+                "recommendation": "Treat this as a shared infrastructure fault.",
+                "sample_titles": ["Broken pump", "Pump not working"],
+            }
+        ],
+    }
+    response = asyncio.run(api_server.get_clusters())
+
+    assert response["risk_level"] == "HIGH"
+    assert response["clusters"][0]["name"] == "Recurring water infrastructure failures"
+
+
 @patch("api_server.transcribe_audio")
 def test_transcribe_endpoint(mock_transcribe):
     mock_transcribe.return_value = {"text": "Transcribed text", "language": "en", "source": "gemini"}

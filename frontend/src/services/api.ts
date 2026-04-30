@@ -211,6 +211,96 @@ export interface TranscriptionResponse {
     source?: string | null;
 }
 
+export interface ChatInsight {
+    query: string;
+    focus?: string;
+    time_window_days?: number;
+    time_window_note?: string;
+    query_villages?: string[];
+    query_skills?: string[];
+    problem_counts?: {
+        total: number;
+        open: number;
+        completed: number;
+    };
+    problem_breakdown?: {
+        villages?: { village: string; count: number }[];
+        categories?: { category: string; count: number }[];
+        severities?: { severity: string; count: number }[];
+        statuses?: { status: string; count: number }[];
+    };
+    relevant_problems?: {
+        id: string;
+        title: string;
+        village_name?: string;
+        category?: string;
+        severity?: string;
+        status?: string;
+        created_at?: string | null;
+        matches_count?: number;
+        visual_tags?: string[];
+    }[];
+    volunteer_matches?: {
+        id: string;
+        name: string;
+        home_location?: string;
+        skills?: string[];
+        assignment_age_days?: number | null;
+    }[];
+}
+
+export interface ChatResponse {
+    answer: string;
+    analysis?: {
+        query: string;
+        problem_count: number;
+        volunteer_count: number;
+    };
+}
+
+export interface ClusterInsight {
+    id: string;
+    name: string;
+    risk_type: string;
+    severity: 'LOW' | 'NORMAL' | 'HIGH';
+    confidence: number;
+    problem_count: number;
+    village_count: number;
+    villages: string[];
+    categories?: string[];
+    related_problem_ids: string[];
+    dominant_terms?: string[];
+    signals?: string[];
+    avg_geo_distance_km?: number | null;
+    recommendation: string;
+    sample_titles?: string[];
+}
+
+export interface ClusterResponse {
+    summary: string;
+    risk_level: 'LOW' | 'MODERATE' | 'HIGH';
+    total_problems: number;
+    clusters: ClusterInsight[];
+    embedding_backend?: string;
+}
+
+export interface JugaadRepairResponse {
+    source: string;
+    confidence: number;
+    situation_summary: string;
+    materials_identified: string[];
+    temporary_fix_steps: string[];
+    safety_warnings: string[];
+    when_to_stop: string;
+    escalation: string;
+    problem_context?: {
+        problem_id?: string | null;
+        title?: string | null;
+        category?: string | null;
+        village_name?: string | null;
+    };
+}
+
 export const api = {
     async transcribe(blob: Blob): Promise<TranscriptionResponse> {
         const formData = new FormData();
@@ -513,6 +603,57 @@ export const api = {
     async getVillages(): Promise<{ name: string; district: string; state: string; lat?: number; lng?: number }[]> {
         const response = await fetch(`${API_BASE_URL}/villages`, { cache: 'no-store' });
         if (!response.ok) return [];
+        return await response.json();
+    },
+
+    async chatWithGramSahayaka(query: string): Promise<ChatResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query }),
+        });
+        if (!response.ok) throw new Error('Chat failed');
+        return await response.json();
+    },
+
+    async getEpidemicClusters(): Promise<ClusterResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/analytics/clusters`, { cache: 'no-store' });
+        if (!response.ok) throw new Error('Failed to fetch clusters');
+        return await response.json();
+    },
+
+    async requestJugaadHelp(request: {
+        broken_photo: File;
+        materials_photo: File;
+        problem_title: string;
+        problem_description: string;
+        category?: string;
+        village_name?: string;
+        problem_id?: string;
+    }): Promise<{ status: string; guidance: JugaadRepairResponse }> {
+        const formData = new FormData();
+        formData.append('broken_photo', request.broken_photo);
+        formData.append('materials_photo', request.materials_photo);
+        formData.append('problem_title', request.problem_title);
+        formData.append('problem_description', request.problem_description);
+        if (request.category) {
+            formData.append('category', request.category);
+        }
+        if (request.village_name) {
+            formData.append('village_name', request.village_name);
+        }
+        if (request.problem_id) {
+            formData.append('problem_id', request.problem_id);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/v1/jugaad/help`, {
+            method: 'POST',
+            body: formData,
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || 'Failed to generate repair guidance');
+        }
         return await response.json();
     },
 };

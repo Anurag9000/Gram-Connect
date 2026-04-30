@@ -14,8 +14,9 @@ describe('Home', () => {
             </BrowserRouter>
         );
 
-        expect(screen.getByText(/Bridging Villages/i)).toBeInTheDocument();
-        expect(screen.getByText(/Intelligent Action/i)).toBeInTheDocument();
+        expect(
+            screen.getByRole('heading', { level: 1, name: /Bridging Villages with Intelligent Action/i })
+        ).toBeInTheDocument();
     });
 
     it('should render call-to-action buttons', () => {

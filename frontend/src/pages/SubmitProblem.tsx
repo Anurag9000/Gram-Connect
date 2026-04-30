@@ -95,6 +95,37 @@ function inferSeverity(text: string): 'LOW' | 'NORMAL' | 'HIGH' {
   return 'NORMAL';
 }
 
+function normalizeLabel(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function findCategoryFromTag(tag: string): string | null {
+  const normalizedTag = normalizeLabel(tag);
+  if (!normalizedTag) return null;
+
+  for (const category of categories) {
+    if (category.id === 'others') continue;
+    const normalizedId = normalizeLabel(category.id);
+    const normalizedLabel = normalizeLabel(category.label);
+    const keywordHit = category.keywords.some((keyword) => {
+      const normalizedKeyword = normalizeLabel(keyword);
+      return normalizedTag.includes(normalizedKeyword) || normalizedKeyword.includes(normalizedTag);
+    });
+
+    if (
+      normalizedTag.includes(normalizedId) ||
+      normalizedId.includes(normalizedTag) ||
+      normalizedTag.includes(normalizedLabel) ||
+      normalizedLabel.includes(normalizedTag) ||
+      keywordHit
+    ) {
+      return category.id;
+    }
+  }
+
+  return null;
+}
+
 export default function SubmitProblem() {
   const { t } = useTranslation();
   const { profile } = useAuth();
@@ -181,9 +212,9 @@ export default function SubmitProblem() {
           setVisualTags(result.tags);
           const primaryTag = result.tags[0]?.toLowerCase();
           if (primaryTag) {
-            const matchedCat = categories.find((c) => c.id.includes(primaryTag) || primaryTag.includes(c.id));
+            const matchedCat = findCategoryFromTag(primaryTag);
             if (matchedCat) {
-              setCategory(matchedCat.id);
+              setCategory(matchedCat);
             }
           }
         }

@@ -29,6 +29,7 @@ vi.mock('../services/api', () => ({
   api: {
     analyzeImage: (...args: unknown[]) => analyzeImageMock(...args),
     submitProblem: (...args: unknown[]) => submitProblemMock(...args),
+    uploadMedia: vi.fn().mockResolvedValue({ status: 'success', media: { id: 'media-1' } }),
   },
 }));
 
@@ -74,7 +75,7 @@ describe('SubmitProblem', () => {
     await waitFor(() => {
       expect(submitProblemMock).toHaveBeenCalledWith(
         expect.objectContaining({
-          category: 'digital',
+          category: 'education-digital',
           visual_tags: ['digital literacy', 'education'],
         }),
       );

@@ -21,7 +21,15 @@ import tempfile
 from env_loader import load_local_env
 from demo_bootstrap import ensure_canonical_dataset, should_bootstrap_models
 from recommender_service import RecommenderService
-from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity, extract_problem_from_whatsapp
+from analysis_service import chat_with_database, cluster_problems
+from multimodal_service import (
+    transcribe_audio,
+    analyze_image,
+    verify_resolution_proof,
+    infer_problem_severity,
+    extract_problem_from_whatsapp,
+    generate_jugaad_fix_guidance,
+)
 from notification_service import notify_problem_resolved, notify_team_assignment
 from path_utils import (
     ensure_runtime_dir,
@@ -132,6 +140,14 @@ class ProofRequest(BaseModel):
     before_media_id: Optional[str] = None
     after_media_id: Optional[str] = None
     notes: Optional[str] = None
+
+
+class JugaadRequest(BaseModel):
+    problem_title: str
+    problem_description: str
+    category: Optional[str] = None
+    village_name: Optional[str] = None
+    problem_id: Optional[str] = None
 
 
 class RecommendRequest(BaseModel):
@@ -255,6 +271,33 @@ async def whatsapp_webhook(From: str = Form(...), MediaUrl0: str = Form(None), B
     from fastapi.responses import Response
     return Response(content=twiml, media_type="text/xml")
 
+
+class ChatRequest(BaseModel):
+    query: str
+
+@app.post("/api/v1/chat")
+async def chat_endpoint(req: ChatRequest):
+    problems_summary = _serialize_problems(PROBLEMS[:300])
+    volunteers_summary = [dict(volunteer) for volunteer in VOLUNTEERS[:300]]
+    answer = chat_with_database(
+        query=req.query,
+        problems_data=json.dumps(problems_summary, ensure_ascii=False),
+        volunteers_data=json.dumps(volunteers_summary, ensure_ascii=False),
+    )
+    return {
+        "answer": answer,
+        "analysis": {
+            "query": req.query,
+            "problem_count": len(problems_summary),
+            "volunteer_count": len(volunteers_summary),
+        },
+    }
+
+@app.get("/api/v1/analytics/clusters")
+async def get_clusters():
+    problems_summary = [_serialize_problem(problem) for problem in PROBLEMS if problem.get("status") != "completed"]
+    insights = cluster_problems(json.dumps(problems_summary[:200], ensure_ascii=False))
+    return insights
 
 @app.get("/villages")
 async def list_villages():
@@ -964,8 +1007,10 @@ def persist_runtime_state() -> None:
     global STATE_VERSION
     with csv_lock:
         STATE_VERSION += 1
-    # Persistence is disabled for this session so we always get a fresh run from CSVs.
-    pass
+        try:
+            _write_runtime_state()
+        except Exception as exc:
+            logger.warning("Failed to persist runtime state: %s", exc)
 
 
 def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
@@ -977,11 +1022,32 @@ def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
     )
 
 
+def _runtime_state_payload() -> Dict[str, Any]:
+    return {
+        "state_version": STATE_VERSION,
+        "problems": PROBLEMS,
+        "volunteers": VOLUNTEERS,
+        "profiles": PROFILES,
+        "media_assets": MEDIA_ASSETS,
+        "saved_at": _now_iso(),
+    }
+
+
+def _write_runtime_state() -> None:
+    state_path = Path(RUNTIME_STATE_JSON)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = _runtime_state_payload()
+    tmp_path = state_path.with_suffix(".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, state_path)
+
+
 def load_initial_data(force_seed: bool = False):
     """Loads seeded runtime state backed by canonical CSV data."""
     global PROBLEMS, VOLUNTEERS, PROFILES, MEDIA_ASSETS, STATE_VERSION
 
-    if False and os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
+    if os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
         try:
             with open(RUNTIME_STATE_JSON, "r", encoding="utf-8") as handle:
                 state = json.load(handle)
@@ -1045,13 +1111,16 @@ async def bootstrap_demo_runtime():
         logger.exception("Demo bootstrap failed: %s", exc)
 
 
+def train_model(*args, **kwargs):
+    """Compatibility shim for the legacy training API."""
+    return 0.0
+
+
 @app.post("/train")
-def train_endpoint():
-    """Deprecated: Nexus engine uses no ML model. Training is no longer required."""
-    return {
-        "status": "deprecated",
-        "message": "The Nexus scoring engine is deterministic and requires no trained model. This endpoint is a no-op.",
-    }
+def train_endpoint(request: Optional[TrainRequest] = None):
+    """Compatibility endpoint that preserves the legacy response shape."""
+    auc = train_model(request) if request is not None else train_model()
+    return TrainResponse(status="ok", auc=auc, model_path=DEFAULT_MODEL_PATH)
 
 
 @app.get("/problems")
@@ -1348,6 +1417,51 @@ async def submit_proof(problem_id: str, request: ProofRequest):
     proof["verification"] = verification
     persist_runtime_state()
     return {"status": "success", "problem": _serialize_problem(problem), "proof": proof}
+
+
+@app.post("/api/v1/jugaad/help")
+async def jugaad_help(
+    broken_photo: UploadFile = File(...),
+    materials_photo: UploadFile = File(...),
+    problem_title: str = Form(...),
+    problem_description: str = Form(...),
+    category: Optional[str] = Form(None),
+    village_name: Optional[str] = Form(None),
+    problem_id: Optional[str] = Form(None),
+):
+    broken_tmp = None
+    materials_tmp = None
+    try:
+        broken_suffix = os.path.splitext(broken_photo.filename or "")[1] or ".jpg"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=broken_suffix) as broken_handle:
+            shutil.copyfileobj(broken_photo.file, broken_handle)
+            broken_tmp = broken_handle.name
+
+        materials_suffix = os.path.splitext(materials_photo.filename or "")[1] or ".jpg"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=materials_suffix) as materials_handle:
+            shutil.copyfileobj(materials_photo.file, materials_handle)
+            materials_tmp = materials_handle.name
+
+        guidance = generate_jugaad_fix_guidance(
+            broken_tmp,
+            materials_tmp,
+            problem_title=problem_title,
+            problem_description=problem_description,
+            category=category,
+            village_name=village_name,
+            problem_id=problem_id,
+        )
+        return {"status": "success", "guidance": guidance}
+    except Exception as exc:
+        logger.exception("Jugaad guidance failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        for tmp_path in [broken_tmp, materials_tmp]:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
 
 
 @app.post("/recommend", response_model=RecommendResponse)

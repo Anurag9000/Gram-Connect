@@ -9,6 +9,7 @@ import { api, type MediaRecord, type ProblemRecord, type ProofRecord, type TeamM
 import { Navigate, useNavigate } from 'react-router-dom';
 import type { Database } from '../lib/database.types';
 import ProblemMap from '../components/ProblemMap';
+import GramSahayakaPanel from '../components/GramSahayakaPanel';
 import { subscribeLiveRefresh } from '../lib/liveRefresh';
 
 type Problem = Database['public']['Tables']['problems']['Row'];
@@ -396,6 +397,8 @@ export default function CoordinatorDashboard() {
             </div>
           </div>
         </div>
+
+        <GramSahayakaPanel />
 
         <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.8fr)]">
           <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">

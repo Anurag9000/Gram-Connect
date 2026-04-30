@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
     CheckCircle, Clock, Camera, MapPin,
-    ChevronRight, ArrowLeft, Loader2, AlertTriangle, Tag
+    ChevronRight, ArrowLeft, Loader2, AlertTriangle, Tag, Wrench, RefreshCw
 } from 'lucide-react';
 
 const SEVERITY_STYLE: Record<string, string> = {
@@ -25,8 +25,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
-import LanguageToggle from '../components/LanguageToggle';
-import { api, type VolunteerTask } from '../services/api';
+import { api, type JugaadRepairResponse, type VolunteerTask } from '../services/api';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { subscribeLiveRefresh } from '../lib/liveRefresh';
 
@@ -42,6 +41,14 @@ export default function VolunteerDashboard() {
     const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
     const [afterImagePreview, setAfterImagePreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showJugaadHelper, setShowJugaadHelper] = useState(false);
+    const [jugaadBrokenFile, setJugaadBrokenFile] = useState<File | null>(null);
+    const [jugaadMaterialsFile, setJugaadMaterialsFile] = useState<File | null>(null);
+    const [jugaadBrokenPreview, setJugaadBrokenPreview] = useState<string | null>(null);
+    const [jugaadMaterialsPreview, setJugaadMaterialsPreview] = useState<string | null>(null);
+    const [jugaadLoading, setJugaadLoading] = useState(false);
+    const [jugaadError, setJugaadError] = useState('');
+    const [jugaadResult, setJugaadResult] = useState<JugaadRepairResponse | null>(null);
     const activeTasks = tasks.filter((task) => task.status !== 'completed');
     const completedTasks = tasks.filter((task) => task.status === 'completed');
 
@@ -62,11 +69,33 @@ export default function VolunteerDashboard() {
         setAfterImagePreview(null);
     };
 
+    const revokeJugaadDraftUrls = () => {
+        if (jugaadBrokenPreview) {
+            URL.revokeObjectURL(jugaadBrokenPreview);
+        }
+        if (jugaadMaterialsPreview) {
+            URL.revokeObjectURL(jugaadMaterialsPreview);
+        }
+    };
+
+    const clearJugaadDraft = () => {
+        revokeJugaadDraftUrls();
+        setShowJugaadHelper(false);
+        setJugaadBrokenFile(null);
+        setJugaadMaterialsFile(null);
+        setJugaadBrokenPreview(null);
+        setJugaadMaterialsPreview(null);
+        setJugaadLoading(false);
+        setJugaadError('');
+        setJugaadResult(null);
+    };
+
     useEffect(() => {
         return () => {
             revokeProofDraftUrls();
+            revokeJugaadDraftUrls();
         };
-    }, [afterImagePreview, beforeImagePreview]);
+    }, [afterImagePreview, beforeImagePreview, jugaadBrokenPreview, jugaadMaterialsPreview]);
 
     const loadTasks = useCallback(async () => {
         if (!profile) return;
@@ -110,6 +139,7 @@ export default function VolunteerDashboard() {
         if (!latestTask) {
             setSelectedTask(null);
             clearProofDraft();
+            clearJugaadDraft();
             return;
         }
 
@@ -117,6 +147,35 @@ export default function VolunteerDashboard() {
             setSelectedTask(latestTask);
         }
     }, [selectedTask, tasks]);
+
+    const handleRequestJugaadHelp = async () => {
+        if (!selectedTask) {
+            return;
+        }
+        if (!jugaadBrokenFile || !jugaadMaterialsFile) {
+            alert('Please upload both the broken mechanism photo and the available materials photo.');
+            return;
+        }
+
+        setJugaadLoading(true);
+        setJugaadError('');
+        try {
+            const response = await api.requestJugaadHelp({
+                broken_photo: jugaadBrokenFile,
+                materials_photo: jugaadMaterialsFile,
+                problem_title: selectedTask.title,
+                problem_description: selectedTask.description,
+                category: selectedTask.category,
+                village_name: selectedTask.village,
+                problem_id: selectedTask.id,
+            });
+            setJugaadResult(response.guidance);
+        } catch (err) {
+            setJugaadError(err instanceof Error ? err.message : 'Failed to generate a repair plan.');
+        } finally {
+            setJugaadLoading(false);
+        }
+    };
 
     const handleComplete = async () => {
         if (!afterImageFile) {
@@ -184,6 +243,7 @@ export default function VolunteerDashboard() {
                         onClick={() => {
                             setSelectedTask(null);
                             clearProofDraft();
+                            clearJugaadDraft();
                         }}
                         className="flex items-center gap-2 text-green-700 font-semibold mb-6"
                     >
@@ -242,6 +302,161 @@ export default function VolunteerDashboard() {
                                 ) : null}
                             </div>
                         ) : null}
+
+                        <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Wrench size={18} className="text-amber-700" />
+                                        <h3 className="text-lg font-bold text-amber-900">Help Me Fix This</h3>
+                                    </div>
+                                    <p className="text-sm text-amber-900/80">
+                                        Upload a photo of the broken mechanism and a photo of whatever materials you have on hand.
+                                        The Jugaad Engine will suggest a safe, temporary field repair.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowJugaadHelper((value) => !value)}
+                                    className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                                >
+                                    {showJugaadHelper ? 'Hide Helper' : 'Open Helper'}
+                                </button>
+                            </div>
+
+                            {showJugaadHelper && (
+                                <div className="mt-5 space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-medium text-gray-700">Broken mechanism photo</p>
+                                            <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-amber-300 rounded-xl cursor-pointer hover:bg-amber-50 bg-white object-cover overflow-hidden">
+                                                {jugaadBrokenPreview ? (
+                                                    <img src={jugaadBrokenPreview} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <>
+                                                        <Camera size={32} className="text-amber-600 mb-2" />
+                                                        <span className="text-xs text-amber-700 font-medium">Upload the broken part</span>
+                                                    </>
+                                                )}
+                                                <input
+                                                    data-testid="jugaad-broken-photo-input"
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0] ?? null;
+                                                        if (jugaadBrokenPreview) {
+                                                            URL.revokeObjectURL(jugaadBrokenPreview);
+                                                        }
+                                                        setJugaadBrokenFile(file);
+                                                        setJugaadBrokenPreview(file ? URL.createObjectURL(file) : null);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <p className="text-sm font-medium text-gray-700">Materials photo</p>
+                                            <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-amber-300 rounded-xl cursor-pointer hover:bg-amber-50 bg-white object-cover overflow-hidden">
+                                                {jugaadMaterialsPreview ? (
+                                                    <img src={jugaadMaterialsPreview} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <>
+                                                        <Camera size={32} className="text-amber-600 mb-2" />
+                                                        <span className="text-xs text-amber-700 font-medium">Upload available materials</span>
+                                                    </>
+                                                )}
+                                                <input
+                                                    data-testid="jugaad-materials-photo-input"
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0] ?? null;
+                                                        if (jugaadMaterialsPreview) {
+                                                            URL.revokeObjectURL(jugaadMaterialsPreview);
+                                                        }
+                                                        setJugaadMaterialsFile(file);
+                                                        setJugaadMaterialsPreview(file ? URL.createObjectURL(file) : null);
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => void handleRequestJugaadHelp()}
+                                        disabled={jugaadLoading || !jugaadBrokenFile || !jugaadMaterialsFile}
+                                        className="w-full bg-amber-600 text-white py-3 rounded-xl font-bold hover:bg-amber-700 transition disabled:bg-gray-400 flex items-center justify-center gap-3"
+                                        data-testid="jugaad-help-button"
+                                    >
+                                        {jugaadLoading ? <RefreshCw className="animate-spin" size={18} /> : <Wrench size={18} />}
+                                        {jugaadLoading ? 'Generating repair plan...' : 'Generate Jugaad Plan'}
+                                    </button>
+
+                                    {jugaadError && (
+                                        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                            {jugaadError}
+                                        </div>
+                                    )}
+
+                                    {jugaadResult && (
+                                        <div className="rounded-xl border border-amber-200 bg-white p-4">
+                                            <div className="flex items-center justify-between gap-3 mb-3">
+                                                <h4 className="font-bold text-gray-900">Temporary fix plan</h4>
+                                                <span className="text-xs font-semibold uppercase tracking-wide text-amber-700 bg-amber-50 px-2 py-1 rounded-full">
+                                                    {jugaadResult.source}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm text-gray-700 mb-4">{jugaadResult.situation_summary}</p>
+
+                                            {jugaadResult.materials_identified.length > 0 && (
+                                                <div className="mb-4">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Materials identified</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {jugaadResult.materials_identified.map((item) => (
+                                                            <span key={item} className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+                                                                {item}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="mb-4">
+                                                <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Steps</p>
+                                                <ol className="space-y-2 text-sm text-gray-700 list-decimal pl-5">
+                                                    {jugaadResult.temporary_fix_steps.map((step) => (
+                                                        <li key={step}>{step}</li>
+                                                    ))}
+                                                </ol>
+                                            </div>
+
+                                            <div className="mb-4">
+                                                <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Safety warnings</p>
+                                                <ul className="space-y-2 text-sm text-red-700 list-disc pl-5">
+                                                    {jugaadResult.safety_warnings.map((warning) => (
+                                                        <li key={warning}>{warning}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+
+                                            <div className="grid gap-3 md:grid-cols-2 text-sm">
+                                                <div className="rounded-lg bg-gray-50 p-3">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">When to stop</p>
+                                                    <p className="text-gray-700">{jugaadResult.when_to_stop}</p>
+                                                </div>
+                                                <div className="rounded-lg bg-gray-50 p-3">
+                                                    <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">Escalation</p>
+                                                    <p className="text-gray-700">{jugaadResult.escalation}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
 
                         <div className="space-y-8">
                             <h3 className="text-lg font-bold text-gray-800 border-b pb-2">{t('volunteer.verification_proof')}</h3>

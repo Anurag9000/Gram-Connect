@@ -7,6 +7,8 @@ const getProblemsMock = vi.fn();
 const getVolunteersMock = vi.fn();
 const getRecommendationsMock = vi.fn();
 const assignTaskMock = vi.fn();
+const getEpidemicClustersMock = vi.fn();
+const chatWithGramSahayakaMock = vi.fn();
 const mockProfile = {
   id: 'coord-1',
   full_name: 'Test Coordinator',
@@ -26,6 +28,8 @@ vi.mock('../services/api', () => ({
     getRecommendations: (...args: unknown[]) => getRecommendationsMock(...args),
     assignTask: (...args: unknown[]) => assignTaskMock(...args),
     updateProblemStatus: vi.fn(),
+    getEpidemicClusters: (...args: unknown[]) => getEpidemicClustersMock(...args),
+    chatWithGramSahayaka: (...args: unknown[]) => chatWithGramSahayakaMock(...args),
   },
 }));
 
@@ -101,6 +105,20 @@ describe('CoordinatorDashboard', () => {
         },
       ],
     });
+    getEpidemicClustersMock.mockResolvedValue({
+      summary: 'No major clusters detected.',
+      risk_level: 'LOW',
+      total_problems: 1,
+      clusters: [],
+    });
+    chatWithGramSahayakaMock.mockResolvedValue({
+      answer: 'No data queried yet.',
+      analysis: {
+        query: '',
+        problem_count: 1,
+        volunteer_count: 1,
+      },
+    });
   });
 
   it('renders AI robustness from backend response fields', async () => {
@@ -109,15 +127,15 @@ describe('CoordinatorDashboard', () => {
     await screen.findByText('Broken Well Pump');
 
     fireEvent.click(await screen.findByRole('button', { name: /Assign Team/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /Generate Optimal Teams/i }));
+    fireEvent.click(await screen.findByTestId('generate-optimal-teams'));
 
     await waitFor(() => {
       expect(getRecommendationsMock).toHaveBeenCalled();
     });
 
-    expect(await screen.findByText(/Robustness: 0.77/)).toBeInTheDocument();
-    expect(screen.getByText(/Severity: HIGH/)).toBeInTheDocument();
-    expect(screen.getByText(/Loc: Test Village/)).toBeInTheDocument();
+    expect(await screen.findByText(/Team Score:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Skill Coverage:/i)).toBeInTheDocument();
+    expect(screen.getByText(/88\.0%/)).toBeInTheDocument();
   });
 
   it('assigns every member when an AI team is selected', async () => {
@@ -126,7 +144,7 @@ describe('CoordinatorDashboard', () => {
     await screen.findByText('Broken Well Pump');
 
     fireEvent.click(await screen.findByRole('button', { name: /Assign Team/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /Generate Optimal Teams/i }));
+    fireEvent.click(await screen.findByTestId('generate-optimal-teams'));
 
     await waitFor(() => {
       expect(getRecommendationsMock).toHaveBeenCalled();

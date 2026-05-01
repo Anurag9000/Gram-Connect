@@ -20,6 +20,7 @@ import tempfile
 
 from env_loader import load_local_env
 from demo_bootstrap import ensure_canonical_dataset, should_bootstrap_models
+from postgres_store import PostgresStore
 from recommender_service import RecommenderService
 from insights_service import analyze_coordinator_query, build_insight_overview
 from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity, extract_problem_from_whatsapp, suggest_jugaad_fix, suggest_immediate_problem_actions
@@ -59,6 +60,8 @@ RUNTIME_PEOPLE_CSV = str((PATHS.runtime_dir / "live_people.csv").resolve())
 MEDIA_ROOT = PATHS.runtime_dir / "media"
 MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 STATE_VERSION = 0
+DATA_STORE = PostgresStore.from_env()
+VILLAGE_COORDS_CACHE: Dict[str, tuple[float, float]] = {}
 
 # Initialize Service
 recommender_service = RecommenderService(
@@ -287,7 +290,7 @@ async def whatsapp_webhook(From: str = Form(...), MediaUrl0: str = Form(None), B
     persist_runtime_state()
     
     # 4. Trigger auto-matching
-    payload = _recommendation_payload_for_problem(problem, people_csv=_sync_runtime_people_csv())
+    payload = _recommendation_payload_for_problem(problem, people_csv=DEFAULT_PEOPLE_CSV)
     try:
         results = recommender_service.generate_recommendations(payload)
         top_team = (results.get("teams") or [{}])[0]
@@ -301,6 +304,19 @@ async def whatsapp_webhook(From: str = Form(...), MediaUrl0: str = Form(None), B
             problem["matches"] = matches
             problem["status"] = "in_progress"
             problem["updated_at"] = _now_iso()
+            _record_learning_event(
+                "whatsapp_problem_reported",
+                entity_type="problem",
+                entity_id=problem_id,
+                summary=f"WhatsApp problem reported: {problem_id}",
+                payload={"problem": problem, "matches": matches},
+                text=" ".join([
+                    problem.get("title", ""),
+                    problem.get("description", ""),
+                    problem.get("category", ""),
+                    problem.get("village_name", ""),
+                ]),
+            )
             persist_runtime_state()
     except Exception as exc:
         logger.warning(f"Auto-match failed for WhatsApp problem {problem_id}: {exc}")
@@ -315,7 +331,9 @@ async def whatsapp_webhook(From: str = Form(...), MediaUrl0: str = Form(None), B
 async def list_villages():
     """Return all known villages with coordinates for map autocomplete."""
     try:
-        rows = read_csv_norm(DEFAULT_VILLAGE_LOCATIONS)
+        rows = DATA_STORE.get_village_name_rows()
+        if not rows:
+            rows = read_csv_norm(DEFAULT_VILLAGE_LOCATIONS)
         villages = []
         for r in rows:
             name = get_any(r, ["village_name", "village", "name"])
@@ -345,9 +363,9 @@ async def list_villages():
     except Exception as e:
         return []
 
-# --- In-Memory State & Data Loading ---
-# We use in-memory lists to simulate a database for this session.
-# In a real app, this would be replaced by SQL queries.
+# --- Runtime State ---
+# The in-memory lists are the active request cache.
+# Postgres is the source of truth and is synchronized on every write.
 
 PROBLEMS: List[Dict[str, Any]] = []
 VOLUNTEERS: List[Dict[str, Any]] = []
@@ -392,18 +410,13 @@ def _village_coordinates(village_name: Optional[str]) -> tuple[float, float]:
         "Devnagar":   (23.2599, 77.4126),
         "Riverbend":  (21.2514, 81.6296),
     }
-    # Secondary: read from village_locations.csv at runtime to pick up any additions
+    if VILLAGE_COORDS_CACHE:
+        village_coords.update(VILLAGE_COORDS_CACHE)
+
     try:
-        rows = read_csv_norm(DEFAULT_VILLAGE_LOCATIONS)
-        for r in rows:
-            name = get_any(r, ["village_name", "village", "name"])
-            lat_raw = get_any(r, ["lat", "latitude"])
-            lng_raw = get_any(r, ["lng", "longitude"])
-            if name and lat_raw and lng_raw:
-                try:
-                    village_coords.setdefault(name, (float(lat_raw), float(lng_raw)))
-                except ValueError:
-                    pass
+        if DATA_STORE:
+            for name, coords in DATA_STORE.get_village_coordinates().items():
+                village_coords.setdefault(name, coords)
     except Exception:
         pass
 
@@ -639,9 +652,27 @@ def _seed_timestamp(index: int) -> str:
 
 
 def _load_profile_directory() -> Dict[str, Dict[str, Any]]:
+    profiles: Dict[str, Dict[str, Any]] = {}
+    try:
+        for row in DATA_STORE.load_seed_rows("runtime_profiles"):
+            profile_id = get_any(row, ["id"])
+            if not profile_id:
+                continue
+            profiles[profile_id] = {
+                "id": profile_id,
+                "email": get_any(row, ["email"]),
+                "full_name": get_any(row, ["full_name", "name"], "User"),
+                "phone": get_any(row, ["phone"]),
+                "role": get_any(row, ["role"], "volunteer"),
+                "created_at": _now_iso(),
+            }
+        if profiles:
+            return profiles
+    except Exception:
+        pass
+
     if not os.path.exists(RUNTIME_PROFILES_CSV):
         return {}
-    profiles: Dict[str, Dict[str, Any]] = {}
     for row in read_csv_norm(RUNTIME_PROFILES_CSV):
         profile_id = get_any(row, ["id"])
         if not profile_id:
@@ -667,52 +698,55 @@ def _normalize_availability(volunteer: Dict[str, Any]) -> str:
 
 
 def _runtime_people_rows() -> List[Dict[str, Any]]:
-    canonical_rows = read_csv_norm(DEFAULT_PEOPLE_CSV)
-    canonical_by_id: Dict[str, Dict[str, Any]] = {}
-    for row in canonical_rows:
-        volunteer_id = get_any(row, ["person_id", "student_id", "id"])
-        if volunteer_id:
-            canonical_by_id[str(volunteer_id)] = dict(row)
+    try:
+        return DATA_STORE.get_people_rows()
+    except Exception:
+        canonical_rows = read_csv_norm(DEFAULT_PEOPLE_CSV)
+        canonical_by_id: Dict[str, Dict[str, Any]] = {}
+        for row in canonical_rows:
+            volunteer_id = get_any(row, ["person_id", "student_id", "id"])
+            if volunteer_id:
+                canonical_by_id[str(volunteer_id)] = dict(row)
 
-    rows: List[Dict[str, Any]] = []
-    seen_ids: set[str] = set()
+        rows: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
 
-    for volunteer in VOLUNTEERS:
-        volunteer_id = str(volunteer.get("id") or volunteer.get("user_id") or "")
-        if not volunteer_id:
-            continue
-        source = dict(canonical_by_id.get(volunteer_id, {}))
-        profile = volunteer.get("profiles") or {}
-        skills = [str(skill).strip() for skill in volunteer.get("skills", []) if str(skill).strip()]
-        skills_text = ";".join(skills)
-        row = {
-            **source,
-            "person_id": volunteer_id,
-            "id": volunteer_id,
-            "user_id": volunteer.get("user_id") or volunteer_id,
-            "name": profile.get("full_name") or source.get("name") or volunteer_id,
-            "full_name": profile.get("full_name") or source.get("full_name") or volunteer_id,
-            "email": profile.get("email") or source.get("email"),
-            "phone": profile.get("phone") or source.get("phone"),
-            "skills": skills_text,
-            "text": skills_text,
-            "availability": _normalize_availability(volunteer),
-            "availability_status": volunteer.get("availability_status") or source.get("availability_status") or "available",
-            "home_location": volunteer.get("home_location") or source.get("home_location") or source.get("village") or "",
-        }
-        if "willingness_eff" not in row:
-            row["willingness_eff"] = source.get("willingness_eff", 0.5)
-        if "willingness_bias" not in row:
-            row["willingness_bias"] = source.get("willingness_bias", 0.5)
-        rows.append(row)
-        seen_ids.add(volunteer_id)
+        for volunteer in VOLUNTEERS:
+            volunteer_id = str(volunteer.get("id") or volunteer.get("user_id") or "")
+            if not volunteer_id:
+                continue
+            source = dict(canonical_by_id.get(volunteer_id, {}))
+            profile = volunteer.get("profiles") or {}
+            skills = [str(skill).strip() for skill in volunteer.get("skills", []) if str(skill).strip()]
+            skills_text = ";".join(skills)
+            row = {
+                **source,
+                "person_id": volunteer_id,
+                "id": volunteer_id,
+                "user_id": volunteer.get("user_id") or volunteer_id,
+                "name": profile.get("full_name") or source.get("name") or volunteer_id,
+                "full_name": profile.get("full_name") or source.get("full_name") or volunteer_id,
+                "email": profile.get("email") or source.get("email"),
+                "phone": profile.get("phone") or source.get("phone"),
+                "skills": skills_text,
+                "text": skills_text,
+                "availability": _normalize_availability(volunteer),
+                "availability_status": volunteer.get("availability_status") or source.get("availability_status") or "available",
+                "home_location": volunteer.get("home_location") or source.get("home_location") or source.get("village") or "",
+            }
+            if "willingness_eff" not in row:
+                row["willingness_eff"] = source.get("willingness_eff", 0.5)
+            if "willingness_bias" not in row:
+                row["willingness_bias"] = source.get("willingness_bias", 0.5)
+            rows.append(row)
+            seen_ids.add(volunteer_id)
 
-    for volunteer_id, row in canonical_by_id.items():
-        if volunteer_id in seen_ids:
-            continue
-        rows.append(dict(row))
+        for volunteer_id, row in canonical_by_id.items():
+            if volunteer_id in seen_ids:
+                continue
+            rows.append(dict(row))
 
-    return rows
+        return rows
 
 
 def _sync_runtime_people_csv() -> str:
@@ -790,6 +824,8 @@ def _recommendation_payload_for_problem(problem: Dict[str, Any], *, people_csv: 
         "transcription": problem.get("transcript"),
         "visual_tags": list(problem.get("visual_tags") or []),
         "people_csv": people_csv,
+        "people_rows": _runtime_people_rows(),
+        "use_database": True,
         "model_path": DEFAULT_MODEL_PATH,
     }
 
@@ -826,34 +862,22 @@ def _personalized_reassign_for_volunteer(volunteer: Dict[str, Any], reason: str)
     if not personalized_rows:
         return 0
 
-    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, newline="", encoding="utf-8") as handle:
-        fieldnames = list(personalized_rows[0].keys())
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        for row in personalized_rows:
-            writer.writerow({field: row.get(field, "") for field in fieldnames})
-        people_csv = handle.name
-
     scored_candidates: List[tuple[float, int, Dict[str, Any]]] = []
-    try:
-        for problem in open_problems:
-            payload = _recommendation_payload_for_problem(problem, people_csv=people_csv)
-            payload["team_size"] = 1
-            payload["num_teams"] = 1
-            try:
-                results = recommender_service.generate_recommendations(payload)
-            except Exception as exc:
-                logger.warning("Failed to score problem %s for volunteer %s: %s", problem.get("id"), volunteer_id, exc)
-                continue
-            top_team = (results.get("teams") or [{}])[0]
-            score = float(top_team.get("goodness") or 0.0)
-            lexical = _problem_relevance_score(problem, volunteer)
-            scored_candidates.append((score, lexical, problem))
-    finally:
+    for problem in open_problems:
+        payload = _recommendation_payload_for_problem(problem, people_csv="")
+        payload["team_size"] = 1
+        payload["num_teams"] = 1
+        payload["people_rows"] = personalized_rows
+        payload["use_database"] = True
         try:
-            os.remove(people_csv)
-        except OSError:
-            pass
+            results = recommender_service.generate_recommendations(payload)
+        except Exception as exc:
+            logger.warning("Failed to score problem %s for volunteer %s: %s", problem.get("id"), volunteer_id, exc)
+            continue
+        top_team = (results.get("teams") or [{}])[0]
+        score = float(top_team.get("goodness") or 0.0)
+        lexical = _problem_relevance_score(problem, volunteer)
+        scored_candidates.append((score, lexical, problem))
 
     scored_candidates.sort(key=lambda item: (item[0], item[1], str(item[2].get("created_at") or "")), reverse=True)
     selected_problem_ids = {problem["id"] for score, lexical, problem in scored_candidates[:3] if score > 0 or lexical > 0}
@@ -878,14 +902,16 @@ def _personalized_reassign_for_volunteer(volunteer: Dict[str, Any], reason: str)
 
 
 def _rematch_open_problems(reason: str) -> int:
-    people_csv = _sync_runtime_people_csv()
+    people_rows = _runtime_people_rows()
     reassigned = 0
 
     for problem in PROBLEMS:
         if problem.get("status") == "completed":
             continue
 
-        payload = _recommendation_payload_for_problem(problem, people_csv=people_csv)
+        payload = _recommendation_payload_for_problem(problem, people_csv="")
+        payload["people_rows"] = people_rows
+        payload["use_database"] = True
         try:
             results = recommender_service.generate_recommendations(payload)
         except Exception as exc:
@@ -1018,21 +1044,40 @@ def _build_seed_profiles(
 def persist_runtime_state() -> None:
     global STATE_VERSION
     with csv_lock:
+        db_error: Optional[Exception] = None
+        try:
+            DATA_STORE.save_runtime_state(
+                problems=PROBLEMS,
+                volunteers=VOLUNTEERS,
+                profiles=PROFILES,
+                media_assets=MEDIA_ASSETS,
+            )
+        except Exception as exc:
+            db_error = exc
+            logger.warning("Failed to persist runtime state to Postgres: %s", exc)
         STATE_VERSION += 1
-        payload = {
-            "state_version": STATE_VERSION,
-            "problems": PROBLEMS,
-            "volunteers": VOLUNTEERS,
-            "profiles": PROFILES,
-            "media_assets": MEDIA_ASSETS,
-            "saved_at": _now_iso(),
-        }
-        state_path = Path(RUNTIME_STATE_JSON)
-        state_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = state_path.with_suffix(state_path.suffix + ".tmp")
-        with open(tmp_path, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, state_path)
+        try:
+            if db_error is None:
+                DATA_STORE.set_meta("state_version", STATE_VERSION)
+        except Exception as exc:
+            logger.warning("Failed to persist state version metadata: %s", exc)
+        try:
+            runtime_snapshot = {
+                "state_version": STATE_VERSION,
+                "problems": PROBLEMS,
+                "volunteers": VOLUNTEERS,
+                "profiles": PROFILES,
+                "media_assets": MEDIA_ASSETS,
+            }
+            Path(RUNTIME_STATE_JSON).parent.mkdir(parents=True, exist_ok=True)
+            with open(RUNTIME_STATE_JSON, "w", encoding="utf-8") as handle:
+                json.dump(runtime_snapshot, handle, ensure_ascii=False, indent=2, default=str)
+        except Exception as exc:
+            logger.warning("Failed to export runtime state snapshot: %s", exc)
+        try:
+            _sync_runtime_people_csv()
+        except Exception as exc:
+            logger.warning("Failed to export live people CSV: %s", exc)
 
 
 def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
@@ -1044,27 +1089,66 @@ def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
     )
 
 
+def _record_learning_event(
+    event_type: str,
+    *,
+    entity_type: Optional[str] = None,
+    entity_id: Optional[str] = None,
+    summary: Optional[str] = None,
+    payload: Optional[Dict[str, Any]] = None,
+    text: Optional[str] = None,
+) -> None:
+    try:
+        DATA_STORE.record_learning_event(
+            event_type=event_type,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            summary=summary,
+            payload=payload,
+            text=text,
+        )
+    except Exception as exc:
+        logger.warning("Failed to record learning event %s/%s: %s", event_type, entity_id, exc)
+
+
 def load_initial_data(force_seed: bool = False):
     """Loads seeded runtime state backed by canonical CSV data."""
     global PROBLEMS, VOLUNTEERS, PROFILES, MEDIA_ASSETS, STATE_VERSION
 
-    if os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
+    try:
+        DATA_STORE.ensure_schema()
+        DATA_STORE.ensure_seed_catalog(force=force_seed)
+        if not force_seed:
+            state_version = DATA_STORE.get_meta("state_version", None)
+            if isinstance(state_version, int):
+                STATE_VERSION = state_version
+            elif isinstance(state_version, str):
+                try:
+                    STATE_VERSION = int(state_version)
+                except ValueError:
+                    STATE_VERSION = max(STATE_VERSION, 0)
+            elif isinstance(state_version, dict) and "value" in state_version:
+                try:
+                    STATE_VERSION = int(state_version["value"])
+                except (TypeError, ValueError):
+                    STATE_VERSION = max(STATE_VERSION, 0)
+    except Exception as exc:
+        logger.warning("Failed to initialize Postgres catalog, falling back to CSV seed data: %s", exc)
+
+    if not force_seed:
         try:
-            with open(RUNTIME_STATE_JSON, "r", encoding="utf-8") as handle:
-                state = json.load(handle)
-            STATE_VERSION = int(state.get("state_version", 0) or 0)
-            PROBLEMS = list(state.get("problems", []))
-            VOLUNTEERS = list(state.get("volunteers", []))
-            PROFILES = list(state.get("profiles", []))
-            MEDIA_ASSETS = list(state.get("media_assets", []))
-            if PROBLEMS and VOLUNTEERS:
-                if not PROFILES:
-                    PROFILES = _build_seed_profiles(_load_profile_directory(), VOLUNTEERS, PROBLEMS)
-                    persist_runtime_state()
-                _sync_runtime_people_csv()
+            runtime_state = DATA_STORE.load_runtime_state()
+            if runtime_state.problems or runtime_state.volunteers or runtime_state.profiles or runtime_state.media_assets:
+                PROBLEMS = list(runtime_state.problems)
+                VOLUNTEERS = list(runtime_state.volunteers)
+                PROFILES = list(runtime_state.profiles)
+                MEDIA_ASSETS = list(runtime_state.media_assets)
+                VILLAGE_COORDS_CACHE.clear()
+                VILLAGE_COORDS_CACHE.update(DATA_STORE.get_village_coordinates())
+                STATE_VERSION = max(STATE_VERSION, 1)
                 return
         except Exception as exc:
-            logger.warning("Failed to load runtime state, rebuilding from canonical dataset: %s", exc)
+            logger.warning("Failed to load runtime state from Postgres, rebuilding from canonical dataset: %s", exc)
 
     try:
         profile_directory = _load_profile_directory()
@@ -1073,9 +1157,10 @@ def load_initial_data(force_seed: bool = False):
         PROBLEMS = _build_seed_problems(profile_directory, volunteers_by_id)
         PROFILES = _build_seed_profiles(profile_directory, VOLUNTEERS, PROBLEMS)
         MEDIA_ASSETS = []
-        STATE_VERSION = max(STATE_VERSION, 0)
-        _sync_runtime_people_csv()
+        STATE_VERSION = 0
         persist_runtime_state()
+        VILLAGE_COORDS_CACHE.clear()
+        VILLAGE_COORDS_CACHE.update(DATA_STORE.get_village_coordinates())
     except Exception as exc:
         logger.error("Failed to load canonical seed data: %s", exc)
         PROBLEMS = []
@@ -1086,13 +1171,21 @@ def load_initial_data(force_seed: bool = False):
 
 
 def reset_runtime_state() -> None:
-    if os.path.exists(RUNTIME_STATE_JSON):
-        os.remove(RUNTIME_STATE_JSON)
+    global STATE_VERSION
+    try:
+        DATA_STORE.clear_runtime_state()
+        DATA_STORE.set_meta("state_version", 0)
+    except Exception as exc:
+        logger.warning("Failed to clear Postgres runtime state: %s", exc)
     if os.path.exists(RUNTIME_PEOPLE_CSV):
         os.remove(RUNTIME_PEOPLE_CSV)
+    if os.path.exists(RUNTIME_STATE_JSON):
+        os.remove(RUNTIME_STATE_JSON)
     if os.path.exists(MEDIA_ROOT):
         shutil.rmtree(MEDIA_ROOT, ignore_errors=True)
     MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    VILLAGE_COORDS_CACHE.clear()
+    STATE_VERSION = 0
     load_initial_data(force_seed=True)
 
 # Load data on startup (or module import)
@@ -1135,6 +1228,17 @@ async def get_problems():
 
 @app.get("/state-version")
 async def get_state_version():
+    try:
+        version = DATA_STORE.get_meta("state_version", STATE_VERSION)
+        if isinstance(version, int):
+            return {"version": version}
+        if isinstance(version, str):
+            try:
+                return {"version": int(version)}
+            except ValueError:
+                pass
+    except Exception:
+        pass
     return {"version": STATE_VERSION}
 
 @app.get("/volunteers")
@@ -1215,6 +1319,19 @@ async def update_volunteer(data: Dict[str, Any]):
 
     rematched = _rematch_open_problems(f"volunteer profile update for {user_id}")
     personalized = _personalized_reassign_for_volunteer(updated_record, f"volunteer profile update for {user_id}")
+    _record_learning_event(
+        "volunteer_updated",
+        entity_type="volunteer",
+        entity_id=str(updated_record.get("id") or user_id),
+        summary=f"Volunteer profile updated for {user_id}",
+        payload={"volunteer": updated_record, "rematched_problems": rematched, "personalized_tasks": personalized},
+        text=" ".join([
+            str(updated_record.get("id") or ""),
+            str(updated_record.get("skills") or ""),
+            str(updated_record.get("availability") or ""),
+            str(updated_record.get("home_location") or ""),
+        ]),
+    )
     persist_runtime_state()
     logger.info(
         "Recomputed assignments for %s open problems after volunteer update and personalized %s tasks for %s.",
@@ -1307,6 +1424,19 @@ async def assign_task(problem_id: str, payload: Dict[str, str]):
     if problem.get("status") == "pending":
         problem["status"] = "in_progress"
     problem["updated_at"] = _now_iso()
+    _record_learning_event(
+        "task_assigned",
+        entity_type="problem",
+        entity_id=problem_id,
+        summary=f"Assigned {volunteer_id} to {problem_id}",
+        payload={"problem_id": problem_id, "volunteer_id": volunteer_id, "match": match},
+        text=" ".join([
+            problem.get("title", ""),
+            problem.get("description", ""),
+            str(volunteer.get("skills") or ""),
+            problem.get("village_name", ""),
+        ]),
+    )
     persist_runtime_state()
     notify_team_assignment(
         [{"members": [volunteer]}],
@@ -1331,6 +1461,20 @@ async def update_problem_status(problem_id: str, payload: Dict[str, str]):
 
     problem["status"] = new_status
     problem["updated_at"] = _now_iso()
+    _record_learning_event(
+        "problem_status_changed",
+        entity_type="problem",
+        entity_id=problem_id,
+        summary=f"Problem {problem_id} changed to {new_status}",
+        payload={"problem_id": problem_id, "status": new_status},
+        text=" ".join([
+            problem.get("title", ""),
+            problem.get("description", ""),
+            new_status,
+            problem.get("category", ""),
+            problem.get("village_name", ""),
+        ]),
+    )
     if new_status == "completed":
         completed_at = _now_iso()
         for match in problem.get("matches", []):
@@ -1354,6 +1498,19 @@ async def delete_problem(problem_id: str):
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
     PROBLEMS = [p for p in PROBLEMS if p["id"] != problem_id]
+    _record_learning_event(
+        "problem_deleted",
+        entity_type="problem",
+        entity_id=problem_id,
+        summary=f"Deleted problem {problem_id}",
+        payload={"problem": problem},
+        text=" ".join([
+            problem.get("title", ""),
+            problem.get("description", ""),
+            problem.get("category", ""),
+            problem.get("village_name", ""),
+        ]),
+    )
     persist_runtime_state()
     return {"status": "success", "deleted_id": problem_id}
 
@@ -1368,6 +1525,19 @@ async def edit_problem(problem_id: str, payload: Dict[str, Any]):
         if key in payload:
             problem[key] = payload[key]
     problem["updated_at"] = _now_iso()
+    _record_learning_event(
+        "problem_edited",
+        entity_type="problem",
+        entity_id=problem_id,
+        summary=f"Edited problem {problem_id}",
+        payload={"problem_id": problem_id, "changes": {key: payload[key] for key in editable if key in payload}},
+        text=" ".join([
+            problem.get("title", ""),
+            problem.get("description", ""),
+            problem.get("category", ""),
+            problem.get("village_name", ""),
+        ]),
+    )
     persist_runtime_state()
     return {"status": "success", "problem": _serialize_problem(problem)}
 
@@ -1382,6 +1552,18 @@ async def unassign_volunteer(problem_id: str, match_id: str):
     if not problem["matches"] and problem["status"] == "in_progress":
         problem["status"] = "pending"
     problem["updated_at"] = _now_iso()
+    _record_learning_event(
+        "task_unassigned",
+        entity_type="problem",
+        entity_id=problem_id,
+        summary=f"Removed match {match_id} from {problem_id}",
+        payload={"problem_id": problem_id, "match_id": match_id},
+        text=" ".join([
+            problem.get("title", ""),
+            problem.get("description", ""),
+            problem.get("village_name", ""),
+        ]),
+    )
     persist_runtime_state()
     return {"status": "success", "problem": _serialize_problem(problem)}
 
@@ -1400,6 +1582,19 @@ async def upload_media(
         problem_id=problem_id,
         volunteer_id=volunteer_id,
         label=label,
+    )
+    _record_learning_event(
+        "media_uploaded",
+        entity_type="media",
+        entity_id=asset.get("id"),
+        summary=f"Uploaded {kind} media",
+        payload={"asset": asset},
+        text=" ".join([
+            str(asset.get("kind") or ""),
+            str(asset.get("label") or ""),
+            str(asset.get("filename") or ""),
+            str(asset.get("problem_id") or ""),
+        ]),
     )
     persist_runtime_state()
     return {"status": "success", "media": asset}
@@ -1420,6 +1615,19 @@ async def submit_proof(problem_id: str, request: ProofRequest):
     verification = _verify_problem_proof(problem, request)
     proof = _attach_proof_to_problem(problem, media_asset_ids, request.volunteer_id, request.notes)
     proof["verification"] = verification
+    _record_learning_event(
+        "proof_submitted",
+        entity_type="problem",
+        entity_id=problem_id,
+        summary=f"Proof submitted for {problem_id}",
+        payload={"problem_id": problem_id, "proof": proof, "verification": verification},
+        text=" ".join([
+            problem.get("title", ""),
+            problem.get("description", ""),
+            str(request.notes or ""),
+            str(verification.get("summary") or ""),
+        ]),
+    )
     persist_runtime_state()
     return {"status": "success", "problem": _serialize_problem(problem), "proof": proof}
 
@@ -1447,6 +1655,19 @@ async def jugaad_assist_endpoint(request: JugaadRequest):
             visual_tags=list(problem.get("visual_tags") or []),
             materials_note=request.notes,
         )
+        _record_learning_event(
+            "jugaad_assist_requested",
+            entity_type="problem",
+            entity_id=request.problem_id,
+            summary=f"Jugaad guidance requested for {request.problem_id}",
+            payload={"request": request.model_dump(), "result": result},
+            text=" ".join([
+                problem.get("title", ""),
+                problem.get("description", ""),
+                problem.get("category", ""),
+                str(request.notes or ""),
+            ]),
+        )
         return JugaadResponse(problem_id=request.problem_id, **result)
     except HTTPException:
         raise
@@ -1458,7 +1679,7 @@ async def jugaad_assist_endpoint(request: JugaadRequest):
 @app.post("/api/v1/problems/instant-guidance", response_model=ProblemGuidanceResponse)
 async def problem_guidance_endpoint(request: ProblemGuidanceRequest):
     try:
-        return ProblemGuidanceResponse(
+        response = ProblemGuidanceResponse(
             **suggest_immediate_problem_actions(
                 problem_title=request.title,
                 problem_description=request.description,
@@ -1467,6 +1688,19 @@ async def problem_guidance_endpoint(request: ProblemGuidanceRequest):
                 severity=request.severity,
             )
         )
+        _record_learning_event(
+            "instant_guidance_requested",
+            entity_type="problem",
+            summary=f"Instant guidance requested for {request.title}",
+            payload={"request": request.model_dump(), "response": response.model_dump()},
+            text=" ".join([
+                request.title,
+                request.description,
+                request.category or "",
+                " ".join(request.visual_tags or []),
+            ]),
+        )
+        return response
     except Exception as exc:
         logger.exception("Instant problem guidance failed")
         raise HTTPException(status_code=500, detail=f"Instant guidance failed: {exc}")
@@ -1477,8 +1711,20 @@ def recommend_endpoint(request: RecommendRequest):
     try:
         payload = request.model_dump()
         payload["model_path"] = DEFAULT_MODEL_PATH
-        payload["people_csv"] = _sync_runtime_people_csv()
+        payload["people_rows"] = _runtime_people_rows()
+        payload["use_database"] = True
         results = recommender_service.generate_recommendations(payload)
+        _record_learning_event(
+            "recommendation_generated",
+            entity_type="proposal",
+            summary="Generated volunteer recommendation",
+            payload={"request": payload, "results": results},
+            text=" ".join([
+                request.proposal_text or "",
+                request.village_name or "",
+                " ".join(request.required_skills or []),
+            ]),
+        )
         
         # Notify teams if recommendations were generated
         if results and results.get("teams"):
@@ -1501,13 +1747,21 @@ def recommend_endpoint(request: RecommendRequest):
 @app.post("/api/v1/insights/chat")
 async def insights_chat_endpoint(request: InsightChatRequest):
     try:
-        return analyze_coordinator_query(
+        response = analyze_coordinator_query(
             request.query,
             problems=PROBLEMS,
             volunteers=VOLUNTEERS,
             days_back=request.days_back,
             limit=request.limit,
         )
+        _record_learning_event(
+            "insights_chat",
+            entity_type="query",
+            summary=request.query,
+            payload={"request": request.model_dump(), "response": response},
+            text=request.query,
+        )
+        return response
     except Exception as exc:
         logger.exception("Insights chat failed")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -1516,15 +1770,44 @@ async def insights_chat_endpoint(request: InsightChatRequest):
 @app.get("/api/v1/insights/overview")
 async def insights_overview_endpoint(days_back: int = 30):
     try:
-        return build_insight_overview(PROBLEMS, VOLUNTEERS, days_back=days_back)
+        response = build_insight_overview(PROBLEMS, VOLUNTEERS, days_back=days_back)
+        _record_learning_event(
+            "insights_overview",
+            entity_type="query",
+            summary=f"Overview requested for {days_back} days",
+            payload={"days_back": days_back, "response": response},
+            text=f"overview {days_back} days",
+        )
+        return response
     except Exception as exc:
         logger.exception("Insights overview failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/learning/events")
+async def learning_events_endpoint(
+    limit: int = 50,
+    event_type: Optional[str] = None,
+    entity_type: Optional[str] = None,
+    entity_id: Optional[str] = None,
+):
+    try:
+        return {
+            "events": DATA_STORE.get_recent_learning_events(
+                limit=limit,
+                event_type=event_type,
+                entity_type=entity_type,
+                entity_id=entity_id,
+            )
+        }
+    except Exception as exc:
+        logger.exception("Learning events lookup failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/submit-problem")
 async def submit_problem_endpoint(request: ProblemRequest):
     try:
-        new_id = f"prob-{int(datetime.now().timestamp())}"
+        new_id = f"prob-{uuid.uuid4().hex[:12]}"
         reporter_id = request.villager_id or request.coordinator_id or f"villager-{uuid.uuid4().hex[:8]}"
         reporter_profile = _find_profile(reporter_id)
         if not reporter_profile:
@@ -1572,6 +1855,20 @@ async def submit_problem_endpoint(request: ProblemRequest):
             "matches": [],
         }
         PROBLEMS.insert(0, new_problem)
+        _record_learning_event(
+            "problem_reported",
+            entity_type="problem",
+            entity_id=new_id,
+            summary=f"Problem reported: {request.title}",
+            payload={"problem": new_problem},
+            text=" ".join([
+                request.title,
+                request.description,
+                request.category,
+                request.village_name or "",
+                " ".join(request.visual_tags or []),
+            ]),
+        )
         persist_runtime_state()
         logger.info(f"Problem submitted: {request.title!r} in {request.village_name} severity={severity} ({severity_source})")
         return {"status": "success", "id": new_id}

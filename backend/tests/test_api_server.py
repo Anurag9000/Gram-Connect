@@ -171,6 +171,7 @@ def test_jugaad_assist_endpoint(mock_suggest, tmp_path):
         api_server.MEDIA_ASSETS[:] = [item for item in api_server.MEDIA_ASSETS if item.get("problem_id") != problem["id"]]
         api_server.RUNTIME_STATE_JSON = original_state_path
         api_server.MEDIA_ROOT = original_media_root
+        api_server.reset_runtime_state()
 
 
 @patch("api_server.verify_resolution_proof")
@@ -232,6 +233,7 @@ def test_submit_proof_requires_gemini_acceptance(mock_verify, tmp_path):
         api_server.MEDIA_ASSETS[:] = [item for item in api_server.MEDIA_ASSETS if item.get("problem_id") != problem["id"]]
         api_server.RUNTIME_STATE_JSON = original_state_path
         api_server.MEDIA_ROOT = original_media_root
+        api_server.reset_runtime_state()
 
 
 @patch("api_server.verify_resolution_proof")
@@ -294,6 +296,7 @@ def test_submit_proof_rejects_invalid_before_after(mock_verify, tmp_path):
         api_server.MEDIA_ASSETS[:] = [item for item in api_server.MEDIA_ASSETS if item.get("problem_id") != problem["id"]]
         api_server.RUNTIME_STATE_JSON = original_state_path
         api_server.MEDIA_ROOT = original_media_root
+        api_server.reset_runtime_state()
 
 
 def test_submit_problem_persists_runtime_state(tmp_path):
@@ -317,15 +320,19 @@ def test_submit_problem_persists_runtime_state(tmp_path):
         )
         created_id = response["id"]
         assert response["status"] == "success"
-        assert Path(api_server.RUNTIME_STATE_JSON).exists()
-        stored_problem = next(problem for problem in api_server.PROBLEMS if problem["id"] == response["id"])
+        stored_state = api_server.DATA_STORE.load_runtime_state()
+        stored_problem = next(problem for problem in stored_state.problems if problem["id"] == response["id"])
         assert stored_problem["village_address"] == "Near the school"
         assert stored_problem["visual_tags"] == ["water", "repair"]
         assert stored_problem["has_audio"] is True
+        assert api_server.DATA_STORE.get_meta("state_version") is not None
+        learning_events = api_server.DATA_STORE.get_recent_learning_events(limit=5, event_type="problem_reported")
+        assert any(event["entity_id"] == created_id for event in learning_events)
     finally:
         if created_id:
             api_server.PROBLEMS[:] = [problem for problem in api_server.PROBLEMS if problem["id"] != created_id]
         api_server.RUNTIME_STATE_JSON = original_state_path
+        api_server.reset_runtime_state()
 
 
 def test_update_volunteer_creates_normalized_record():
@@ -346,6 +353,7 @@ def test_update_volunteer_creates_normalized_record():
         api_server.VOLUNTEERS[:] = [
             volunteer for volunteer in api_server.VOLUNTEERS if volunteer.get("user_id") != "new-volunteer"
         ]
+        api_server.reset_runtime_state()
 
 
 @patch.object(api_server.recommender_service, "generate_recommendations")
@@ -428,9 +436,9 @@ def test_update_volunteer_triggers_live_rematch(mock_generate, tmp_path):
         )
         assert response["status"] == "success"
         assert response["rematched_problems"] >= 1
-        assert Path(api_server.RUNTIME_PEOPLE_CSV).exists()
-        roster_text = Path(api_server.RUNTIME_PEOPLE_CSV).read_text(encoding="utf-8")
-        assert "Agriculture" in roster_text
+        assert "Agriculture" in str(response["data"].get("skills", ""))
+        runtime_state = api_server.DATA_STORE.load_runtime_state()
+        assert any(volunteer.get("user_id") == "mock-volunteer-uuid" for volunteer in runtime_state.volunteers)
         assert problem["matches"]
         assert problem["matches"][0]["volunteer_id"] == "VOL-TEST-002"
         assert problem["matches"][0]["notes"].startswith("Auto-rematched after volunteer profile update")
@@ -442,6 +450,7 @@ def test_update_volunteer_triggers_live_rematch(mock_generate, tmp_path):
             item for item in api_server.VOLUNTEERS
             if item.get("id") not in {"VOL-TEST-001", "VOL-TEST-002"}
         ]
+        api_server.reset_runtime_state()
 
 
 def test_profile_upsert_and_media_upload_persist(tmp_path):
@@ -499,6 +508,7 @@ def test_profile_upsert_and_media_upload_persist(tmp_path):
         api_server.RUNTIME_STATE_JSON = original_state_path
         api_server.MEDIA_ROOT = original_media_root
         api_server.PROFILES[:] = [profile for profile in api_server.PROFILES if profile.get("full_name") != "Village Reporter"]
+        api_server.reset_runtime_state()
 
 
 def test_get_missing_volunteer_raises_not_found():
@@ -539,3 +549,4 @@ def test_assign_task_is_idempotent_and_tasks_follow_problem_status():
     finally:
         api_server.PROBLEMS.remove(problem)
         api_server.VOLUNTEERS.remove(volunteer)
+        api_server.reset_runtime_state()

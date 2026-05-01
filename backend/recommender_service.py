@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from nexus import NexusConfig, run_nexus, load_distance_lookup, load_village_names, read_people
+from postgres_store import PostgresStore
 
 logger = logging.getLogger("recommender_service")
 
@@ -79,10 +80,21 @@ class RecommenderService:
         self.dataset_root     = dataset_root
         self.village_locations = os.path.join(dataset_root, "village_locations.csv")
         self.distance_csv      = os.path.join(dataset_root, "village_distances.csv")
+        self._store = PostgresStore.from_env()
 
-        # Pre-load static lookup tables once at startup
-        self._distance_lookup  = load_distance_lookup(self.distance_csv)
-        self._village_names    = load_village_names(self.village_locations)
+        # Pre-load static lookup tables once at startup; prefer Postgres when available.
+        try:
+            self._store.ensure_schema()
+            if self._store.has_runtime_data() or self._store.load_seed_rows("people"):
+                self._distance_lookup = self._store.get_distance_lookup()
+                self._village_names = self._store.get_village_names()
+            else:
+                self._distance_lookup  = load_distance_lookup(self.distance_csv)
+                self._village_names    = load_village_names(self.village_locations)
+        except Exception as exc:
+            logger.warning("Postgres lookup bootstrap failed, falling back to CSV files: %s", exc)
+            self._distance_lookup  = load_distance_lookup(self.distance_csv)
+            self._village_names    = load_village_names(self.village_locations)
 
         # model_path kept for API compat but unused by Nexus
         self.model_path = model_path
@@ -107,6 +119,18 @@ class RecommenderService:
         Returns the same response schema as the old run_recommender() did.
         """
         people_csv = config.get("people_csv") or self.people_csv
+        people_rows = config.get("people_rows")
+        use_database = bool(config.get("use_database"))
+        if people_rows is None and use_database:
+            try:
+                if self._store:
+                    people_rows = self._store.get_people_rows()
+            except Exception as exc:
+                logger.warning("Failed to load people rows from Postgres, falling back to CSV: %s", exc)
+                people_rows = None
+
+        distance_lookup = config.get("distance_lookup") or (self._store.get_distance_lookup() if use_database and self._store else self._distance_lookup)
+        village_names = config.get("village_names") or (self._store.get_village_names() if use_database and self._store else self._village_names)
 
         legacy_cfg = RecommendationConfig(
             people_csv=people_csv,
@@ -142,6 +166,30 @@ class RecommenderService:
         )
 
         try:
+            if use_database or people_rows is not None:
+                nexus_cfg = NexusConfig(
+                    people_csv=people_csv,
+                    proposal_text=legacy_cfg.proposal_text,
+                    village_locations=legacy_cfg.village_locations,
+                    distance_csv=legacy_cfg.distance_csv,
+                    required_skills=legacy_cfg.required_skills,
+                    auto_extract=legacy_cfg.auto_extract,
+                    proposal_location_override=legacy_cfg.proposal_location_override,
+                    task_start=legacy_cfg.task_start,
+                    task_end=legacy_cfg.task_end,
+                    team_size=legacy_cfg.team_size,
+                    num_teams=legacy_cfg.num_teams,
+                    soft_cap=legacy_cfg.soft_cap,
+                    severity_override=legacy_cfg.severity_override,
+                    weekly_quota=legacy_cfg.weekly_quota,
+                    overwork_penalty=legacy_cfg.overwork_penalty,
+                    transcription=legacy_cfg.transcription,
+                    visual_tags=legacy_cfg.visual_tags,
+                    _people=people_rows,
+                    _distance_lookup=distance_lookup,
+                    _village_names=village_names,
+                )
+                return run_nexus(nexus_cfg)
             return run_recommender(legacy_cfg)
         except Exception as e:
             logger.error("Nexus engine error: %s", e, exc_info=True)

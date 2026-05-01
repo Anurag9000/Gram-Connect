@@ -4,7 +4,9 @@ The backend is a FastAPI application that powers problem submission, volunteer c
 
 ## Runtime Model
 - Recommendations are produced by `nexus.py` through `recommender_service.py`
-- Runtime state is seeded from `data/*.csv` and persisted under `backend/runtime_data/`
+- Canonical seed data is loaded from `data/*.csv` into Postgres on startup
+- Live runtime state, profile data, problem records, and learning events are persisted in Postgres
+- Uploaded media still lives under `backend/runtime_data/media/` for file serving
 - `multimodal_service.py` uses Gemini first and Whisper / CLIP fallbacks when available
 
 ## Setup
@@ -28,7 +30,8 @@ python -m uvicorn api_server:app --host 0.0.0.0 --port 8000
 ```
 
 ## Deployment
-- Keep `backend/runtime_data/` writable on the host
+- Provide a writable Postgres instance and set `DATABASE_URL`
+- Install the `vector` extension in that database
+- Keep `backend/runtime_data/` writable on the host for uploaded media
 - Provide `GEMINI_API_KEY` or `GOOGLE_API_KEY` if you want the Gemini multimodal path
 - Use `VITE_API_BASE_URL` in the frontend to point at the deployed backend URL
-

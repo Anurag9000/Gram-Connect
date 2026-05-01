@@ -15,6 +15,14 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "runtime_data", "canonical_model.pkl")
 
 
+def setup_module():
+    api_server.reset_runtime_state()
+
+
+def teardown_module():
+    api_server.reset_runtime_state()
+
+
 def ensure_canonical_model() -> str:
     ensure_canonical_dataset()
     return ensure_trained_model(

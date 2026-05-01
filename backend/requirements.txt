@@ -15,3 +15,5 @@ regex
 tqdm
 httpx
 google-genai
+psycopg[binary,pool]
+pgvector

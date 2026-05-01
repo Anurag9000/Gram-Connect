@@ -3,7 +3,7 @@ start_e2e_backend.py — Gram Connect end-to-end backend launcher.
 
 Nexus engine requires no trained model. Boot sequence:
   1. Ensure canonical dataset CSVs exist
-  2. Reset runtime state (fresh volunteers + problems from CSVs)
+  2. Reset runtime state and reseed Postgres from canonical CSVs
   3. Start uvicorn
 """
 

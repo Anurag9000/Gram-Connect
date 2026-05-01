@@ -7,6 +7,9 @@ No model file, no embeddings, no training data.
 """
 
 import logging
+import os
+import pickle
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from nexus import NexusConfig, run_nexus, load_distance_lookup, load_village_names, read_people
@@ -14,9 +17,64 @@ from nexus import NexusConfig, run_nexus, load_distance_lookup, load_village_nam
 logger = logging.getLogger("recommender_service")
 
 
+@dataclass
+class RecommendationConfig:
+    people_csv: str
+    proposal_text: str
+    village_locations: str
+    distance_csv: str
+    required_skills: Optional[List[str]] = None
+    auto_extract: bool = True
+    proposal_location_override: Optional[str] = None
+    task_start: Optional[str] = None
+    task_end: Optional[str] = None
+    team_size: Optional[int] = None
+    num_teams: int = 3
+    soft_cap: int = 6
+    severity_override: Optional[str] = None
+    weekly_quota: float = 5.0
+    overwork_penalty: float = 0.1
+    transcription: Optional[str] = None
+    visual_tags: Optional[List[str]] = None
+    schedule_csv: Optional[str] = None
+    size_buckets: Optional[str] = None
+    lambda_red: float = 1.0
+    lambda_size: float = 1.0
+    lambda_will: float = 0.5
+    topk_swap: int = 10
+    k_robust: int = 1
+    distance_scale: float = 50.0
+    distance_decay: float = 30.0
+    loaded_bundle: Optional[Any] = None
+
+
+def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
+    nexus_cfg = NexusConfig(
+        people_csv=config.people_csv,
+        proposal_text=config.proposal_text,
+        village_locations=config.village_locations,
+        distance_csv=config.distance_csv,
+        required_skills=config.required_skills,
+        auto_extract=config.auto_extract,
+        proposal_location_override=config.proposal_location_override,
+        task_start=config.task_start,
+        task_end=config.task_end,
+        team_size=config.team_size,
+        num_teams=config.num_teams,
+        soft_cap=config.soft_cap,
+        severity_override=config.severity_override,
+        weekly_quota=config.weekly_quota,
+        overwork_penalty=config.overwork_penalty,
+        transcription=config.transcription,
+        visual_tags=config.visual_tags,
+        _distance_lookup=config.loaded_bundle.get("_distance_lookup") if isinstance(config.loaded_bundle, dict) else None,
+        _village_names=config.loaded_bundle.get("_village_names") if isinstance(config.loaded_bundle, dict) else None,
+    )
+    return run_nexus(nexus_cfg)
+
+
 class RecommenderService:
     def __init__(self, model_path: str, people_csv: str, dataset_root: str):
-        import os
         self.people_csv       = people_csv
         self.dataset_root     = dataset_root
         self.village_locations = os.path.join(dataset_root, "village_locations.csv")
@@ -28,6 +86,14 @@ class RecommenderService:
 
         # model_path kept for API compat but unused by Nexus
         self.model_path = model_path
+        self.model_bundle = None
+        if model_path and os.path.exists(model_path):
+            try:
+                with open(model_path, "rb") as handle:
+                    self.model_bundle = pickle.load(handle)
+            except Exception as exc:
+                logger.warning("Failed to load legacy model bundle from %s: %s", model_path, exc)
+                self.model_bundle = None
         logger.info("RecommenderService ready (Nexus engine — no ML model required).")
 
     def set_model_path(self, model_path: str) -> None:
@@ -42,34 +108,41 @@ class RecommenderService:
         """
         people_csv = config.get("people_csv") or self.people_csv
 
-        nexus_cfg = NexusConfig(
-            people_csv                 = people_csv,
-            proposal_text              = config.get("proposal_text", ""),
-            village_locations          = config.get("village_locations") or self.village_locations,
-            distance_csv               = config.get("distance_csv") or self.distance_csv,
-            required_skills            = config.get("required_skills"),
-            auto_extract               = config.get("auto_extract", True),
-            proposal_location_override = (
-                config.get("proposal_location_override")
-                or config.get("village_name")
-            ),
-            task_start                 = config.get("task_start"),
-            task_end                   = config.get("task_end"),
-            team_size                  = config.get("team_size"),
-            num_teams                  = int(config.get("num_teams") or 3),
-            soft_cap                   = int(config.get("soft_cap") or 6),
-            severity_override          = config.get("severity"),
-            weekly_quota               = float(config.get("weekly_quota") or 5.0),
-            overwork_penalty           = float(config.get("overwork_penalty") or 0.1),
-            transcription              = config.get("transcription"),
-            visual_tags                = config.get("visual_tags") or [],
-            # Pre-loaded lookups (avoid disk I/O on every request)
-            _distance_lookup           = self._distance_lookup,
-            _village_names             = self._village_names,
+        legacy_cfg = RecommendationConfig(
+            people_csv=people_csv,
+            proposal_text=config.get("proposal_text", ""),
+            village_locations=config.get("village_locations") or self.village_locations,
+            distance_csv=config.get("distance_csv") or self.distance_csv,
+            required_skills=config.get("required_skills"),
+            auto_extract=config.get("auto_extract", True),
+            proposal_location_override=config.get("proposal_location_override") or config.get("village_name"),
+            task_start=config.get("task_start"),
+            task_end=config.get("task_end"),
+            team_size=config.get("team_size"),
+            num_teams=int(config.get("num_teams") or 3),
+            soft_cap=int(config.get("soft_cap") or 6),
+            severity_override=config.get("severity"),
+            weekly_quota=float(config.get("weekly_quota") or 5.0),
+            overwork_penalty=float(config.get("overwork_penalty") or 0.1),
+            transcription=config.get("transcription"),
+            visual_tags=config.get("visual_tags") or [],
+            schedule_csv=config.get("schedule_csv"),
+            size_buckets=config.get("size_buckets"),
+            lambda_red=float(config.get("lambda_red") or 1.0),
+            lambda_size=float(config.get("lambda_size") or 1.0),
+            lambda_will=float(config.get("lambda_will") or 0.5),
+            topk_swap=int(config.get("topk_swap") or 10),
+            k_robust=int(config.get("k_robust") or 1),
+            distance_scale=float(config.get("distance_scale") or 50.0),
+            distance_decay=float(config.get("distance_decay") or 30.0),
+            loaded_bundle={
+                "_distance_lookup": self._distance_lookup,
+                "_village_names": self._village_names,
+            },
         )
 
         try:
-            return run_nexus(nexus_cfg)
+            return run_recommender(legacy_cfg)
         except Exception as e:
             logger.error("Nexus engine error: %s", e, exc_info=True)
             raise

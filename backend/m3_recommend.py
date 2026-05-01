@@ -261,20 +261,20 @@ def team_metrics(required: List[str], team_members: List[Dict], backend: str, mo
     }
 
 def goodness(metrics: Dict[str, float], lambda_red: float = 1.0, lambda_size: float = 1.0, lambda_will: float = 0.5) -> float:
-    # k_robustness removed: tasks are single-classification and small teams can't achieve redundancy.
-    # Score = multiplicative combination of coverage × willingness, penalised by size and redundancy.
-    # This ensures a plumber on a plumbing task scores high, not just a willing but irrelevant person.
-    coverage = metrics["coverage"]
-    willingness = metrics["willingness_avg"]
-    # Combined skill×will: geometric mean so both matter
-    core = math.sqrt(max(coverage, 0.0) * max(willingness, 0.0))
-    s = (
-        2.0 * core                            # main signal
-        + lambda_will * willingness            # bonus for high-willingness teams
-        - lambda_red * metrics["redundancy"]   # penalty for skill duplication
-        - lambda_size * metrics["set_size"]    # gentle penalty for large teams
+    coverage = float(metrics.get("coverage", 0.0))
+    krob = float(metrics.get("k_robustness", 0.0))
+    willingness = float(metrics.get("willingness_avg", 0.0))
+    redundancy = float(metrics.get("redundancy", 0.0))
+    set_size = float(metrics.get("set_size", 0.0))
+
+    score = (
+        coverage
+        + krob
+        + lambda_will * willingness
+        - lambda_red * redundancy
+        - lambda_size * set_size
     )
-    return max(0.0, min(1.0, (s + 0.5) / 3.5))
+    return max(0.0, min(1.0, (score + 2.0) / 4.0))
 
 # ------------- size-bucket selection -------------
 

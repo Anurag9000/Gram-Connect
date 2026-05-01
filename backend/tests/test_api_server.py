@@ -66,6 +66,113 @@ def test_analyze_image_endpoint(mock_analyze):
     assert response["top_label"] == "Infrastructure"
 
 
+@patch("api_server.suggest_immediate_problem_actions")
+def test_problem_guidance_endpoint(mock_guidance):
+    mock_guidance.return_value = {
+        "topic": "water",
+        "summary": "Keep the joint stable.",
+        "what_you_can_do_now": ["Lower flow", "Wrap externally"],
+        "materials_to_find": ["cloth"],
+        "safety_notes": ["Do not open live parts"],
+        "when_to_stop": ["If pressure rises"],
+        "best_duration": "Temporary only",
+        "confidence": 0.83,
+        "source": "gemini",
+        "visual_tags": ["handpump"],
+    }
+    response = asyncio.run(
+        api_server.problem_guidance_endpoint(
+            api_server.ProblemGuidanceRequest(
+                title="Broken handpump",
+                description="Water leaking at the joint",
+                category="water-sanitation",
+                visual_tags=["handpump"],
+            )
+        )
+    )
+    assert response.topic == "water"
+    assert response.what_you_can_do_now[0] == "Lower flow"
+    assert mock_guidance.called
+
+
+@patch("api_server.suggest_jugaad_fix")
+def test_jugaad_assist_endpoint(mock_suggest, tmp_path):
+    original_state_path = api_server.RUNTIME_STATE_JSON
+    original_media_root = api_server.MEDIA_ROOT
+    api_server.RUNTIME_STATE_JSON = str(tmp_path / "app_state.json")
+    api_server.MEDIA_ROOT = tmp_path / "media"
+    api_server.MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    problem = {
+        "id": "problem-jugaad",
+        "title": "Broken handpump",
+        "description": "Pump is leaking at the joint",
+        "category": "infrastructure",
+        "village_name": "Sundarpur",
+        "status": "in_progress",
+        "matches": [],
+        "media_ids": [],
+        "created_at": "2026-01-01T10:00:00",
+        "updated_at": "2026-01-01T10:00:00",
+        "visual_tags": ["handpump"],
+    }
+    api_server.PROBLEMS.append(problem)
+    try:
+        broken_media = asyncio.run(
+            api_server.upload_media(
+                file=UploadFile(filename="broken.jpg", file=io.BytesIO(b"broken-bytes")),
+                kind="jugaad_broken",
+                problem_id=problem["id"],
+                volunteer_id="mock-volunteer-uuid",
+            )
+        )["media"]
+        materials_media = asyncio.run(
+            api_server.upload_media(
+                file=UploadFile(filename="materials.jpg", file=io.BytesIO(b"materials-bytes")),
+                kind="jugaad_materials",
+                problem_id=problem["id"],
+                volunteer_id="mock-volunteer-uuid",
+            )
+        )["media"]
+
+        mock_suggest.return_value = {
+            "summary": "Use the tube as a temporary seal around the leak.",
+            "problem_read": "A cracked handpump joint with spare wire and tube available.",
+            "observed_broken_part": "handpump joint",
+            "observed_materials": "rubber tube and wire",
+            "temporary_fix": "Wrap the joint externally and secure it gently.",
+            "step_by_step": ["Shut off water", "Dry the joint", "Wrap with tube", "Secure with wire"],
+            "safety_notes": ["Keep pressure low"],
+            "materials_to_use": ["rubber tube", "wire"],
+            "materials_to_avoid": ["sharp metal"],
+            "when_to_stop": ["If the leak worsens"],
+            "needs_official_part": True,
+            "confidence": 0.84,
+            "source": "gemini",
+            "broken_analysis": {"top_label": "handpump", "confidence": 0.9, "tags": ["handpump"]},
+            "materials_analysis": {"top_label": "rubber tube", "confidence": 0.9, "tags": ["rubber tube", "wire"]},
+        }
+
+        response = asyncio.run(
+            api_server.jugaad_assist_endpoint(
+                api_server.JugaadRequest(
+                    problem_id=problem["id"],
+                    broken_media_id=broken_media["id"],
+                    materials_media_id=materials_media["id"],
+                    volunteer_id="mock-volunteer-uuid",
+                )
+            )
+        )
+        assert response.problem_id == problem["id"]
+        assert response.summary.startswith("Use the tube")
+        assert response.needs_official_part is True
+        assert mock_suggest.called
+    finally:
+        api_server.PROBLEMS[:] = [item for item in api_server.PROBLEMS if item.get("id") != problem["id"]]
+        api_server.MEDIA_ASSETS[:] = [item for item in api_server.MEDIA_ASSETS if item.get("problem_id") != problem["id"]]
+        api_server.RUNTIME_STATE_JSON = original_state_path
+        api_server.MEDIA_ROOT = original_media_root
+
+
 @patch("api_server.verify_resolution_proof")
 def test_submit_proof_requires_gemini_acceptance(mock_verify, tmp_path):
     original_state_path = api_server.RUNTIME_STATE_JSON

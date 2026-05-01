@@ -1,4 +1,4 @@
-import { ArrowRight, Zap, Globe, MessageSquare, Map, Users } from 'lucide-react';
+import { ArrowRight, Zap, MessageSquare, Map, Users } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';

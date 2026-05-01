@@ -14,8 +14,7 @@ describe('Home', () => {
             </BrowserRouter>
         );
 
-        expect(screen.getByText(/Bridging Villages/i)).toBeInTheDocument();
-        expect(screen.getByText(/Intelligent Action/i)).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /Bridging Villages with Intelligent Action/i })).toBeInTheDocument();
     });
 
     it('should render call-to-action buttons', () => {
@@ -27,8 +26,8 @@ describe('Home', () => {
             </BrowserRouter>
         );
 
-        expect(screen.getByText(/Start Volunteering/i)).toBeInTheDocument();
-        expect(screen.getByText(/Explore Projects/i)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Start Volunteering/i })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Explore Projects/i })).toBeInTheDocument();
     });
 
     it('should render features section', () => {

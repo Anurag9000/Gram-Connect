@@ -1,4 +1,4 @@
-import { useState, useCallback, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import {
   Droplets, HeartPulse, Building2, BookOpen, Sprout, Landmark, MoreHorizontal,
   CheckCircle, Upload, MapPin, Loader2, UserRound, Phone, Mail, AlertTriangle
@@ -9,6 +9,7 @@ import AudioRecorder from '../components/AudioRecorder';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { loadStoredProfile, saveStoredProfile, type ProfileRecord } from '../lib/profileStorage';
+import type { ProblemGuidanceResponse } from '../services/api';
 
 // Non-overlapping problem categories.
 // Category is a routing/display label only. Actual multi-domain skill matching
@@ -122,6 +123,9 @@ export default function SubmitProblem() {
   const [capturedAudioLanguage, setCapturedAudioLanguage] = useState<string | null>(null);
   const [visualTags, setVisualTags] = useState<string[]>([]);
   const [isAnalyzingImage, setIsAnalyzingImage] = useState(false);
+  const [instantGuidance, setInstantGuidance] = useState<ProblemGuidanceResponse | null>(null);
+  const [instantGuidanceLoading, setInstantGuidanceLoading] = useState(false);
+  const [instantGuidanceError, setInstantGuidanceError] = useState('');
 
   const canSubmitAsCoordinator = profile?.role === 'coordinator';
   const needsReporterProfile = !canSubmitAsCoordinator;
@@ -136,6 +140,43 @@ export default function SubmitProblem() {
       setCategoryAutoSet(true);
     }
   }, [title, description, category, categoryAutoSet]);
+
+  useEffect(() => {
+    const hasContext = title.trim() || description.trim() || category || visualTags.length > 0;
+    if (!hasContext) {
+      setInstantGuidance(null);
+      setInstantGuidanceError('');
+      setInstantGuidanceLoading(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const resolvedSeverity: 'LOW' | 'NORMAL' | 'HIGH' | undefined = severityChoice === 'auto'
+        ? inferSeverity(`${title} ${description}`)
+        : severityChoice;
+
+      setInstantGuidanceLoading(true);
+      void (async () => {
+        try {
+          const response = await api.requestProblemGuidance({
+            title: title.trim() || 'Reported problem',
+            description: description.trim() || 'No additional description provided yet.',
+            category: category || undefined,
+            severity: resolvedSeverity,
+            visual_tags: visualTags,
+          });
+          setInstantGuidance(response);
+          setInstantGuidanceError('');
+        } catch (err) {
+          setInstantGuidanceError(err instanceof Error ? err.message : 'Failed to load instant guidance.');
+        } finally {
+          setInstantGuidanceLoading(false);
+        }
+      })();
+    }, 350);
+
+    return () => window.clearTimeout(timer);
+  }, [category, description, severityChoice, title, visualTags]);
 
 
   const handleSaveReporterProfile = async (): Promise<ProfileRecord> => {
@@ -283,6 +324,8 @@ export default function SubmitProblem() {
       setCapturedAudioBlob(null);
       setCapturedAudioLanguage(null);
       setVisualTags([]);
+      setInstantGuidance(null);
+      setInstantGuidanceError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit problem');
     } finally {
@@ -569,6 +612,106 @@ export default function SubmitProblem() {
                   {visualTags.map(tag => (
                     <span key={tag} className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">#{t('seed.' + tag, tag)}</span>
                   ))}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-lime-50 p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-emerald-700">
+                    <AlertTriangle size={14} /> Instant help
+                  </div>
+                  <h2 className="mt-3 text-lg font-bold text-gray-900">What you can do right now with local materials</h2>
+                  <p className="mt-1 text-sm text-gray-600">
+                    This guidance is designed to keep the issue stable for as long as possible while you wait for official help.
+                  </p>
+                </div>
+                {instantGuidance && (
+                  <div className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-emerald-700 shadow-sm border border-emerald-100">
+                    {instantGuidance.topic} · {(instantGuidance.confidence * 100).toFixed(0)}% confidence
+                  </div>
+                )}
+              </div>
+
+              {instantGuidanceLoading && (
+                <div className="mt-4 flex items-center gap-2 text-sm text-emerald-700">
+                  <Loader2 size={16} className="animate-spin" />
+                  Generating local fix guidance...
+                </div>
+              )}
+
+              {instantGuidanceError && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {instantGuidanceError}
+                </div>
+              )}
+
+              {instantGuidance && (
+                <div className="mt-5 space-y-4">
+                  <div className="rounded-xl border border-emerald-100 bg-white p-4">
+                    <div className="text-sm font-bold text-emerald-900">{instantGuidance.summary}</div>
+                    <div className="mt-1 text-sm text-gray-600">{instantGuidance.best_duration}</div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-sm font-bold text-gray-900 mb-2">What to do now</div>
+                      <ol className="space-y-2">
+                        {instantGuidance.what_you_can_do_now.map((step, index) => (
+                          <li key={`${index}-${step}`} className="text-sm leading-6 text-gray-700">
+                            <span className="font-bold text-emerald-700">{index + 1}.</span> {step}
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-gray-200 bg-white p-4">
+                        <div className="text-sm font-bold text-gray-900 mb-2">Find nearby</div>
+                        <div className="flex flex-wrap gap-2">
+                          {instantGuidance.materials_to_find.map((item) => (
+                            <span key={item} className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                              {item}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-gray-200 bg-white p-4">
+                        <div className="text-sm font-bold text-gray-900 mb-2">Safety notes</div>
+                        <ul className="space-y-2 text-sm text-gray-700">
+                          {instantGuidance.safety_notes.map((item) => (
+                            <li key={item}>• {item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-sm font-bold text-gray-900 mb-2">Stop immediately if</div>
+                      <ul className="space-y-2 text-sm text-gray-700">
+                        {instantGuidance.when_to_stop.map((item) => (
+                          <li key={item}>• {item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-sm font-bold text-gray-900 mb-2">Based on</div>
+                      <div className="flex flex-wrap gap-2">
+                        {instantGuidance.visual_tags.length > 0 ? (
+                          instantGuidance.visual_tags.map((tag) => (
+                            <span key={tag} className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
+                              #{tag}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-gray-500">Description only</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

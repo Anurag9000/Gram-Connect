@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { api, type MediaRecord, type ProblemRecord, type ProofRecord, type TeamMember, type VolunteerRecord } from '../services/api';
 import { Navigate, useNavigate } from 'react-router-dom';
 import type { Database } from '../lib/database.types';
+import GramSahayakaPanel from '../components/GramSahayakaPanel';
 import ProblemMap from '../components/ProblemMap';
 import { subscribeLiveRefresh } from '../lib/liveRefresh';
 
@@ -18,6 +19,7 @@ type Match = Database['public']['Tables']['matches']['Row'];
 
 interface VolunteerWithProfile extends Volunteer {
   profile?: Profile;
+  willingness_eff?: number;
 }
 
 interface ProblemWithDetails extends Problem {
@@ -60,6 +62,7 @@ export default function CoordinatorDashboard() {
   const { profile } = useAuth();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const seedText = (value: string | null | undefined, fallback = 'Unknown') => t('seed.' + (value ?? fallback), value ?? fallback);
 
   const [problems, setProblems] = useState<ProblemWithDetails[]>([]);
   const [filteredProblems, setFilteredProblems] = useState<ProblemWithDetails[]>([]);
@@ -365,6 +368,10 @@ export default function CoordinatorDashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <GramSahayakaPanel />
+        </div>
+
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col">
@@ -500,18 +507,18 @@ export default function CoordinatorDashboard() {
                     <span className="text-xs text-gray-400">{new Date(problem.created_at).toLocaleDateString()}</span>
                   </div>
 
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{t('seed.' + problem.title, problem.title)}</h3>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">{seedText(problem.title, problem.title)}</h3>
 
                   <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
                     <MapPin size={16} />
-                    <span className="truncate">{t('seed.' + problem.village_name, problem.village_name)}, {t('seed.' + problem.village_address, problem.village_address)}</span>
+                    <span className="truncate">{seedText(problem.village_name, problem.village_name)}, {seedText(problem.village_address, problem.village_address)}</span>
                   </div>
 
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">{t('seed.' + problem.description, problem.description)}</p>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">{seedText(problem.description, problem.description)}</p>
 
                   <div className="flex flex-wrap gap-2 mb-4 mt-auto">
                     {problem.visual_tags?.slice(0, 3).map((tag: string) => (
-                      <span key={tag} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">#{t('seed.' + tag, tag)}</span>
+                      <span key={tag} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded border border-gray-200">#{seedText(tag, tag)}</span>
                     ))}
                   </div>
 
@@ -521,7 +528,7 @@ export default function CoordinatorDashboard() {
                       <div className="space-y-2">
                         {problem.matches.map(m => (
                           <div key={m.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded border border-gray-100">
-                            <span className="font-medium text-gray-700">{t('seed.' + (m.volunteer?.profile?.full_name || "Unknown"), m.volunteer?.profile?.full_name || "Unknown")}</span>
+                            <span className="font-medium text-gray-700">{seedText(m.volunteer?.profile?.full_name || "Unknown", m.volunteer?.profile?.full_name || "Unknown")}</span>
                             <button onClick={() => handleUnassignVolunteer(problem.id, m.id)} className="text-red-500 hover:text-red-700 text-xs font-semibold">{t('dashboard.unassign')}</button>
                           </div>
                         ))}
@@ -585,7 +592,7 @@ export default function CoordinatorDashboard() {
             <div className="p-6 border-b flex justify-between items-center bg-gray-50">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">{t('dashboard.assign_modal_title')}</h2>
-                <p className="text-gray-500 text-sm mt-1">{t('dashboard.assign_modal_for')} <span className="font-semibold text-gray-900">{t('seed.' + selectedProblem.title, selectedProblem.title)}</span></p>
+                <p className="text-gray-500 text-sm mt-1">{t('dashboard.assign_modal_for')} <span className="font-semibold text-gray-900">{seedText(selectedProblem.title, selectedProblem.title)}</span></p>
               </div>
               <button onClick={() => { setShowAssignModal(false); setSelectedManualIds(new Set()); setExpandedVolunteerId(null); }} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition">
                 <X size={24} />
@@ -665,13 +672,13 @@ export default function CoordinatorDashboard() {
                                 className="font-semibold text-sm text-gray-900 hover:text-green-700 text-left truncate w-full"
                                 onClick={() => setExpandedVolunteerId(expanded ? null : vid)}
                               >
-                                {t('seed.' + (volunteer.profile?.full_name || vid), volunteer.profile?.full_name || vid)}
+                                {seedText(volunteer.profile?.full_name || vid, volunteer.profile?.full_name || vid)}
                               </button>
-                              <p className="text-xs text-gray-500 truncate">{volunteer.skills.slice(0, 3).map(s => t('seed.' + s, s)).join(' · ')}{volunteer.skills.length > 3 ? ` +${volunteer.skills.length - 3}` : ''}</p>
+                              <p className="text-xs text-gray-500 truncate">{volunteer.skills.slice(0, 3).map(s => seedText(s, s)).join(' · ')}{volunteer.skills.length > 3 ? ` +${volunteer.skills.length - 3}` : ''}</p>
                             </div>
                             {/* Availability badge */}
                             <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0 ${availColor}`}>
-                              {t('seed.' + avail.toLowerCase(), avail)}
+                              {seedText(avail.toLowerCase(), avail)}
                             </span>
                             {/* Expand toggle */}
                             <button
@@ -688,11 +695,11 @@ export default function CoordinatorDashboard() {
                               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                                 <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
                                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('dashboard.home_location', 'Home Location')}</div>
-                                  <div className="text-sm font-semibold text-gray-800">{t('seed.' + volunteer.home_location, volunteer.home_location) || '—'}</div>
+                                  <div className="text-sm font-semibold text-gray-800">{seedText(volunteer.home_location, volunteer.home_location) || '—'}</div>
                                 </div>
                                 <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
                                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('dashboard.availability', 'Availability')}</div>
-                                  <div className="text-sm font-semibold text-gray-800">{t('seed.' + (volunteer.availability || volunteer.availability_status), volunteer.availability || volunteer.availability_status) || '—'}</div>
+                                  <div className="text-sm font-semibold text-gray-800">{seedText(volunteer.availability || volunteer.availability_status, volunteer.availability || volunteer.availability_status) || '—'}</div>
                                 </div>
                                 <div className="bg-white p-2.5 rounded-lg border border-gray-100 shadow-sm">
                                   <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">{t('dashboard.willingness_eff', 'Willingness (eff)')}</div>
@@ -703,7 +710,7 @@ export default function CoordinatorDashboard() {
                                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t('dashboard.full_skill_set', 'Full Skill Set')}</div>
                                 <div className="flex flex-wrap gap-1.5">
                                   {volunteer.skills.map(s => (
-                                    <span key={s} className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-full">{t('seed.' + s, s)}</span>
+                                    <span key={s} className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-100 px-2 py-0.5 rounded-full">{seedText(s, s)}</span>
                                   ))}
                                 </div>
                               </div>
@@ -810,10 +817,11 @@ export default function CoordinatorDashboard() {
                           <div>
                             <h4 className="font-bold text-gray-900 text-lg flex items-center gap-2">
                               <span className="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm">{idx + 1}</span>
-                              {t('seed.' + team.name, team.name)}
+                              {seedText(team.name, team.name)}
                             </h4>
                             <div className="text-xs text-gray-600 mt-2 flex flex-wrap gap-4 font-medium">
                               <span title="Team ranking score: skill_coverage x geometric_mean(member scores) - distance_penalty" className="bg-gray-100 px-2 py-1 rounded">{t('dashboard.team_score', 'Team Score:')} {(team.teamScore * 100).toFixed(1)}%</span>
+                              <span title="How well the AI team stays stable across alternate teamings" className="bg-violet-50 text-violet-700 px-2 py-1 rounded">{t('dashboard.robustness', 'Robustness:')} {team.kRobustness.toFixed(2)}</span>
                               <span title="Fraction of the task's required skills collectively covered by this team" className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded">{t('dashboard.skill_coverage', 'Skill Coverage:')} {(team.coverage * 100).toFixed(1)}%</span>
                               <span title="Average volunteer travel distance" className="bg-amber-50 text-amber-700 px-2 py-1 rounded">{t('dashboard.avg_dist', 'Avg Dist:')} {team.avgDistanceKm.toFixed(1)} km</span>
                               <span title="Average willingness to participate" className="bg-blue-50 text-blue-700 px-2 py-1 rounded">{t('dashboard.avg_will', 'Avg Will:')} {(team.willingnessAvg * 100).toFixed(1)}%</span>
@@ -832,7 +840,7 @@ export default function CoordinatorDashboard() {
                           {team.members.map((member) => (
                             <div key={member.person_id || member.id} className="flex flex-col gap-2 bg-gray-50 p-4 rounded-lg border border-gray-100">
                               <div className="flex justify-between items-center text-sm">
-                                <span className="font-bold text-gray-900 text-base">{t('seed.' + (member.profile?.full_name || member.name || "Unknown"), member.profile?.full_name || member.name || "Unknown")}</span>
+                                <span className="font-bold text-gray-900 text-base">{seedText(member.profile?.full_name || member.name || "Unknown", member.profile?.full_name || member.name || "Unknown")}</span>
                                 <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-1 rounded-full border border-indigo-200" title={t('dashboard.nexus_formula_tooltip', 'Nexus Score = DOMAIN^2 * WILL * AVAIL^0.5 * PROX * FRESH^0.5')}>
                                   Nexus: {((member.match_score ?? member.nexus_score ?? 0) * 100).toFixed(1)}%
                                 </span>
@@ -851,7 +859,7 @@ export default function CoordinatorDashboard() {
                                   <span className="font-bold block text-gray-400 text-[10px] uppercase tracking-wider mb-0.5">{t('dashboard.distance', 'Distance')}</span>
                                   <span className="font-medium">
                                     {member.distance_km != null ? `${member.distance_km.toFixed(1)} km` : 'Unknown'}
-                                    {member.home_location ? <span className="text-gray-400 ml-1">· {t('seed.' + member.home_location, member.home_location)}</span> : null}
+                                    {member.home_location ? <span className="text-gray-400 ml-1">· {seedText(member.home_location, member.home_location)}</span> : null}
                                   </span>
                                 </div>
                                 <div className="bg-white p-2 rounded shadow-sm border border-gray-100">
@@ -860,7 +868,7 @@ export default function CoordinatorDashboard() {
                                 </div>
                               </div>
                               <div className="text-xs text-gray-600 mt-1 bg-white p-2 rounded border border-gray-100">
-                                <span className="font-bold text-gray-500 mr-1">{t('dashboard.skills', 'Skills:')}</span> {member.skills?.map((s: string) => t('seed.' + s, s)).join(', ')}
+                                <span className="font-bold text-gray-500 mr-1">{t('dashboard.skills', 'Skills:')}</span> {member.skills?.map((s: string) => seedText(s, s)).join(', ')}
                               </div>
                             </div>
                           ))}

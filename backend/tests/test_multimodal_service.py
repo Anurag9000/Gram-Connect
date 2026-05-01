@@ -140,5 +140,69 @@ def test_verify_resolution_proof_uses_task_context_and_rejects_mismatch(mock_get
     assert client.models.generate_content.called
 
 
+@patch("multimodal_service._has_gemini_key", return_value=True)
+@patch("multimodal_service._read_file_bytes", return_value=b"fake-image")
+@patch("os.path.exists", return_value=True)
+@patch("multimodal_service.analyze_image")
+@patch("multimodal_service.get_gemini_client")
+def test_suggest_jugaad_fix_uses_gemini(mock_get_client, mock_analyze_image, mock_exists, mock_read_bytes, mock_has_key):
+    response = MagicMock()
+    response.text = """
+    {
+      "summary": "Use the tube as a temporary seal around the leak.",
+      "problem_read": "A cracked handpump joint with spare wire and tube available.",
+      "observed_broken_part": "handpump joint",
+      "observed_materials": "rubber tube and wire",
+      "temporary_fix": "Wrap the joint externally and secure it gently.",
+      "step_by_step": ["Shut off water", "Dry the joint", "Wrap with tube", "Secure with wire"],
+      "safety_notes": ["Keep pressure low", "Do not open live electrical parts"],
+      "materials_to_use": ["rubber tube", "wire"],
+      "materials_to_avoid": ["sharp metal", "open flames"],
+      "when_to_stop": ["If the leak worsens"],
+      "needs_official_part": true,
+      "confidence": 0.84,
+      "source": "gemini"
+    }
+    """
+    client = MagicMock()
+    client.models.generate_content.return_value = response
+    mock_get_client.return_value = client
+    mock_analyze_image.side_effect = [
+        {"top_label": "handpump", "confidence": 0.9, "tags": ["handpump"]},
+        {"top_label": "rubber tube", "confidence": 0.9, "tags": ["rubber tube", "wire"]},
+    ]
+
+    result = multimodal_service.suggest_jugaad_fix(
+        "broken.jpg",
+        "materials.jpg",
+        problem_title="Broken handpump",
+        problem_description="Water is leaking at the joint",
+        category="infrastructure",
+        visual_tags=["handpump"],
+        materials_note="rubber tube and wire",
+    )
+
+    assert result["summary"].startswith("Use the tube")
+    assert result["needs_official_part"] is True
+    assert result["step_by_step"][0] == "Shut off water"
+    assert client.models.generate_content.called
+
+
+@patch("multimodal_service._has_gemini_key", return_value=False)
+def test_suggest_immediate_problem_actions_uses_fallback(mock_has_key):
+    result = multimodal_service.suggest_immediate_problem_actions(
+        problem_title="Broken handpump",
+        problem_description="Water is leaking from the joint",
+        category="water-sanitation",
+        visual_tags=["handpump", "water"],
+        severity="NORMAL",
+    )
+
+    assert result["topic"] == "water"
+    assert result["what_you_can_do_now"]
+    assert any("pressure" in step.lower() or "seal" in step.lower() for step in result["what_you_can_do_now"])
+    assert result["materials_to_find"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

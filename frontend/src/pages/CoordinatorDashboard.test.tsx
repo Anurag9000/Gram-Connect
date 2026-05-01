@@ -33,6 +33,10 @@ vi.mock('../components/ProblemMap', () => ({
   default: () => <div data-testid="problem-map" />,
 }));
 
+vi.mock('../components/GramSahayakaPanel', () => ({
+  default: () => <div data-testid="gram-sahayaka-panel" />,
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom');
   return {
@@ -109,7 +113,7 @@ describe('CoordinatorDashboard', () => {
     await screen.findByText('Broken Well Pump');
 
     fireEvent.click(await screen.findByRole('button', { name: /Assign Team/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /Generate Optimal Teams/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Generate Explainable Teams/i }));
 
     await waitFor(() => {
       expect(getRecommendationsMock).toHaveBeenCalled();
@@ -126,7 +130,7 @@ describe('CoordinatorDashboard', () => {
     await screen.findByText('Broken Well Pump');
 
     fireEvent.click(await screen.findByRole('button', { name: /Assign Team/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /Generate Optimal Teams/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Generate Explainable Teams/i }));
 
     await waitFor(() => {
       expect(getRecommendationsMock).toHaveBeenCalled();

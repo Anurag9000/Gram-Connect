@@ -110,6 +110,67 @@ export interface RecommendationResponse {
     teams: RecommendedTeam[];
 }
 
+export interface InsightClusterExample {
+    id?: string;
+    title?: string;
+    village_name?: string;
+    status?: string;
+    category?: string;
+    created_at?: string;
+}
+
+export interface InsightCluster {
+    cluster_id: string;
+    risk_type?: string | null;
+    risk_score: number;
+    summary: string;
+    risk_summary?: string;
+    topic?: string;
+    problem_count: number;
+    villages: string[];
+    status_counts?: Record<string, number>;
+    top_topics?: [string, number][];
+    time_range?: {
+        earliest?: string | null;
+        latest?: string | null;
+    };
+    geo_span_km?: number;
+    examples?: InsightClusterExample[];
+}
+
+export interface InsightOverview {
+    generated_at: string;
+    window_days: number;
+    stats: {
+        problem_count: number;
+        open_problem_count: number;
+        completed_problem_count: number;
+        volunteer_count: number;
+        water_problem_count: number;
+        health_problem_count: number;
+        infrastructure_problem_count: number;
+    };
+    alerts: InsightCluster[];
+    clusters: InsightCluster[];
+}
+
+export interface InsightChatRequest {
+    query: string;
+    days_back?: number;
+    limit?: number;
+}
+
+export interface InsightChatResponse {
+    query: string;
+    intent: string;
+    reason: string;
+    answer: string;
+    parameters: Record<string, unknown>;
+    overview: InsightOverview;
+    payload: Record<string, unknown>;
+    suggested_questions: string[];
+}
+
 export interface ProblemSubmission {
     title: string;
     description: string;
@@ -211,6 +272,54 @@ export interface TranscriptionResponse {
     source?: string | null;
 }
 
+export interface JugaadRepairRequest {
+    problem_id: string;
+    broken_media_id: string;
+    materials_media_id: string;
+    volunteer_id?: string;
+    notes?: string;
+}
+
+export interface JugaadRepairResponse {
+    problem_id: string;
+    summary: string;
+    problem_read: string;
+    observed_broken_part: string;
+    observed_materials: string;
+    temporary_fix: string;
+    step_by_step: string[];
+    safety_notes: string[];
+    materials_to_use: string[];
+    materials_to_avoid: string[];
+    when_to_stop: string[];
+    needs_official_part: boolean;
+    confidence: number;
+    source: string;
+    broken_analysis?: ImageAnalysisResponse | null;
+    materials_analysis?: ImageAnalysisResponse | null;
+}
+
+export interface ProblemGuidanceRequest {
+    title: string;
+    description: string;
+    category?: string;
+    severity?: 'LOW' | 'NORMAL' | 'HIGH';
+    visual_tags?: string[];
+}
+
+export interface ProblemGuidanceResponse {
+    topic: string;
+    summary: string;
+    what_you_can_do_now: string[];
+    materials_to_find: string[];
+    safety_notes: string[];
+    when_to_stop: string[];
+    best_duration: string;
+    confidence: number;
+    source: string;
+    visual_tags: string[];
+}
+
 export const api = {
     async transcribe(blob: Blob): Promise<TranscriptionResponse> {
         const formData = new FormData();
@@ -242,6 +351,40 @@ export const api = {
 
         if (!response.ok) {
             throw new Error('Image analysis failed');
+        }
+
+        return await response.json();
+    },
+
+    async requestJugaadRepair(request: JugaadRepairRequest): Promise<JugaadRepairResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/jugaad/assist`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(request),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || 'Failed to generate Jugaad guidance');
+        }
+
+        return await response.json();
+    },
+
+    async requestProblemGuidance(request: ProblemGuidanceRequest): Promise<ProblemGuidanceResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/problems/instant-guidance`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(request),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || 'Failed to fetch instant guidance');
         }
 
         return await response.json();
@@ -364,6 +507,33 @@ export const api = {
             throw new Error(errorData.detail || 'Recommendation failed');
         }
 
+        return await response.json();
+    },
+
+    async askInsights(request: InsightChatRequest): Promise<InsightChatResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/insights/chat`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(request),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || 'Insights query failed');
+        }
+
+        return await response.json();
+    },
+
+    async getInsightOverview(daysBack = 30): Promise<InsightOverview> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/insights/overview?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch insight overview');
+        }
         return await response.json();
     },
 

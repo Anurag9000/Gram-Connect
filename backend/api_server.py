@@ -21,7 +21,8 @@ import tempfile
 from env_loader import load_local_env
 from demo_bootstrap import ensure_canonical_dataset, should_bootstrap_models
 from recommender_service import RecommenderService
-from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity, extract_problem_from_whatsapp
+from insights_service import analyze_coordinator_query, build_insight_overview
+from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity, extract_problem_from_whatsapp, suggest_jugaad_fix, suggest_immediate_problem_actions
 from notification_service import notify_problem_resolved, notify_team_assignment
 from path_utils import (
     ensure_runtime_dir,
@@ -172,6 +173,60 @@ class RecommendResponse(BaseModel):
     severity_source: str
     proposal_location: Optional[str]
     teams: List[dict]
+
+
+class InsightChatRequest(BaseModel):
+    query: str
+    days_back: int = Field(30, ge=1, le=365)
+    limit: int = Field(5, ge=1, le=10)
+
+
+class JugaadRequest(BaseModel):
+    problem_id: str
+    broken_media_id: str
+    materials_media_id: str
+    volunteer_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class JugaadResponse(BaseModel):
+    problem_id: str
+    summary: str
+    problem_read: str
+    observed_broken_part: str
+    observed_materials: str
+    temporary_fix: str
+    step_by_step: List[str]
+    safety_notes: List[str]
+    materials_to_use: List[str]
+    materials_to_avoid: List[str]
+    when_to_stop: List[str]
+    needs_official_part: bool
+    confidence: float
+    source: str
+    broken_analysis: Optional[Dict[str, Any]] = None
+    materials_analysis: Optional[Dict[str, Any]] = None
+
+
+class ProblemGuidanceRequest(BaseModel):
+    title: str
+    description: str
+    category: Optional[str] = None
+    severity: Optional[str] = Field(None, pattern="^(LOW|NORMAL|HIGH)$")
+    visual_tags: List[str] = Field(default_factory=list)
+
+
+class ProblemGuidanceResponse(BaseModel):
+    topic: str
+    summary: str
+    what_you_can_do_now: List[str]
+    materials_to_find: List[str]
+    safety_notes: List[str]
+    when_to_stop: List[str]
+    best_duration: str
+    confidence: float
+    source: str
+    visual_tags: List[str]
 
 
 @app.get("/health")
@@ -964,8 +1019,20 @@ def persist_runtime_state() -> None:
     global STATE_VERSION
     with csv_lock:
         STATE_VERSION += 1
-    # Persistence is disabled for this session so we always get a fresh run from CSVs.
-    pass
+        payload = {
+            "state_version": STATE_VERSION,
+            "problems": PROBLEMS,
+            "volunteers": VOLUNTEERS,
+            "profiles": PROFILES,
+            "media_assets": MEDIA_ASSETS,
+            "saved_at": _now_iso(),
+        }
+        state_path = Path(RUNTIME_STATE_JSON)
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = state_path.with_suffix(state_path.suffix + ".tmp")
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, state_path)
 
 
 def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
@@ -981,7 +1048,7 @@ def load_initial_data(force_seed: bool = False):
     """Loads seeded runtime state backed by canonical CSV data."""
     global PROBLEMS, VOLUNTEERS, PROFILES, MEDIA_ASSETS, STATE_VERSION
 
-    if False and os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
+    if os.path.exists(RUNTIME_STATE_JSON) and not force_seed:
         try:
             with open(RUNTIME_STATE_JSON, "r", encoding="utf-8") as handle:
                 state = json.load(handle)
@@ -1045,13 +1112,20 @@ async def bootstrap_demo_runtime():
         logger.exception("Demo bootstrap failed: %s", exc)
 
 
-@app.post("/train")
-def train_endpoint():
-    """Deprecated: Nexus engine uses no ML model. Training is no longer required."""
-    return {
-        "status": "deprecated",
-        "message": "The Nexus scoring engine is deterministic and requires no trained model. This endpoint is a no-op.",
-    }
+def train_model(request: Optional[TrainRequest] = None) -> float:
+    """Backward-compatible training hook.
+
+    The Nexus engine does not require training, but older callers and tests still
+    expect this hook to exist and return an AUC-like score.
+    """
+    return 0.0
+
+
+@app.post("/train", response_model=TrainResponse)
+def train_endpoint(request: Optional[TrainRequest] = None):
+    """Backward-compatible training endpoint."""
+    auc = train_model(request)
+    return TrainResponse(status="ok", auc=auc, model_path=str(DEFAULT_MODEL_PATH))
 
 
 @app.get("/problems")
@@ -1350,6 +1424,54 @@ async def submit_proof(problem_id: str, request: ProofRequest):
     return {"status": "success", "problem": _serialize_problem(problem), "proof": proof}
 
 
+@app.post("/api/v1/jugaad/assist", response_model=JugaadResponse)
+async def jugaad_assist_endpoint(request: JugaadRequest):
+    problem = next((p for p in PROBLEMS if p["id"] == request.problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    broken_asset = _asset_by_id(request.broken_media_id)
+    materials_asset = _asset_by_id(request.materials_media_id)
+    if not broken_asset:
+        raise HTTPException(status_code=404, detail="Broken-part image not found")
+    if not materials_asset:
+        raise HTTPException(status_code=404, detail="Materials image not found")
+
+    try:
+        result = suggest_jugaad_fix(
+            broken_asset.get("path"),
+            materials_asset.get("path"),
+            problem_title=problem.get("title", "Village issue"),
+            problem_description=problem.get("description", ""),
+            category=problem.get("category"),
+            visual_tags=list(problem.get("visual_tags") or []),
+            materials_note=request.notes,
+        )
+        return JugaadResponse(problem_id=request.problem_id, **result)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Jugaad guidance failed for %s", request.problem_id)
+        raise HTTPException(status_code=500, detail=f"Jugaad guidance failed: {exc}")
+
+
+@app.post("/api/v1/problems/instant-guidance", response_model=ProblemGuidanceResponse)
+async def problem_guidance_endpoint(request: ProblemGuidanceRequest):
+    try:
+        return ProblemGuidanceResponse(
+            **suggest_immediate_problem_actions(
+                problem_title=request.title,
+                problem_description=request.description,
+                category=request.category,
+                visual_tags=request.visual_tags,
+                severity=request.severity,
+            )
+        )
+    except Exception as exc:
+        logger.exception("Instant problem guidance failed")
+        raise HTTPException(status_code=500, detail=f"Instant guidance failed: {exc}")
+
+
 @app.post("/recommend", response_model=RecommendResponse)
 def recommend_endpoint(request: RecommendRequest):
     try:
@@ -1373,6 +1495,30 @@ def recommend_endpoint(request: RecommendRequest):
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as exc:
         logger.exception("Recommendation failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/insights/chat")
+async def insights_chat_endpoint(request: InsightChatRequest):
+    try:
+        return analyze_coordinator_query(
+            request.query,
+            problems=PROBLEMS,
+            volunteers=VOLUNTEERS,
+            days_back=request.days_back,
+            limit=request.limit,
+        )
+    except Exception as exc:
+        logger.exception("Insights chat failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/insights/overview")
+async def insights_overview_endpoint(days_back: int = 30):
+    try:
+        return build_insight_overview(PROBLEMS, VOLUNTEERS, days_back=days_back)
+    except Exception as exc:
+        logger.exception("Insights overview failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
 @app.post("/submit-problem")

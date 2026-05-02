@@ -39,6 +39,9 @@ from platform_service import (
     answer_policy_question,
     assess_burnout_signals,
     assess_proof_spoofing,
+    build_broadcast_feed,
+    build_repeat_breakdown_metrics,
+    build_resident_feedback_summary,
     autofill_problem_form,
     build_ab_test_plan,
     build_anomaly_dashboard,
@@ -294,6 +297,84 @@ class ProblemGuidanceResponse(BaseModel):
     root_cause_hint: Optional[str] = None
 
 
+class BroadcastRequest(BaseModel):
+    owner_id: Optional[str] = None
+    title: str
+    message: str
+    event_type: str = Field("general")
+    audience_type: str = Field("all", pattern="^(all|villages|volunteers)$")
+    target_villages: List[str] = Field(default_factory=list)
+    target_volunteers: List[str] = Field(default_factory=list)
+    target_skills: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    media_ids: List[str] = Field(default_factory=list)
+    scheduled_for: Optional[str] = None
+    status: Optional[str] = None
+
+
+class BroadcastRecordResponse(BaseModel):
+    id: str
+    record_type: str
+    subtype: Optional[str] = None
+    owner_id: Optional[str] = None
+    status: Optional[str] = None
+    title: str
+    message: str
+    event_type: str
+    audience_type: str
+    tags: List[str]
+    target_villages: List[str]
+    target_volunteers: List[str]
+    target_skills: List[str]
+    media_ids: List[str]
+    scheduled_for: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class BroadcastFeedResponse(BaseModel):
+    generated_at: str
+    window_days: Optional[int] = None
+    scope: str
+    summary: str
+    items: List[BroadcastRecordResponse]
+
+
+class ResidentFeedbackAnalyticsResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    summary: str
+    total_feedback: int
+    response_counts: Dict[str, int]
+    average_rating: Optional[float] = None
+    volunteers: List[Dict[str, Any]]
+    villages: List[Dict[str, Any]]
+    recent_feedback: List[Dict[str, Any]]
+
+
+class RepeatBreakdownVillageResponse(BaseModel):
+    village_name: str
+    problem_count: int
+    open_problem_count: int
+    completed_problem_count: int
+    repeat_problem_count: int
+    repeat_rate: float
+    average_gap_days: Optional[float] = None
+    average_resolution_hours: Optional[float] = None
+    top_topic: str
+    topic_breakdown: List[tuple[str, int]]
+    latest_problem_at: Optional[str] = None
+
+
+class RepeatBreakdownResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    summary: str
+    villages: List[RepeatBreakdownVillageResponse]
+    top_topics: List[tuple[str, int]]
+    average_repeat_gap_days: Optional[float] = None
+
+
 class PublicStatusBoardItem(BaseModel):
     id: str
     title: str
@@ -378,6 +459,8 @@ class FollowUpFeedbackRequest(BaseModel):
     note: Optional[str] = None
     reporter_name: Optional[str] = None
     reporter_phone: Optional[str] = None
+    volunteer_id: Optional[str] = None
+    rating: Optional[int] = Field(None, ge=1, le=5)
 
 
 class SeasonalRiskResponse(BaseModel):
@@ -716,6 +799,36 @@ def _serialize_problems(problems: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     ordered = sorted(problems, key=_sort_key, reverse=True)
     return [_serialize_problem(problem) for problem in ordered]
+
+
+def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except Exception:
+        return None
+    if parsed.tzinfo:
+        parsed = parsed.astimezone().replace(tzinfo=None)
+    return parsed
+
+
+def _problem_primary_volunteer_id(problem: Dict[str, Any]) -> Optional[str]:
+    proof = problem.get("proof") or {}
+    proof_volunteer = str(proof.get("volunteer_id") or "").strip()
+    if proof_volunteer:
+        return proof_volunteer
+    matches = problem.get("matches") or []
+    for match in reversed(matches):
+        candidate = str(
+            match.get("volunteer_id")
+            or match.get("volunteer", {}).get("id")
+            or match.get("volunteers", {}).get("id")
+            or ""
+        ).strip()
+        if candidate:
+            return candidate
+    return None
 
 
 def _ensure_problem_media_list(problem: Dict[str, Any]) -> List[str]:
@@ -2710,6 +2823,103 @@ async def campaign_mode_endpoint(days_back: int = 30, topic: Optional[str] = Non
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.post("/api/v1/broadcasts")
+async def create_broadcast_endpoint(request: BroadcastRequest):
+    try:
+        broadcast_id = f"broadcast-{uuid.uuid4().hex[:12]}"
+        scheduled_for = request.scheduled_for.strip() if request.scheduled_for else None
+        status = request.status or ("scheduled" if scheduled_for else "sent")
+        record = DATA_STORE.upsert_platform_record(
+            record_type="broadcast",
+            record_id=broadcast_id,
+            owner_id=request.owner_id,
+            subtype=request.event_type,
+            status=status,
+            data={
+                "id": broadcast_id,
+                "title": request.title,
+                "message": request.message,
+                "event_type": request.event_type,
+                "audience_type": request.audience_type,
+                "target_villages": request.target_villages,
+                "target_volunteers": request.target_volunteers,
+                "target_skills": request.target_skills,
+                "tags": request.tags,
+                "media_ids": request.media_ids,
+                "scheduled_for": scheduled_for,
+                "delivery_state": status,
+                "created_at": _now_iso(),
+            },
+        )
+        payload = build_broadcast_feed([record], limit=1)
+        broadcast = payload["items"][0] if payload["items"] else record
+        _record_learning_event(
+            "broadcast_created",
+            entity_type="broadcast",
+            entity_id=broadcast_id,
+            summary=f"Created {request.event_type} broadcast",
+            payload=broadcast,
+            text=" ".join([
+                request.title,
+                request.message,
+                request.event_type,
+                " ".join(request.tags or []),
+                " ".join(request.target_villages or []),
+                " ".join(request.target_volunteers or []),
+                " ".join(request.target_skills or []),
+            ]),
+        )
+        return {"status": "success", "broadcast": broadcast}
+    except Exception as exc:
+        logger.exception("Broadcast creation failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/broadcasts", response_model=BroadcastFeedResponse)
+async def list_broadcasts_endpoint(
+    audience: str = "all",
+    village_name: Optional[str] = None,
+    volunteer_id: Optional[str] = None,
+    volunteer_skills: Optional[str] = None,
+    tags: Optional[str] = None,
+    limit: int = 20,
+):
+    try:
+        records = DATA_STORE.list_platform_records(record_type="broadcast", limit=max(1, min(1000, int(limit))))
+        payload = build_broadcast_feed(
+            records,
+            scope=audience if audience in {"all", "villages", "volunteers"} else "all",
+            village_name=village_name,
+            volunteer_id=volunteer_id,
+            volunteer_skills=[part.strip() for part in (volunteer_skills or "").split(",") if part.strip()],
+            tags=[part.strip() for part in (tags or "").split(",") if part.strip()],
+            limit=limit,
+        )
+        return payload
+    except Exception as exc:
+        logger.exception("Broadcast feed failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/analytics/feedback", response_model=ResidentFeedbackAnalyticsResponse)
+async def resident_feedback_analytics_endpoint(days_back: int = 90):
+    try:
+        feedback_rows = DATA_STORE.list_followup_feedback(limit=1000)
+        return build_resident_feedback_summary(PROBLEMS, feedback_rows, VOLUNTEERS, days_back=days_back)
+    except Exception as exc:
+        logger.exception("Resident feedback analytics failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/analytics/repeat-breakdown", response_model=RepeatBreakdownResponse)
+async def repeat_breakdown_endpoint(days_back: int = 90):
+    try:
+        return build_repeat_breakdown_metrics(PROBLEMS, days_back=days_back)
+    except Exception as exc:
+        logger.exception("Repeat breakdown analytics failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/v1/platform/overview")
 async def platform_overview_endpoint(days_back: int = 180):
     try:
@@ -2729,6 +2939,7 @@ async def platform_overview_endpoint(days_back: int = 180):
             "forms": DATA_STORE.list_platform_records(record_type="custom_form", limit=50),
             "webhooks": DATA_STORE.list_platform_records(record_type="webhook_event", limit=50),
             "memory": DATA_STORE.list_platform_records(record_type="conversation_memory", limit=20),
+            "broadcasts": DATA_STORE.list_platform_records(record_type="broadcast", limit=100),
         }
         overview = {
             "generated_at": _now_iso(),
@@ -2747,6 +2958,7 @@ async def platform_overview_endpoint(days_back: int = 180):
             "community_polls": build_community_polls(records["polls"]),
             "announcements": build_announcement_feed(records["announcements"]),
             "village_champions": build_village_champions(records["champions"]),
+            "broadcasts": build_broadcast_feed(records["broadcasts"], limit=20)["items"],
             "impact": build_impact_measurement(PROBLEMS),
             "ab_tests": build_ab_test_plan(PROBLEMS),
             "anomalies": build_anomaly_dashboard(PROBLEMS),
@@ -2906,6 +3118,7 @@ async def platform_export_endpoint():
         "webhook_event",
         "conversation_memory",
         "resident_confirmation",
+        "broadcast",
     ]:
         platform_records.extend(DATA_STORE.list_platform_records(record_type=record_type, limit=1000))
     return build_bulk_export_bundle(PROBLEMS, VOLUNTEERS, platform_records)
@@ -2950,11 +3163,15 @@ async def problem_follow_up_feedback_endpoint(problem_id: str, request: FollowUp
     if not problem:
         raise HTTPException(status_code=404, detail="Problem not found")
     try:
+        volunteer_id = request.volunteer_id or _problem_primary_volunteer_id(problem)
+        feedback_payload = request.model_dump()
+        if volunteer_id:
+            feedback_payload["volunteer_id"] = volunteer_id
         stored = DATA_STORE.record_followup_feedback(
             problem_id=problem_id,
             source=request.source,
             response=request.response,
-            data=request.model_dump(),
+            data=feedback_payload,
         )
         if request.response != "resolved":
             problem["status"] = "in_progress"

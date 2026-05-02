@@ -9,6 +9,7 @@ let mockedProfile: { id: string; full_name: string; role: 'coordinator' | 'super
 const apiMocks = vi.hoisted(() => ({
   getPlatformOverview: vi.fn(),
   savePlatformRecord: vi.fn(),
+  createBroadcast: vi.fn(),
   submitResidentConfirmation: vi.fn(),
   getAuditPack: vi.fn(),
   autofillProblemForm: vi.fn(),
@@ -55,6 +56,7 @@ function seedMocks() {
     community_polls: [{ id: 'p-1', question: 'What should we fix first?' }],
     announcements: [{ id: 'a-1', title: 'Water repair day' }],
     village_champions: [{ id: 'c-1', name: 'Local champion' }],
+    broadcasts: [{ id: 'broadcast-1', title: 'Water camp', message: 'Camp starts on Saturday.', event_type: 'community_event', audience_type: 'villages', tags: ['water camp'], target_villages: ['Sundarpur'], target_volunteers: [], target_skills: [], media_ids: [], created_at: '2026-01-01T00:00:00', updated_at: '2026-01-01T00:00:00' }],
     impact: { closure_rate: 0.5, reopen_rate: 0.1 },
     ab_tests: [{ test_id: 'ab-water', variant_b: 'duplicate-aware dispatch' }],
     anomalies: [{ anomaly_id: 'anom-1', village_name: 'Sundarpur' }],
@@ -77,6 +79,7 @@ function seedMocks() {
       custom_form: 1,
       webhook_event: 1,
       conversation_memory: 1,
+      broadcasts: 1,
     },
   });
   apiMocks.savePlatformRecord.mockResolvedValue({
@@ -87,6 +90,24 @@ function seedMocks() {
     status: 'healthy',
     data: { label: 'Handpump A' },
     updated_at: '2026-01-01T00:00:00',
+  });
+  apiMocks.createBroadcast.mockResolvedValue({
+    status: 'success',
+    broadcast: {
+      id: 'broadcast-2',
+      record_type: 'broadcast',
+      title: 'Water camp',
+      message: 'Camp starts on Saturday.',
+      event_type: 'community_event',
+      audience_type: 'villages',
+      tags: ['water camp'],
+      target_villages: ['Sundarpur'],
+      target_volunteers: [],
+      target_skills: [],
+      media_ids: [],
+      created_at: '2026-01-01T00:00:00',
+      updated_at: '2026-01-01T00:00:00',
+    },
   });
   apiMocks.submitResidentConfirmation.mockResolvedValue({
     status: 'success',
@@ -118,6 +139,7 @@ describe('PlatformStudio', () => {
     expect(screen.getByText(/Platform studio/i)).toBeInTheDocument();
     expect(screen.getByText(/Asset lifecycle registry/i)).toBeInTheDocument();
     expect(screen.getByText(/Trust and verification/i)).toBeInTheDocument();
+    expect(screen.getByText(/Community broadcasts/i)).toBeInTheDocument();
     expect(screen.getByText(/AI control room/i)).toBeInTheDocument();
     expect(screen.getByText(/Platform admin/i)).toBeInTheDocument();
 
@@ -154,6 +176,11 @@ describe('PlatformStudio', () => {
     fireEvent.change(screen.getByPlaceholderText('Ask about privacy, escalation, or procurement...'), { target: { value: 'How do we protect privacy?' } });
     fireEvent.click(screen.getByRole('button', { name: /Ask policy/i }));
     await waitFor(() => expect(apiMocks.askPolicyQuestion).toHaveBeenCalledWith('How do we protect privacy?'));
+
+    fireEvent.change(screen.getByPlaceholderText('Broadcast title'), { target: { value: 'Water camp' } });
+    fireEvent.change(screen.getByPlaceholderText('Message, notice, event details, or call to action'), { target: { value: 'Camp starts on Saturday.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Send broadcast/i }));
+    await waitFor(() => expect(apiMocks.createBroadcast).toHaveBeenCalled());
 
     fireEvent.click(screen.getByRole('button', { name: /Build export pack/i }));
     await waitFor(() => expect(apiMocks.getPlatformExport).toHaveBeenCalled());

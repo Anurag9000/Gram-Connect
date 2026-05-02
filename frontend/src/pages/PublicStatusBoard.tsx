@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Loader2, MapPin, Search } from 'lucide-react';
-import { api, type PublicStatusBoardResponse, type PublicStatusBoardItem } from '../services/api';
+import { api, type BroadcastRecord, type PublicStatusBoardResponse, type PublicStatusBoardItem } from '../services/api';
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All' },
@@ -23,19 +23,30 @@ export default function PublicStatusBoard() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'in_progress' | 'completed'>('all');
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [feedbackBusyId, setFeedbackBusyId] = useState<string | null>(null);
+  const [broadcasts, setBroadcasts] = useState<BroadcastRecord[]>([]);
+  const [feedbackRatings, setFeedbackRatings] = useState<Record<string, number>>({});
 
   const loadBoard = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.getPublicStatusBoard({
-        village_name: villageName.trim() || undefined,
-        status: statusFilter === 'all' ? undefined : statusFilter,
-        days_back: 60,
-      });
+      const [response, broadcastResponse] = await Promise.all([
+        api.getPublicStatusBoard({
+          village_name: villageName.trim() || undefined,
+          status: statusFilter === 'all' ? undefined : statusFilter,
+          days_back: 60,
+        }),
+        api.getBroadcasts({
+          audience: 'villages',
+          village_name: villageName.trim() || undefined,
+          limit: 12,
+        }).catch(() => ({ items: [] })),
+      ]);
       setBoard(response);
+      setBroadcasts(broadcastResponse.items || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load public status board.');
+      setBroadcasts([]);
     } finally {
       setLoading(false);
     }
@@ -54,6 +65,7 @@ export default function PublicStatusBoard() {
       await api.submitFollowUpFeedback(item.id, {
         source: 'public-board',
         response,
+        rating: feedbackRatings[item.id],
       });
       setFeedbackMessage(`Feedback recorded for ${item.title}.`);
       await loadBoard();
@@ -62,7 +74,7 @@ export default function PublicStatusBoard() {
     } finally {
       setFeedbackBusyId(null);
     }
-  }, [loadBoard]);
+  }, [feedbackRatings, loadBoard]);
 
   const summaryCards = [
     { label: 'Open', value: board?.open_count ?? 0, icon: AlertTriangle, tone: 'text-rose-700' },
@@ -94,6 +106,40 @@ export default function PublicStatusBoard() {
               <div className={`mt-3 text-3xl font-extrabold ${card.tone}`}>{card.value}</div>
             </div>
           ))}
+        </div>
+
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Broadcasts for residents</h2>
+              <p className="text-sm text-slate-500">Community events, notices, and village-level updates selected by the coordinator.</p>
+            </div>
+          </div>
+          {broadcasts.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+              No broadcasts are visible for the current filter.
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {broadcasts.map((item) => (
+                <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wide text-sky-700">{item.event_type}</div>
+                      <h3 className="mt-1 text-base font-bold text-slate-900">{item.title}</h3>
+                    </div>
+                    <div className="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700">
+                      {(item.tags || []).slice(0, 3).join(', ') || 'broadcast'}
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-700">{item.message}</p>
+                  <div className="mt-3 text-xs text-slate-500">
+                    {(item.target_villages || []).length > 0 ? `Target villages: ${item.target_villages.join(', ')}` : 'Visible to all matching villages'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -219,9 +265,28 @@ export default function PublicStatusBoard() {
                     disabled={feedbackBusyId === item.id}
                     onClick={() => void sendFeedback(item, 'needs_more_help')}
                     className="rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
-                  >
+                    >
                     Need more help
                   </button>
+                </div>
+                <div className="mt-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Rate volunteer work</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        type="button"
+                        onClick={() => setFeedbackRatings((current) => ({ ...current, [item.id]: rating }))}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                          feedbackRatings[item.id] === rating
+                            ? 'border-emerald-600 bg-emerald-600 text-white'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-700'
+                        }`}
+                      >
+                        {rating}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ))}

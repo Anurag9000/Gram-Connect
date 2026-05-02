@@ -60,6 +60,10 @@ It is meant to be an implementation inventory, not a product roadmap.
 - Planning and prevention panels for seasonal risk, preventive maintenance, hotspot mapping, and campaign mode.
 - Evidence comparison view for completed cases with before/after proof data.
 - Platform studio entry point for asset lifecycle, procurement, privacy, certification, scheduling, training, community signals, analytics, and admin exports.
+- Community broadcast composer for village-targeted and volunteer-targeted announcements with tags, media, and scheduling.
+- Resident feedback analytics for villager-rated volunteer work, reopen responses, and village-level satisfaction summaries.
+- Repeat-breakdown analytics for tracking how often villages or asset classes recur, fail again, or cluster over time.
+- Community event scheduling and broadcast workflows for water camps, repair days, sanitation drives, awareness meetings, and ad-hoc notices.
 
 ## AI and Recommendation Layer
 
@@ -106,6 +110,7 @@ It is meant to be an implementation inventory, not a product roadmap.
 - Volunteer reliability scoring from recent completion and backlog patterns.
 - Route optimization suggestions that cluster open work by village.
 - Preventive scheduling and hotspot detection for recurring field issues.
+- Community broadcast surfaces in the coordinator dashboard, volunteer dashboard, public status board, and platform studio.
 
 ## Developer and Verification Tooling
 

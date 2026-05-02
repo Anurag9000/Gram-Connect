@@ -31,7 +31,9 @@ The frontend expects the backend API to be reachable at `http://127.0.0.1:8011` 
 ## Current UI Scope
 
 - Coordinator, volunteer, supervisor, partner, and public surfaces are all wired in the app shell.
-- The platform studio is available for administrative workflows, platform records, confirmations, policy lookups, and export bundles.
+- The platform studio is available for administrative workflows, platform records, confirmations, policy lookups, broadcast scheduling, and export bundles.
+- The coordinator dashboard includes village feedback ratings, repeat-breakdown analytics, and recent broadcast visibility.
+- The volunteer and public surfaces show targeted broadcasts for volunteers and residents respectively.
 - The frontend ships with a lightweight offline-capable PWA shell.
 
 ## Demo Access Credentials

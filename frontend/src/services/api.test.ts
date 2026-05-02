@@ -233,6 +233,71 @@ describe('api service', () => {
     );
   });
 
+  it('fetches broadcasts and analytics endpoints with the expected query strings', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          generated_at: '2026-01-01T00:00:00',
+          window_days: 30,
+          scope: 'villages',
+          summary: 'broadcasts',
+          items: [],
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          generated_at: '2026-01-01T00:00:00',
+          window_days: 90,
+          summary: 'feedback',
+          total_feedback: 0,
+          response_counts: { resolved: 0, still_broken: 0, needs_more_help: 0 },
+          average_rating: null,
+          volunteers: [],
+          villages: [],
+          recent_feedback: [],
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          generated_at: '2026-01-01T00:00:00',
+          window_days: 180,
+          summary: 'repeat',
+          villages: [],
+          top_topics: [],
+          average_repeat_gap_days: null,
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+    await api.getBroadcasts({ audience: 'villages', village_name: 'Sundarpur', tags: ['water camp'], limit: 5 });
+    await api.getResidentFeedbackAnalytics(90);
+    await api.getRepeatBreakdown(180);
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${API_BASE_URL}/api/v1/broadcasts?audience=villages&village_name=Sundarpur&tags=water+camp&limit=5`,
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${API_BASE_URL}/api/v1/analytics/feedback?days_back=90`,
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      `${API_BASE_URL}/api/v1/analytics/repeat-breakdown?days_back=180`,
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+  });
+
   it('fetches operations data from the API', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(JSON.stringify([{ id: 'playbook-1' }]), { status: 200, headers: { 'Content-Type': 'application/json' } }))

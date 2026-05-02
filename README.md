@@ -1,6 +1,6 @@
 # Gram Connect
 
-Gram Connect is a full-stack community operations app with a FastAPI backend and a Vite + React frontend. The current runtime uses a Postgres-backed state store, the Nexus scoring engine for recommendations, and a broad set of operational and AI-assisted workflows for intake, dispatch, verification, planning, and community visibility.
+Gram Connect is a full-stack community operations app with a FastAPI backend and a Vite + React frontend. The current runtime uses a Postgres-backed state store, the Nexus scoring engine for recommendations, and a broad set of operational and AI-assisted workflows for intake, dispatch, verification, planning, broadcasts, feedback analytics, and community visibility.
 
 Project status: the repository is complete for its current scope. The implemented feature inventory is documented in [`IMPLEMENTED_FEATURES.md`](IMPLEMENTED_FEATURES.md).
 
@@ -16,6 +16,7 @@ Project status: the repository is complete for its current scope. The implemente
 - Canonical seed data is ingested from `data/*.csv` into Postgres
 - Uploaded media still lives under `backend/runtime_data/media/`
 - The backend can boot without a trained model; legacy training utilities remain only for verification and experimentation
+- Broadcasts, villager feedback ratings, and repeat-breakdown analytics are available in the platform and coordinator surfaces
 
 ## Local Development
 

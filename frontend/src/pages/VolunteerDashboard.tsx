@@ -88,7 +88,7 @@ function saveOfflineDrafts(drafts: OfflineDraft[]) {
 }
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
-import { api, type JugaadRepairResponse, type VolunteerTask } from '../services/api';
+import { api, type BroadcastRecord, type JugaadRepairResponse, type VolunteerRecord, type VolunteerTask } from '../services/api';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { subscribeLiveRefresh } from '../lib/liveRefresh';
 
@@ -113,6 +113,8 @@ export default function VolunteerDashboard() {
     const [jugaadLoading, setJugaadLoading] = useState(false);
     const [jugaadResult, setJugaadResult] = useState<JugaadRepairResponse | null>(null);
     const [jugaadError, setJugaadError] = useState<string | null>(null);
+    const [volunteerDetails, setVolunteerDetails] = useState<VolunteerRecord | null>(null);
+    const [broadcasts, setBroadcasts] = useState<BroadcastRecord[]>([]);
     const [offlineDrafts, setOfflineDrafts] = useState<OfflineDraft[]>(() => loadOfflineDrafts());
     const [syncingDrafts, setSyncingDrafts] = useState(false);
     const activeTasks = tasks.filter((task) => task.status !== 'completed');
@@ -169,10 +171,24 @@ export default function VolunteerDashboard() {
         if (!profile) return;
         setLoading(true);
         try {
-            const data = await api.getVolunteerTasks(profile.id);
+            const [taskData, volunteerData] = await Promise.all([
+                api.getVolunteerTasks(profile.id),
+                api.getVolunteer(profile.id).catch(() => null),
+            ]);
+            const broadcastData = await api.getBroadcasts({
+                audience: 'volunteers',
+                volunteer_id: profile.id,
+                volunteer_skills: volunteerData?.skills || [],
+                limit: 8,
+            }).catch(() => ({ items: [] }));
+            const data = taskData;
             setTasks(data);
+            setVolunteerDetails(volunteerData);
+            setBroadcasts(broadcastData.items || []);
         } catch (err) {
             console.error("Failed to load volunteer tasks:", err);
+            setVolunteerDetails(null);
+            setBroadcasts([]);
         } finally {
             setLoading(false);
         }
@@ -924,6 +940,44 @@ export default function VolunteerDashboard() {
                         </div>
                     </div>
                 )}
+
+                <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <div className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-sky-700">
+                                Broadcasts
+                            </div>
+                            <h2 className="mt-3 text-xl font-bold text-gray-900">Messages and event notices for you</h2>
+                            <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-600">
+                                Coordinators can broadcast community events to villages and targeted instructions to volunteers by name or skill.
+                            </p>
+                        </div>
+                        {volunteerDetails && (
+                            <div className="rounded-xl bg-white px-3 py-2 text-xs text-sky-800 shadow-sm border border-sky-100">
+                                {volunteerDetails.profile?.full_name || volunteerDetails.profiles?.full_name || volunteerDetails.id}
+                                <div className="mt-1 text-sky-600">{volunteerDetails.skills.join(', ') || 'No skills listed'}</div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        {broadcasts.length > 0 ? broadcasts.slice(0, 4).map((item) => (
+                            <div key={item.id} className="rounded-2xl border border-sky-100 bg-white p-4">
+                                <div className="text-xs font-bold uppercase tracking-wide text-sky-700">{item.event_type}</div>
+                                <h3 className="mt-1 text-base font-bold text-gray-900">{item.title}</h3>
+                                <p className="mt-2 text-sm leading-6 text-gray-700">{item.message}</p>
+                                <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
+                                    {(item.tags || []).slice(0, 4).map((tag) => (
+                                        <span key={tag} className="rounded-full bg-sky-50 px-2 py-1 font-semibold text-sky-700">{tag}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="rounded-2xl border border-dashed border-sky-200 bg-white p-4 text-sm text-gray-500 md:col-span-2">
+                                No volunteer broadcasts yet.
+                            </div>
+                        )}
+                    </div>
+                </div>
 
                 <div className="grid gap-6">
                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">

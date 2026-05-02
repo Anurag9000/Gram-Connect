@@ -8,7 +8,7 @@ The backend is a FastAPI application that powers problem submission, volunteer c
 - Live runtime state, profile data, problem records, learning events, and platform records are persisted in Postgres
 - Uploaded media still lives under `backend/runtime_data/media/` for file serving
 - `multimodal_service.py` uses Gemini first and Whisper / CLIP fallbacks when available
-- `platform_service.py` powers the platform studio features, audit packs, forms, policy copilot, and export bundles
+- `platform_service.py` powers the platform studio features, audit packs, forms, policy copilot, broadcast workflows, resident feedback analytics, repeat-breakdown analytics, and export bundles
 
 ## Setup
 ```bash

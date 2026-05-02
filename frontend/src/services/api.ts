@@ -607,6 +607,99 @@ export interface CampaignModeResponse {
     top_topics: Array<[string, number]>;
 }
 
+export interface BroadcastRecord {
+    id: string;
+    record_type: string;
+    subtype?: string | null;
+    owner_id?: string | null;
+    status?: string | null;
+    title: string;
+    message: string;
+    event_type: string;
+    audience_type: 'all' | 'villages' | 'volunteers' | string;
+    tags: string[];
+    target_villages: string[];
+    target_volunteers: string[];
+    target_skills: string[];
+    media_ids: string[];
+    scheduled_for?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+}
+
+export interface BroadcastFeedResponse {
+    generated_at: string;
+    window_days?: number | null;
+    scope: 'all' | 'villages' | 'volunteers' | string;
+    summary: string;
+    items: BroadcastRecord[];
+}
+
+export interface ResidentFeedbackAnalyticsResponse {
+    generated_at: string;
+    window_days: number;
+    summary: string;
+    total_feedback: number;
+    response_counts: {
+        resolved: number;
+        still_broken: number;
+        needs_more_help: number;
+    };
+    average_rating?: number | null;
+    volunteers: Array<{
+        volunteer_id?: string | null;
+        volunteer_name?: string | null;
+        feedback_count: number;
+        resolved_count: number;
+        still_broken_count: number;
+        needs_more_help_count: number;
+        average_rating?: number | null;
+        latest_feedback_at?: string | null;
+    }>;
+    villages: Array<{
+        village_name?: string | null;
+        feedback_count: number;
+        resolved_count: number;
+        still_broken_count: number;
+        needs_more_help_count: number;
+        average_rating?: number | null;
+    }>;
+    recent_feedback: Array<{
+        id?: string;
+        problem_id?: string;
+        problem_title?: string;
+        village_name?: string;
+        volunteer_id?: string | null;
+        volunteer_name?: string | null;
+        response?: string;
+        rating?: number | null;
+        note?: string | null;
+        source?: string | null;
+        created_at?: string | null;
+    }>;
+}
+
+export interface RepeatBreakdownResponse {
+    generated_at: string;
+    window_days: number;
+    summary: string;
+    villages: Array<{
+        village_name: string;
+        problem_count: number;
+        open_problem_count: number;
+        completed_problem_count: number;
+        repeat_problem_count: number;
+        repeat_rate: number;
+        average_gap_days?: number | null;
+        average_resolution_hours?: number | null;
+        top_topic: string;
+        topic_breakdown: Array<[string, number]>;
+        latest_problem_at?: string | null;
+    }>;
+    top_topics: Array<[string, number]>;
+    average_repeat_gap_days?: number | null;
+}
+
 export interface EvidenceComparisonResponse {
     generated_at: string;
     problem_id: string;
@@ -657,6 +750,7 @@ export interface PlatformOverviewResponse {
     forms: Array<Record<string, unknown>>;
     webhook_events: Array<Record<string, unknown>>;
     conversation_memory: Record<string, unknown>;
+    broadcasts: Array<Record<string, unknown>>;
     record_counts: Record<string, number>;
 }
 
@@ -905,6 +999,93 @@ export const api = {
         });
         if (!response.ok) {
             throw new Error('Failed to fetch campaign plan');
+        }
+        return await response.json();
+    },
+
+    async createBroadcast(payload: {
+        owner_id?: string;
+        title: string;
+        message: string;
+        event_type?: string;
+        audience_type?: 'all' | 'villages' | 'volunteers';
+        target_villages?: string[];
+        target_volunteers?: string[];
+        target_skills?: string[];
+        tags?: string[];
+        media_ids?: string[];
+        scheduled_for?: string;
+        status?: string;
+    }): Promise<{ status: string; broadcast: BroadcastRecord }> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/broadcasts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                owner_id: payload.owner_id,
+                title: payload.title,
+                message: payload.message,
+                event_type: payload.event_type || 'general',
+                audience_type: payload.audience_type || 'all',
+                target_villages: payload.target_villages || [],
+                target_volunteers: payload.target_volunteers || [],
+                target_skills: payload.target_skills || [],
+                tags: payload.tags || [],
+                media_ids: payload.media_ids || [],
+                scheduled_for: payload.scheduled_for,
+                status: payload.status,
+            }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || 'Failed to create broadcast');
+        }
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
+    },
+
+    async getBroadcasts(params: {
+        audience?: 'all' | 'villages' | 'volunteers';
+        village_name?: string;
+        volunteer_id?: string;
+        volunteer_skills?: string[];
+        tags?: string[];
+        limit?: number;
+    } = {}): Promise<BroadcastFeedResponse> {
+        const query = new URLSearchParams();
+        if (params.audience) query.set('audience', params.audience);
+        if (params.village_name) query.set('village_name', params.village_name);
+        if (params.volunteer_id) query.set('volunteer_id', params.volunteer_id);
+        if (params.volunteer_skills?.length) query.set('volunteer_skills', params.volunteer_skills.join(','));
+        if (params.tags?.length) query.set('tags', params.tags.join(','));
+        query.set('limit', String(params.limit ?? 20));
+        const response = await fetch(`${API_BASE_URL}/api/v1/broadcasts?${query.toString()}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch broadcasts');
+        }
+        return await response.json();
+    },
+
+    async getResidentFeedbackAnalytics(daysBack = 90): Promise<ResidentFeedbackAnalyticsResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/analytics/feedback?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch resident feedback analytics');
+        }
+        return await response.json();
+    },
+
+    async getRepeatBreakdown(daysBack = 90): Promise<RepeatBreakdownResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/analytics/repeat-breakdown?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch repeat breakdown analytics');
         }
         return await response.json();
     },
@@ -1278,6 +1459,8 @@ export const api = {
         note?: string;
         reporter_name?: string;
         reporter_phone?: string;
+        volunteer_id?: string;
+        rating?: number;
     }): Promise<{ status: string; feedback: Record<string, unknown>; problem: ProblemRecord }> {
         const response = await fetch(`${API_BASE_URL}/problems/${problemId}/follow-up-feedback`, {
             method: 'POST',

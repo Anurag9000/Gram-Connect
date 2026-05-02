@@ -27,10 +27,14 @@ const apiMocks = vi.hoisted(() => ({
   getRouteOptimization: vi.fn(),
   getPlaybooks: vi.fn(),
   getInventory: vi.fn(),
+  getVolunteer: vi.fn(),
   getSeasonalRiskForecast: vi.fn(),
   getMaintenancePlan: vi.fn(),
   getHotspotHeatmap: vi.fn(),
   getCampaignMode: vi.fn(),
+  getBroadcasts: vi.fn(),
+  getResidentFeedbackAnalytics: vi.fn(),
+  getRepeatBreakdown: vi.fn(),
   getProblemTimeline: vi.fn(),
   getEvidenceComparison: vi.fn(),
   updateProblemStatus: vi.fn(),
@@ -209,10 +213,89 @@ function seedApiMocks() {
       updated_at: '2026-01-01T00:00:00',
     },
   ]);
+  apiMocks.getVolunteer.mockResolvedValue({
+    id: 'vol-1',
+    user_id: 'vol-1',
+    skills: ['Plumbing', 'Masonry'],
+    availability_status: 'available',
+    created_at: '2026-01-01T10:00:00',
+    profiles: { id: 'vol-1', full_name: 'Skilled Sam', email: null, phone: null, role: 'volunteer', created_at: '2026-01-01T09:00:00' },
+  });
   apiMocks.getSeasonalRiskForecast.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 365, summary: 'seasonal risk', risks: [], top_topics: [], top_months: [] });
   apiMocks.getMaintenancePlan.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 180, summary: 'maintenance', items: [], top_assets: [] });
   apiMocks.getHotspotHeatmap.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 90, summary: 'heatmap', cells: [] });
   apiMocks.getCampaignMode.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 30, summary: 'campaigns', campaigns: [], top_topics: [] });
+  apiMocks.getBroadcasts.mockResolvedValue({
+    generated_at: '2026-01-01T00:00:00',
+    window_days: 30,
+    scope: 'all',
+    summary: 'broadcasts',
+    items: [
+      {
+        id: 'broadcast-1',
+        record_type: 'broadcast',
+        subtype: 'community_event',
+        owner_id: 'coord-1',
+        status: 'sent',
+        title: 'Water camp',
+        message: 'Camp starts on Saturday.',
+        event_type: 'community_event',
+        audience_type: 'villages',
+        tags: ['water camp'],
+        target_villages: ['Sundarpur'],
+        target_volunteers: [],
+        target_skills: [],
+        media_ids: [],
+        scheduled_for: null,
+        created_at: '2026-01-01T00:00:00',
+        updated_at: '2026-01-01T00:00:00',
+      },
+    ],
+  });
+  apiMocks.getResidentFeedbackAnalytics.mockResolvedValue({
+    generated_at: '2026-01-01T00:00:00',
+    window_days: 90,
+    summary: 'feedback',
+    total_feedback: 1,
+    response_counts: { resolved: 1, still_broken: 0, needs_more_help: 0 },
+    average_rating: 5,
+    volunteers: [
+      {
+        volunteer_id: 'vol-1',
+        volunteer_name: 'Skilled Sam',
+        feedback_count: 1,
+        resolved_count: 1,
+        still_broken_count: 0,
+        needs_more_help_count: 0,
+        average_rating: 5,
+        latest_feedback_at: '2026-01-01T00:00:00',
+      },
+    ],
+    villages: [],
+    recent_feedback: [],
+  });
+  apiMocks.getRepeatBreakdown.mockResolvedValue({
+    generated_at: '2026-01-01T00:00:00',
+    window_days: 180,
+    summary: 'repeat',
+    villages: [
+      {
+        village_name: 'Sundarpur',
+        problem_count: 2,
+        open_problem_count: 1,
+        completed_problem_count: 1,
+        repeat_problem_count: 1,
+        repeat_rate: 0.5,
+        average_gap_days: 7,
+        average_resolution_hours: 12,
+        top_topic: 'water',
+        topic_breakdown: [['water', 2]],
+        latest_problem_at: '2026-01-01T00:00:00',
+      },
+    ],
+    top_topics: [['water', 2]],
+    average_repeat_gap_days: 7,
+  });
   apiMocks.getProblemTimeline.mockResolvedValue({ problem_id: 'problem-1', problem: { id: 'problem-1' }, timeline: [], summary: { event_count: 0, media_count: 0, assignment_count: 0, duplicate_count: 0, completed: false } });
   apiMocks.getEvidenceComparison.mockResolvedValue({
     generated_at: '2026-01-01T00:00:00',
@@ -284,9 +367,30 @@ function seedApiMocks() {
         assigned_count: 1,
         duplicate_count: 0,
         media_count: 0,
-      },
-    ],
-  });
+        },
+      ],
+      broadcasts: [
+        {
+          id: 'broadcast-1',
+          record_type: 'broadcast',
+          subtype: 'community_event',
+          owner_id: 'coord-1',
+          status: 'sent',
+          title: 'Water camp',
+          message: 'Camp starts on Saturday.',
+          event_type: 'community_event',
+          audience_type: 'villages',
+          tags: ['water camp'],
+          target_villages: ['Sundarpur'],
+          target_volunteers: [],
+          target_skills: [],
+          media_ids: [],
+          scheduled_for: null,
+          created_at: '2026-01-01T00:00:00',
+          updated_at: '2026-01-01T00:00:00',
+        },
+      ],
+    });
   apiMocks.submitFollowUpFeedback.mockResolvedValue({ status: 'success' });
   apiMocks.submitProof.mockResolvedValue({ status: 'success', problem: { id: 'problem-1' }, proof: { verification: { accepted: true, confidence: 0.95, summary: 'ok' } } });
   apiMocks.requestJugaadRepair.mockResolvedValue({
@@ -331,7 +435,7 @@ function seedApiMocks() {
     forms: [],
     webhook_events: [],
     conversation_memory: {},
-    record_counts: { asset: 1 },
+    record_counts: { asset: 1, broadcasts: 1 },
   });
   apiMocks.savePlatformRecord.mockResolvedValue({ id: 'asset-1' });
   apiMocks.submitResidentConfirmation.mockResolvedValue({ status: 'success', confirmation: { id: 'confirm-1' }, problem: { id: 'problem-1' } });
@@ -435,6 +539,7 @@ describe('Comprehensive feature coverage', () => {
     mockedProfile = { id: 'vol-1', full_name: 'Test Volunteer', role: 'volunteer' };
     const volunteer = render(<VolunteerDashboard />);
     expect(await screen.findByText('Broken handpump')).toBeInTheDocument();
+    expect(screen.getByText(/Messages and event notices for you/i)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('task-card-problem-1'));
     fireEvent.click(screen.getByRole('button', { name: /Repair Assistant/i }));
     expect(await screen.findByText(/Help me fix this/i, { selector: 'h3' })).toBeInTheDocument();
@@ -478,6 +583,7 @@ describe('Comprehensive feature coverage', () => {
     const publicBoard = render(<PublicStatusBoard />);
     expect(await screen.findByText(/Village issue status/i)).toBeInTheDocument();
     expect(screen.getByText(/Public status board/i)).toBeInTheDocument();
+    expect(screen.getByText(/Broadcasts for residents/i)).toBeInTheDocument();
     expect(screen.getByText(/^Resolved$/i, { selector: 'div' })).toBeInTheDocument();
     publicBoard.unmount();
   });

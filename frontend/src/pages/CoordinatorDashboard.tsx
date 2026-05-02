@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
-import { api, type MediaRecord, type ProblemRecord, type ProblemTimelineResponse, type ProofRecord, type TeamMember, type VolunteerRecord, type EscalationRecord, type InventoryRecord, type PlaybookRecord, type ReputationRecord, type RouteOptimizationRecord, type SeasonalRiskRecord, type MaintenancePlanRecord, type HeatmapCell, type CampaignModeRecord, type EvidenceComparisonResponse } from '../services/api';
+import { api, type MediaRecord, type ProblemRecord, type ProblemTimelineResponse, type ProofRecord, type TeamMember, type VolunteerRecord, type EscalationRecord, type InventoryRecord, type PlaybookRecord, type ReputationRecord, type RouteOptimizationRecord, type SeasonalRiskRecord, type MaintenancePlanRecord, type HeatmapCell, type CampaignModeRecord, type EvidenceComparisonResponse, type BroadcastRecord, type ResidentFeedbackAnalyticsResponse, type RepeatBreakdownResponse } from '../services/api';
 import { Navigate, useNavigate } from 'react-router-dom';
 import type { Database } from '../lib/database.types';
 import GramSahayakaPanel from '../components/GramSahayakaPanel';
@@ -100,6 +100,9 @@ export default function CoordinatorDashboard() {
   const [maintenanceRows, setMaintenanceRows] = useState<MaintenancePlanRecord[]>([]);
   const [heatmapCells, setHeatmapCells] = useState<HeatmapCell[]>([]);
   const [campaignPlans, setCampaignPlans] = useState<CampaignModeRecord[]>([]);
+  const [broadcastRows, setBroadcastRows] = useState<BroadcastRecord[]>([]);
+  const [feedbackSummary, setFeedbackSummary] = useState<ResidentFeedbackAnalyticsResponse | null>(null);
+  const [repeatBreakdown, setRepeatBreakdown] = useState<RepeatBreakdownResponse | null>(null);
   const [evidenceComparison, setEvidenceComparison] = useState<EvidenceComparisonResponse | null>(null);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [evidenceError, setEvidenceError] = useState<string | null>(null);
@@ -290,7 +293,20 @@ export default function CoordinatorDashboard() {
     setOperationsLoading(true);
     setOperationsError(null);
     try {
-      const [escalationsData, reputationData, routesData, playbooksData, inventoryData, seasonalData, maintenanceData, heatmapData, campaignData] = await Promise.all([
+      const [
+        escalationsData,
+        reputationData,
+        routesData,
+        playbooksData,
+        inventoryData,
+        seasonalData,
+        maintenanceData,
+        heatmapData,
+        campaignData,
+        broadcastsData,
+        feedbackData,
+        repeatData,
+      ] = await Promise.all([
         api.getEscalations(7),
         api.getReputation(90),
         api.getRouteOptimization(14),
@@ -300,6 +316,9 @@ export default function CoordinatorDashboard() {
         api.getMaintenancePlan(180),
         api.getHotspotHeatmap(90),
         api.getCampaignMode(30),
+        api.getBroadcasts({ audience: 'all', limit: 8 }).catch(() => ({ generated_at: '', window_days: null, scope: 'all', summary: '', items: [] })),
+        api.getResidentFeedbackAnalytics(90).catch(() => null),
+        api.getRepeatBreakdown(180).catch(() => null),
       ]);
       setEscalations(escalationsData.items || []);
       setReputationRows(reputationData.volunteers || []);
@@ -310,6 +329,9 @@ export default function CoordinatorDashboard() {
       setMaintenanceRows(maintenanceData.items || []);
       setHeatmapCells(heatmapData.cells || []);
       setCampaignPlans(campaignData.campaigns || []);
+      setBroadcastRows(broadcastsData.items || []);
+      setFeedbackSummary(feedbackData);
+      setRepeatBreakdown(repeatData);
     } catch (err) {
       setOperationsError(err instanceof Error ? err.message : 'Failed to load operations data.');
       setEscalations([]);
@@ -321,6 +343,9 @@ export default function CoordinatorDashboard() {
       setMaintenanceRows([]);
       setHeatmapCells([]);
       setCampaignPlans([]);
+      setBroadcastRows([]);
+      setFeedbackSummary(null);
+      setRepeatBreakdown(null);
     } finally {
       setOperationsLoading(false);
     }
@@ -692,6 +717,86 @@ export default function CoordinatorDashboard() {
                 </div>
               </div>
             )}
+
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                  <UserCheck size={16} className="text-emerald-700" />
+                  Villager feedback
+                </div>
+                {feedbackSummary ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="text-3xl font-extrabold text-emerald-700">
+                      {feedbackSummary.average_rating != null ? feedbackSummary.average_rating.toFixed(1) : '—'}
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {feedbackSummary.total_feedback} feedback entries · {feedbackSummary.response_counts.resolved} resolved
+                    </div>
+                    <div className="space-y-1 text-xs text-gray-700">
+                      {feedbackSummary.volunteers.slice(0, 3).map((item) => (
+                        <div key={`${item.volunteer_id || item.volunteer_name}`} className="rounded-lg bg-white px-3 py-2">
+                          <div className="font-semibold text-gray-900">{item.volunteer_name || item.volunteer_id || 'Unknown volunteer'}</div>
+                          <div className="mt-0.5 text-gray-500">
+                            {item.feedback_count} ratings · {item.average_rating != null ? `${item.average_rating.toFixed(1)}/5` : 'unrated'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-gray-500">No resident feedback recorded yet.</div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-rose-100 bg-rose-50/60 p-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                  <Activity size={16} className="text-rose-700" />
+                  Repeat breakdown
+                </div>
+                {repeatBreakdown ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="text-3xl font-extrabold text-rose-700">{repeatBreakdown.villages.length}</div>
+                    <div className="text-xs text-gray-600">
+                      Avg gap {repeatBreakdown.average_repeat_gap_days != null ? `${repeatBreakdown.average_repeat_gap_days.toFixed(1)} days` : '—'}
+                    </div>
+                    <div className="space-y-1 text-xs text-gray-700">
+                      {repeatBreakdown.villages.slice(0, 3).map((item) => (
+                        <div key={item.village_name} className="rounded-lg bg-white px-3 py-2">
+                          <div className="font-semibold text-gray-900">{item.village_name}</div>
+                          <div className="mt-0.5 text-gray-500">
+                            {item.repeat_problem_count} repeats · every {item.average_gap_days != null ? `${item.average_gap_days.toFixed(1)} days` : '—'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-gray-500">No repeat breakdown available yet.</div>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-sky-100 bg-sky-50/60 p-4">
+                <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                  <Megaphone size={16} className="text-sky-700" />
+                  Recent broadcasts
+                </div>
+                {broadcastRows.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {broadcastRows.slice(0, 3).map((item) => (
+                      <div key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs text-gray-700">
+                        <div className="font-semibold text-gray-900">{item.title}</div>
+                        <div className="mt-0.5 text-gray-500">
+                          {item.event_type} · {(item.tags || []).slice(0, 3).join(', ') || 'no tags'}
+                        </div>
+                        <div className="mt-1 text-sky-700">{item.audience_type}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-gray-500">No broadcasts yet.</div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">

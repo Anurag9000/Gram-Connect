@@ -809,6 +809,49 @@ class PostgresStore:
             )
         return payload
 
+    def list_followup_feedback(
+        self,
+        *,
+        limit: int = 100,
+        problem_id: Optional[str] = None,
+        source: Optional[str] = None,
+        response: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        self.ensure_schema()
+        clauses: List[str] = []
+        params: List[Any] = []
+        if problem_id:
+            clauses.append("problem_id = %s")
+            params.append(problem_id)
+        if source:
+            clauses.append("source = %s")
+            params.append(source)
+        if response:
+            clauses.append("response = %s")
+            params.append(response)
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.append(max(1, int(limit)))
+        query = f"""
+            SELECT id, problem_id, source, response, data, created_at
+            FROM followup_feedback
+            {where_sql}
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "problem_id": row["problem_id"],
+                "source": row["source"],
+                "response": row["response"],
+                "data": dict(row["data"]) if row["data"] is not None else {},
+                "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else row["created_at"],
+            }
+            for row in rows
+        ]
+
     def upsert_platform_record(
         self,
         *,

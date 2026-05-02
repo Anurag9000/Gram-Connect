@@ -442,3 +442,321 @@ def build_bulk_export_bundle(problems: Sequence[Dict[str, Any]], volunteers: Seq
         "volunteers": list(volunteers),
         "platform_records": list(platform_records),
     }
+
+
+def _string_list(value: Any) -> List[str]:
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, tuple):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return []
+        try:
+            parsed = json.loads(stripped)
+        except Exception:
+            parsed = None
+        if isinstance(parsed, list):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+        return [part.strip() for part in stripped.split(",") if part.strip()]
+    item = str(value).strip()
+    return [item] if item else []
+
+
+def _normalize_broadcast_record(record: Dict[str, Any]) -> Dict[str, Any]:
+    data = dict(record.get("data") or {})
+    return {
+        "id": record.get("id"),
+        "record_type": record.get("record_type") or "broadcast",
+        "subtype": record.get("subtype") or data.get("event_type") or data.get("audience_type"),
+        "owner_id": record.get("owner_id"),
+        "status": record.get("status") or data.get("delivery_state") or "sent",
+        "title": data.get("title") or data.get("name") or "Broadcast",
+        "message": data.get("message") or data.get("body") or "",
+        "event_type": data.get("event_type") or record.get("subtype") or "general",
+        "audience_type": data.get("audience_type") or "all",
+        "tags": _string_list(data.get("tags")),
+        "target_villages": _string_list(data.get("target_villages")),
+        "target_volunteers": _string_list(data.get("target_volunteers")),
+        "target_skills": _string_list(data.get("target_skills")),
+        "media_ids": _string_list(data.get("media_ids")),
+        "scheduled_for": data.get("scheduled_for"),
+        "created_at": data.get("created_at") or record.get("updated_at"),
+        "updated_at": record.get("updated_at"),
+    }
+
+
+def build_broadcast_feed(
+    records: Sequence[Dict[str, Any]],
+    *,
+    scope: str = "all",
+    village_name: Optional[str] = None,
+    volunteer_id: Optional[str] = None,
+    volunteer_skills: Optional[Sequence[str]] = None,
+    tags: Optional[Sequence[str]] = None,
+    limit: int = 50,
+) -> Dict[str, Any]:
+    normalized = [_normalize_broadcast_record(record) for record in records]
+    skill_set = {str(skill).strip().lower() for skill in (volunteer_skills or []) if str(skill).strip()}
+    tag_set = {str(tag).strip().lower() for tag in (tags or []) if str(tag).strip()}
+    filtered: List[Dict[str, Any]] = []
+    for row in sorted(normalized, key=lambda item: str(item.get("created_at") or item.get("updated_at") or ""), reverse=True):
+        audience_type = str(row.get("audience_type") or "all").lower()
+        target_villages = {str(item).strip() for item in row.get("target_villages") or [] if str(item).strip()}
+        target_volunteers = {str(item).strip() for item in row.get("target_volunteers") or [] if str(item).strip()}
+        target_skills = {str(item).strip().lower() for item in row.get("target_skills") or [] if str(item).strip()}
+        row_tags = {str(item).strip().lower() for item in row.get("tags") or [] if str(item).strip()}
+
+        if tag_set and not tag_set.intersection(row_tags):
+            continue
+
+        if scope == "villages":
+            if audience_type not in {"all", "villages"}:
+                continue
+            if village_name and target_villages and village_name not in target_villages:
+                continue
+        elif scope == "volunteers":
+            if audience_type not in {"all", "volunteers"}:
+                continue
+            volunteer_match = bool(volunteer_id and volunteer_id in target_volunteers)
+            skill_match = bool(skill_set and target_skills and skill_set.intersection(target_skills))
+            generic_volunteer = not target_volunteers and not target_skills
+            if not (volunteer_match or skill_match or generic_volunteer):
+                continue
+        filtered.append(row)
+
+    filtered = filtered[: max(1, int(limit))]
+    return {
+        "generated_at": _now_iso(),
+        "window_days": None,
+        "scope": scope,
+        "summary": f"{len(filtered)} broadcasts ready for the selected view.",
+        "items": filtered,
+    }
+
+
+def build_resident_feedback_summary(
+    problems: Sequence[Dict[str, Any]],
+    feedback_rows: Sequence[Dict[str, Any]],
+    volunteers: Sequence[Dict[str, Any]],
+    *,
+    days_back: int = 90,
+) -> Dict[str, Any]:
+    cutoff = _now() - timedelta(days=max(1, days_back))
+    def _volunteer_name(record: Optional[Dict[str, Any]], fallback: str) -> str:
+        if not record:
+            return fallback
+        profile = record.get("profiles") or record.get("profile") or {}
+        if isinstance(profile, dict):
+            return str(profile.get("full_name") or "").strip() or str(record.get("full_name") or "").strip() or fallback
+        return str(record.get("full_name") or "").strip() or fallback
+
+    volunteer_lookup = {}
+    for volunteer in volunteers:
+        vid = str(volunteer.get("id") or volunteer.get("user_id") or "").strip()
+        if not vid:
+            continue
+        volunteer_lookup[vid] = volunteer
+
+    problem_lookup = {str(problem.get("id") or ""): problem for problem in problems if problem.get("id")}
+    rows: List[Dict[str, Any]] = []
+    for feedback in feedback_rows:
+        created_at = _parse_dt(feedback.get("created_at"))
+        if created_at and created_at < cutoff:
+            continue
+        data = dict(feedback.get("data") or {})
+        problem_id = str(feedback.get("problem_id") or data.get("problem_id") or "").strip()
+        problem = problem_lookup.get(problem_id, {})
+        volunteer_id = str(data.get("volunteer_id") or feedback.get("volunteer_id") or "").strip()
+        if not volunteer_id:
+            proof = problem.get("proof") or {}
+            volunteer_id = str(proof.get("volunteer_id") or "").strip()
+        if not volunteer_id:
+            matches = problem.get("matches") or []
+            for match in reversed(matches):
+                candidate = str(match.get("volunteer_id") or match.get("volunteer", {}).get("id") or match.get("volunteers", {}).get("id") or "").strip()
+                if candidate:
+                    volunteer_id = candidate
+                    break
+
+        rating = data.get("rating")
+        try:
+            rating_value = float(rating) if rating is not None else None
+        except Exception:
+            rating_value = None
+
+        rows.append({
+            "id": feedback.get("id"),
+            "problem_id": problem_id,
+            "problem_title": problem.get("title") or problem_id,
+            "village_name": problem.get("village_name") or "Unknown",
+            "volunteer_id": volunteer_id or None,
+            "volunteer_name": _volunteer_name(volunteer_lookup.get(volunteer_id), volunteer_id or "Unknown"),
+            "response": feedback.get("response"),
+            "rating": rating_value,
+            "note": data.get("note"),
+            "source": feedback.get("source"),
+            "created_at": feedback.get("created_at"),
+        })
+
+    response_counts = Counter(row["response"] for row in rows)
+    ratings = [row["rating"] for row in rows if isinstance(row.get("rating"), (int, float))]
+    volunteer_buckets: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
+        "volunteer_id": None,
+        "volunteer_name": None,
+        "feedback_count": 0,
+        "resolved_count": 0,
+        "still_broken_count": 0,
+        "needs_more_help_count": 0,
+        "rating_total": 0.0,
+        "rated_count": 0,
+        "latest_feedback_at": None,
+    })
+    village_buckets: Dict[str, Dict[str, Any]] = defaultdict(lambda: {
+        "village_name": None,
+        "feedback_count": 0,
+        "resolved_count": 0,
+        "still_broken_count": 0,
+        "needs_more_help_count": 0,
+        "rating_total": 0.0,
+        "rated_count": 0,
+    })
+
+    for row in rows:
+        volunteer_id = row.get("volunteer_id") or "unknown"
+        volunteer_bucket = volunteer_buckets[volunteer_id]
+        volunteer_bucket["volunteer_id"] = row.get("volunteer_id")
+        volunteer_bucket["volunteer_name"] = row.get("volunteer_name")
+        volunteer_bucket["feedback_count"] += 1
+        volunteer_bucket[f"{row['response']}_count"] += 1
+        if isinstance(row.get("rating"), (int, float)):
+            volunteer_bucket["rating_total"] += float(row["rating"])
+            volunteer_bucket["rated_count"] += 1
+        if row.get("created_at") and (
+            volunteer_bucket["latest_feedback_at"] is None or str(row["created_at"]) > str(volunteer_bucket["latest_feedback_at"])
+        ):
+            volunteer_bucket["latest_feedback_at"] = row["created_at"]
+
+        village_name = row.get("village_name") or "Unknown"
+        village_bucket = village_buckets[village_name]
+        village_bucket["village_name"] = village_name
+        village_bucket["feedback_count"] += 1
+        village_bucket[f"{row['response']}_count"] += 1
+        if isinstance(row.get("rating"), (int, float)):
+            village_bucket["rating_total"] += float(row["rating"])
+            village_bucket["rated_count"] += 1
+
+    volunteer_rows = []
+    for item in volunteer_buckets.values():
+        rated_count = int(item["rated_count"] or 0)
+        volunteer_rows.append({
+            "volunteer_id": item["volunteer_id"],
+            "volunteer_name": item["volunteer_name"],
+            "feedback_count": item["feedback_count"],
+            "resolved_count": item["resolved_count"],
+            "still_broken_count": item["still_broken_count"],
+            "needs_more_help_count": item["needs_more_help_count"],
+            "average_rating": round(item["rating_total"] / rated_count, 2) if rated_count else None,
+            "latest_feedback_at": item["latest_feedback_at"],
+        })
+    volunteer_rows.sort(key=lambda row: (row["average_rating"] is None, -(row["average_rating"] or 0), -row["feedback_count"]))
+
+    village_rows = []
+    for item in village_buckets.values():
+        rated_count = int(item["rated_count"] or 0)
+        village_rows.append({
+            "village_name": item["village_name"],
+            "feedback_count": item["feedback_count"],
+            "resolved_count": item["resolved_count"],
+            "still_broken_count": item["still_broken_count"],
+            "needs_more_help_count": item["needs_more_help_count"],
+            "average_rating": round(item["rating_total"] / rated_count, 2) if rated_count else None,
+        })
+    village_rows.sort(key=lambda row: (row["average_rating"] is None, -(row["average_rating"] or 0), -row["feedback_count"]))
+
+    return {
+        "generated_at": _now_iso(),
+        "window_days": days_back,
+        "summary": f"Captured {len(rows)} resident feedback entries across {len(volunteer_rows)} volunteers.",
+        "total_feedback": len(rows),
+        "response_counts": {
+            "resolved": response_counts.get("resolved", 0),
+            "still_broken": response_counts.get("still_broken", 0),
+            "needs_more_help": response_counts.get("needs_more_help", 0),
+        },
+        "average_rating": round(sum(ratings) / len(ratings), 2) if ratings else None,
+        "volunteers": volunteer_rows,
+        "villages": village_rows,
+        "recent_feedback": rows[:20],
+    }
+
+
+def build_repeat_breakdown_metrics(problems: Sequence[Dict[str, Any]], *, days_back: int = 90) -> Dict[str, Any]:
+    cutoff = _now() - timedelta(days=max(1, days_back))
+    by_village: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    by_topic: Counter[str] = Counter()
+    repeat_counts: Counter[str] = Counter()
+    gap_days: List[float] = []
+
+    for problem in problems:
+        created_at = _parse_dt(problem.get("created_at") or problem.get("updated_at"))
+        if created_at and created_at < cutoff:
+            continue
+        village_name = str(problem.get("village_name") or "Unknown")
+        topic = _category_to_asset_type(problem)
+        by_village[village_name].append(problem)
+        by_topic[topic] += 1
+
+    village_rows: List[Dict[str, Any]] = []
+    for village_name, items in by_village.items():
+        ordered = sorted(items, key=lambda item: _parse_dt(item.get("created_at") or item.get("updated_at")) or _now())
+        topic_counts = Counter(_category_to_asset_type(item) for item in ordered)
+        repeat_count = sum(max(0, count - 1) for count in topic_counts.values())
+        repeat_counts[village_name] = repeat_count
+        intervals = []
+        previous_created = None
+        for item in ordered:
+            current_created = _parse_dt(item.get("created_at") or item.get("updated_at"))
+            if previous_created and current_created:
+                interval = max(0.0, (current_created - previous_created).total_seconds() / 86400.0)
+                intervals.append(interval)
+                gap_days.append(interval)
+            if current_created:
+                previous_created = current_created
+        avg_gap = round(sum(intervals) / len(intervals), 2) if intervals else None
+        avg_resolution = []
+        for item in ordered:
+            proof = item.get("proof") or {}
+            created = _parse_dt(item.get("created_at") or item.get("updated_at"))
+            finished = _parse_dt(proof.get("submitted_at") or item.get("updated_at"))
+            if created and finished and finished >= created:
+                avg_resolution.append((finished - created).total_seconds() / 3600.0)
+        open_count = sum(1 for item in ordered if item.get("status") != "completed")
+        village_rows.append({
+            "village_name": village_name,
+            "problem_count": len(ordered),
+            "open_problem_count": open_count,
+            "completed_problem_count": len(ordered) - open_count,
+            "repeat_problem_count": repeat_count,
+            "repeat_rate": round(repeat_count / len(ordered), 3) if ordered else 0.0,
+            "average_gap_days": avg_gap,
+            "average_resolution_hours": round(sum(avg_resolution) / len(avg_resolution), 2) if avg_resolution else None,
+            "top_topic": topic_counts.most_common(1)[0][0] if topic_counts else "general",
+            "topic_breakdown": topic_counts.most_common(3),
+            "latest_problem_at": ordered[-1].get("created_at") if ordered else None,
+        })
+
+    village_rows.sort(key=lambda row: (row["repeat_rate"], row["problem_count"]), reverse=True)
+    overall_gap = round(sum(gap_days) / len(gap_days), 2) if gap_days else None
+    top_topics = by_topic.most_common(5)
+    return {
+        "generated_at": _now_iso(),
+        "window_days": days_back,
+        "summary": f"{len(village_rows)} villages show repeated problems in the selected window.",
+        "villages": village_rows,
+        "top_topics": top_topics,
+        "average_repeat_gap_days": overall_gap,
+    }

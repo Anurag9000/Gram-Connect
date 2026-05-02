@@ -16,6 +16,9 @@ const getSeasonalRiskForecastMock = vi.fn();
 const getMaintenancePlanMock = vi.fn();
 const getHotspotHeatmapMock = vi.fn();
 const getCampaignModeMock = vi.fn();
+const getBroadcastsMock = vi.fn();
+const getResidentFeedbackAnalyticsMock = vi.fn();
+const getRepeatBreakdownMock = vi.fn();
 const getProblemTimelineMock = vi.fn();
 const getEvidenceComparisonMock = vi.fn();
 const mockProfile = {
@@ -45,6 +48,9 @@ vi.mock('../services/api', () => ({
     getMaintenancePlan: (...args: unknown[]) => getMaintenancePlanMock(...args),
     getHotspotHeatmap: (...args: unknown[]) => getHotspotHeatmapMock(...args),
     getCampaignMode: (...args: unknown[]) => getCampaignModeMock(...args),
+    getBroadcasts: (...args: unknown[]) => getBroadcastsMock(...args),
+    getResidentFeedbackAnalytics: (...args: unknown[]) => getResidentFeedbackAnalyticsMock(...args),
+    getRepeatBreakdown: (...args: unknown[]) => getRepeatBreakdownMock(...args),
     getProblemTimeline: (...args: unknown[]) => getProblemTimelineMock(...args),
     getEvidenceComparison: (...args: unknown[]) => getEvidenceComparisonMock(...args),
     updateProblemStatus: vi.fn(),
@@ -136,6 +142,26 @@ describe('CoordinatorDashboard', () => {
     getMaintenancePlanMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 180, summary: 'none', items: [], top_assets: [] });
     getHotspotHeatmapMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 90, summary: 'none', cells: [] });
     getCampaignModeMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 30, summary: 'none', campaigns: [], top_topics: [] });
+    getBroadcastsMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 30, scope: 'all', summary: 'none', items: [] });
+    getResidentFeedbackAnalyticsMock.mockResolvedValue({
+      generated_at: '2026-01-01T00:00:00',
+      window_days: 90,
+      summary: 'none',
+      total_feedback: 0,
+      response_counts: { resolved: 0, still_broken: 0, needs_more_help: 0 },
+      average_rating: null,
+      volunteers: [],
+      villages: [],
+      recent_feedback: [],
+    });
+    getRepeatBreakdownMock.mockResolvedValue({
+      generated_at: '2026-01-01T00:00:00',
+      window_days: 180,
+      summary: 'none',
+      villages: [],
+      top_topics: [],
+      average_repeat_gap_days: null,
+    });
     getProblemTimelineMock.mockResolvedValue({
       problem_id: 'problem-1',
       problem: { id: 'problem-1' },
@@ -163,6 +189,9 @@ describe('CoordinatorDashboard', () => {
     render(<CoordinatorDashboard />);
 
     await screen.findByText('Broken Well Pump');
+    expect(screen.getByText(/Villager feedback/i)).toBeInTheDocument();
+    expect(screen.getByText(/Repeat breakdown/i)).toBeInTheDocument();
+    expect(screen.getByText(/Recent broadcasts/i)).toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole('button', { name: /Assign Team/i }));
     fireEvent.click(await screen.findByRole('button', { name: /Generate Explainable Teams/i }));

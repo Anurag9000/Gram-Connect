@@ -145,6 +145,10 @@ The repository also includes `run_full_verification.py`, which performs a real t
 
 The repository also exposes platform administration endpoints in `backend/api_server.py`:
 
+- `POST /api/v1/broadcasts`
+- `GET /api/v1/broadcasts`
+- `GET /api/v1/analytics/feedback`
+- `GET /api/v1/analytics/repeat-breakdown`
 - `GET /api/v1/platform/overview`
 - `GET /api/v1/platform/records/{record_type}`
 - `POST /api/v1/platform/records/{record_type}`
@@ -155,4 +159,4 @@ The repository also exposes platform administration endpoints in `backend/api_se
 - `POST /api/v1/platform/policy`
 - `GET /api/v1/platform/export`
 
-These endpoints power the platform studio UI, audit exports, resident confirmation, policy copilot, and the related administrative workflows.
+These endpoints power the platform studio UI, audit exports, resident confirmation, policy copilot, broadcast scheduling, resident feedback analytics, repeat-breakdown analytics, and the related administrative workflows.

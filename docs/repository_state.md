@@ -18,14 +18,14 @@ For a current feature-by-feature implementation inventory, see [`IMPLEMENTED_FEA
 ## Implemented Subsystems
 
 - Backend API service with persisted runtime state and media storage.
-- Platform studio and management workflows for assets, procurement, confirmations, analytics, community signals, and admin exports.
+- Platform studio and management workflows for assets, procurement, confirmations, analytics, community signals, broadcast scheduling, and admin exports.
 - Canonical dataset generator for synthetic proposals, volunteers, pair labels, and operational metadata.
 - Persisted recommender bundle with checkpointed training and resumable continuation.
 - Multimodal issue intake using image analysis, audio transcription, WhatsApp ingestion, and auto-severity inference.
 - Coordinator dashboard, volunteer dashboard, supervisor dashboard, partner dashboard, villager onboarding, map-based operational views, and live refresh flows.
 - Problem submission guidance, volunteer repair assistance, and AI-generated instant help for reporters.
-- Conversational coordinator analytics with village summaries, idle-volunteer lookup, and risk clustering.
-- Prevention and planning analytics for seasonal risk, preventive maintenance, hotspot heatmaps, and campaign planning.
+- Conversational coordinator analytics with village summaries, idle-volunteer lookup, risk clustering, resident feedback summaries, repeat-breakdown metrics, and broadcast feeds.
+- Prevention and planning analytics for seasonal risk, preventive maintenance, hotspot heatmaps, campaign planning, and community event scheduling.
 - Persistent media upload, proof submission, and resolution verification workflows.
 - Postgres-backed runtime storage for seed catalog data, live records, learning events, and metadata.
 - Installable PWA shell with offline-capable frontend shell and caching.

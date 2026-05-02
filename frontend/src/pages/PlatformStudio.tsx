@@ -56,6 +56,21 @@ export default function PlatformStudio() {
   const [residentConfirmation, setResidentConfirmation] = useState<Record<string, unknown> | null>(null);
   const [exportPack, setExportPack] = useState<Record<string, unknown> | null>(null);
   const [recordError, setRecordError] = useState<string | null>(null);
+  const [broadcastForm, setBroadcastForm] = useState({
+    title: '',
+    message: '',
+    event_type: 'community_event',
+    audience_type: 'villages' as 'all' | 'villages' | 'volunteers',
+    target_villages: '',
+    target_volunteers: '',
+    target_skills: '',
+    tags: '',
+    media_ids: '',
+    scheduled_for: '',
+  });
+  const [broadcastError, setBroadcastError] = useState<string | null>(null);
+  const [broadcastBusy, setBroadcastBusy] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState<Record<string, unknown> | null>(null);
   const [drafts, setDrafts] = useState<Record<string, RecordDraft>>({
     asset: { data: '{}' },
     procurement: { data: '{}' },
@@ -112,6 +127,7 @@ export default function PlatformStudio() {
   const impactRows = (((overview as any)?.impact ?? {}) as Record<string, unknown>);
   const budgetRows = (((overview as any)?.budget_forecast ?? {}) as Record<string, unknown>);
   const memoryRows = (((overview as any)?.conversation_memory ?? {}) as Record<string, unknown>);
+  const broadcastRows = (((overview as any)?.broadcasts ?? []) as Array<Record<string, unknown>>);
 
   const saveRecord = async (recordType: string) => {
     const draft = drafts[recordType];
@@ -128,6 +144,38 @@ export default function PlatformStudio() {
       await loadOverview();
     } catch (err) {
       setRecordError(err instanceof Error ? err.message : `Failed to save ${recordType} record`);
+    }
+  };
+
+  const saveBroadcast = async () => {
+    try {
+      setBroadcastBusy(true);
+      setBroadcastError(null);
+      setBroadcastResult(null);
+      const payload = {
+        owner_id: profile?.id,
+        title: broadcastForm.title.trim(),
+        message: broadcastForm.message.trim(),
+        event_type: broadcastForm.event_type,
+        audience_type: broadcastForm.audience_type,
+        target_villages: broadcastForm.target_villages.split(',').map((item) => item.trim()).filter(Boolean),
+        target_volunteers: broadcastForm.target_volunteers.split(',').map((item) => item.trim()).filter(Boolean),
+        target_skills: broadcastForm.target_skills.split(',').map((item) => item.trim()).filter(Boolean),
+        tags: broadcastForm.tags.split(',').map((item) => item.trim()).filter(Boolean),
+        media_ids: broadcastForm.media_ids.split(',').map((item) => item.trim()).filter(Boolean),
+        scheduled_for: broadcastForm.scheduled_for.trim() || undefined,
+      };
+      if (!payload.title || !payload.message) {
+        throw new Error('Broadcast title and message are required.');
+      }
+      const result = await api.createBroadcast(payload);
+      setBroadcastResult(result.broadcast as unknown as Record<string, unknown>);
+      setBroadcastForm((current) => ({ ...current, title: '', message: '', media_ids: '' }));
+      await loadOverview();
+    } catch (err) {
+      setBroadcastError(err instanceof Error ? err.message : 'Failed to create broadcast');
+    } finally {
+      setBroadcastBusy(false);
     }
   };
 
@@ -186,7 +234,7 @@ export default function PlatformStudio() {
           <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
             This control surface bundles the missing management features into one place so coordinators, supervisors, and partners can operate the system without switching between hidden admin tools.
           </p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="mt-4 grid gap-3 sm:grid-cols-4">
             <div className="rounded-2xl bg-white/10 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-slate-300">Assets</div>
               <div className="mt-1 text-2xl font-extrabold">{sectionCounts.asset || 0}</div>
@@ -198,6 +246,10 @@ export default function PlatformStudio() {
             <div className="rounded-2xl bg-white/10 p-4">
               <div className="text-xs uppercase tracking-[0.18em] text-slate-300">AI records</div>
               <div className="mt-1 text-2xl font-extrabold">{sectionCounts.conversation_memory || 0}</div>
+            </div>
+            <div className="rounded-2xl bg-white/10 p-4">
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-300">Broadcasts</div>
+              <div className="mt-1 text-2xl font-extrabold">{sectionCounts.broadcasts || 0}</div>
             </div>
           </div>
         </div>
@@ -255,6 +307,94 @@ export default function PlatformStudio() {
             {addRecordInput('poll', 'Poll')}
             {addRecordInput('announcement', 'Announcement')}
             {addRecordInput('champion', 'Village champion')}
+          </Card>
+          <Card title="Community broadcasts" icon={<Megaphone size={18} />} accent="text-sky-700">
+            <div className="space-y-3 rounded-xl border border-sky-100 bg-sky-50/60 p-3">
+              <div className="text-xs font-bold uppercase tracking-wide text-sky-700">Send broadcast</div>
+              <input
+                value={broadcastForm.title}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, title: event.target.value }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Broadcast title"
+              />
+              <textarea
+                value={broadcastForm.message}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, message: event.target.value }))}
+                rows={4}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Message, notice, event details, or call to action"
+              />
+              <select
+                value={broadcastForm.event_type}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, event_type: event.target.value }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              >
+                <option value="community_event">Community event</option>
+                <option value="water_camp">Water camp</option>
+                <option value="repair_day">Repair day</option>
+                <option value="sanitation_drive">Sanitation drive</option>
+                <option value="awareness_meeting">Awareness meeting</option>
+                <option value="general">General notice</option>
+              </select>
+              <select
+                value={broadcastForm.audience_type}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, audience_type: event.target.value as 'all' | 'villages' | 'volunteers' }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              >
+                <option value="villages">Villages</option>
+                <option value="volunteers">Volunteers</option>
+                <option value="all">Everyone</option>
+              </select>
+              <input
+                value={broadcastForm.target_villages}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, target_villages: event.target.value }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Target villages, comma separated"
+              />
+              <input
+                value={broadcastForm.target_volunteers}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, target_volunteers: event.target.value }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Target volunteer IDs, comma separated"
+              />
+              <input
+                value={broadcastForm.target_skills}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, target_skills: event.target.value }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Target skills, comma separated"
+              />
+              <input
+                value={broadcastForm.tags}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, tags: event.target.value }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Tags, comma separated"
+              />
+              <input
+                value={broadcastForm.media_ids}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, media_ids: event.target.value }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                placeholder="Media IDs, comma separated"
+              />
+              <input
+                type="datetime-local"
+                value={broadcastForm.scheduled_for}
+                onChange={(event) => setBroadcastForm((current) => ({ ...current, scheduled_for: event.target.value }))}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                onClick={() => void saveBroadcast()}
+                disabled={broadcastBusy}
+                className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white"
+              >
+                {broadcastBusy ? 'Broadcasting...' : 'Send broadcast'}
+              </button>
+              {broadcastError && <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{broadcastError}</div>}
+              {broadcastResult && (
+                <pre className="overflow-x-auto rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700">{JSON.stringify(broadcastResult, null, 2)}</pre>
+              )}
+            </div>
+            <JsonList items={broadcastRows} />
           </Card>
           <Card title="Planning and analytics" icon={<Gauge size={18} />}>
             <JsonList items={anomalyRows} />

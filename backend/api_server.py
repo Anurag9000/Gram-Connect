@@ -7,6 +7,7 @@ import mimetypes
 import threading
 import uuid
 import re
+from contextlib import asynccontextmanager
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
@@ -113,7 +114,20 @@ recommender_service = RecommenderService(
     dataset_root=DATASET_ROOT
 )
 
-app = FastAPI(title="Gram Connect Backend Service")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Bootstrap the demo runtime on application startup."""
+    if should_bootstrap_models():
+        try:
+            ensure_canonical_dataset()
+            reset_runtime_state()
+            logger.info("Demo runtime bootstrapped (Nexus engine — no model training required).")
+        except Exception as exc:
+            logger.exception("Demo bootstrap failed: %s", exc)
+    yield
+
+
+app = FastAPI(title="Gram Connect Backend Service", lifespan=lifespan)
 
 # CORS Configuration
 # Allow user to specify origins via env var, otherwise default to lenient for dev
@@ -1983,21 +1997,8 @@ def reset_runtime_state() -> None:
     STATE_VERSION = 0
     load_initial_data(force_seed=True)
 
-# Load data on startup (or module import)
+# Load data on module import so the app has a usable in-memory snapshot immediately.
 load_initial_data()
-
-
-@app.on_event("startup")
-async def bootstrap_demo_runtime():
-    """Nexus engine requires no trained model — just seed the dataset and runtime state."""
-    if not should_bootstrap_models():
-        return
-    try:
-        ensure_canonical_dataset()
-        reset_runtime_state()
-        logger.info("Demo runtime bootstrapped (Nexus engine — no model training required).")
-    except Exception as exc:
-        logger.exception("Demo bootstrap failed: %s", exc)
 
 
 def train_model(request: Optional[TrainRequest] = None) -> float:

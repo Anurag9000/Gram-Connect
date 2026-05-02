@@ -26,6 +26,9 @@ def _install_optional_module_stubs() -> None:
                     rows.append(values)
                 return np.asarray(rows, dtype=float)
 
+            def transform(self, texts):  # pragma: no cover - test shim
+                return self.encode(texts, convert_to_numpy=True, normalize_embeddings=True)
+
         stubs.SentenceTransformer = SentenceTransformer
         sys.modules["sentence_transformers"] = stubs
 

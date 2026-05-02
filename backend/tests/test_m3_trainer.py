@@ -23,6 +23,7 @@ def test_train_model_flow(mock_exists, mock_embed, mock_read, tmp_path):
     
     # Mock embeddings
     mock_model = MagicMock()
+    mock_model.transform.return_value = np.array([[1.0]])
     mock_embed.return_value = (mock_model, np.array([[1.0]]), "tfidf")
     
     config = m3_trainer.TrainingConfig(

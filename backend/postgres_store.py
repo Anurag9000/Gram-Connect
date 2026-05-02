@@ -126,6 +126,7 @@ class PostgresStore:
                 conninfo=self.database_url,
                 min_size=1,
                 max_size=4,
+                open=True,
                 kwargs={"autocommit": True, "row_factory": dict_row},
             )
         return self._pool

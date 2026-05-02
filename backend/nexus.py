@@ -30,6 +30,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from utils import intervals_overlap, parse_datetime, parse_schedule_csv
+
 logger = logging.getLogger("nexus")
 
 # ── Constants ─────────────────────────────────────────────────────────────────
@@ -238,6 +240,7 @@ class NexusConfig:
     overwork_penalty:            float = OVERWORK_PENALTY_PER_HOUR
     transcription:               Optional[str] = None
     visual_tags:                 Optional[List[str]] = None
+    schedule_csv:                Optional[str] = None
     # Pre-loaded data (avoids re-reading CSVs on every call)
     _people:           Optional[List[Dict]] = field(default=None, repr=False)
     _distance_lookup:  Optional[Dict]       = field(default=None, repr=False)
@@ -261,13 +264,14 @@ def read_people(csv_path: str) -> List[Dict]:
                 "skills":            skills,
                 "willingness_eff":   float(row.get("willingness_eff") or 0.5),
                 "willingness_bias":  float(row.get("willingness_bias") or 0.5),
-                "availability":      (row.get("availability") or "").strip().lower(),
-                "availability_status": (row.get("availability_status") or "available").strip(),
-                "home_location":     (row.get("home_location") or row.get("village") or "").strip(),
-                "overwork_hours":    float(row.get("overwork_hours") or 0),
-                "user_id":           (row.get("user_id") or pid).strip(),
-                "email":             (row.get("email") or "").strip(),
-            })
+            "availability":      (row.get("availability") or "").strip().lower(),
+            "availability_status": (row.get("availability_status") or "available").strip(),
+            "home_location":     (row.get("home_location") or row.get("village") or "").strip(),
+            "overwork_hours":    float(row.get("overwork_hours") or 0),
+            "user_id":           (row.get("user_id") or pid).strip(),
+            "source_person_id":  (row.get("source_person_id") or pid).strip(),
+            "email":             (row.get("email") or "").strip(),
+        })
     return people
 
 
@@ -596,6 +600,7 @@ def run_nexus(config: NexusConfig) -> Dict[str, Any]:
     people          = config._people          or read_people(config.people_csv)
     distance_lookup = config._distance_lookup or load_distance_lookup(config.distance_csv)
     village_names   = config._village_names   or load_village_names(config.village_locations)
+    schedule_map = parse_schedule_csv(config.schedule_csv) if config.schedule_csv else {}
 
     # ── Multimodal text fusion ─────────────────────────────────────────────
     text = config.proposal_text or ""
@@ -635,12 +640,38 @@ def run_nexus(config: NexusConfig) -> Dict[str, Any]:
     )
 
     # ── Score All Volunteers ───────────────────────────────────────────────
+    filtered_people: List[Dict[str, Any]] = []
+    for person in people:
+        schedule_keys = [
+            str(person.get("person_id") or "").strip(),
+            str(person.get("source_person_id") or "").strip(),
+            str(person.get("user_id") or "").strip(),
+        ]
+        schedule_info: Dict[str, Any] = {}
+        for schedule_key in schedule_keys:
+            if schedule_key and schedule_key in schedule_map:
+                schedule_info = schedule_map[schedule_key]
+                break
+        intervals = schedule_info.get("intervals", [])
+        if intervals and config.task_start and config.task_end:
+            try:
+                task_start = parse_datetime(config.task_start, "task_start")
+                task_end = parse_datetime(config.task_end, "task_end")
+                if intervals_overlap(intervals, (task_start, task_end)):
+                    continue
+            except Exception:
+                pass
+        filtered_people.append(person)
+
+    if not filtered_people:
+        raise ValueError("No available volunteers found after applying schedule filters.")
+
     scored = [
         score_volunteer(
             v, required, proposal_location, distance_lookup, severity_int,
             config.weekly_quota, config.overwork_penalty,
         )
-        for v in people
+        for v in filtered_people
     ]
     scored.sort(key=lambda v: v["nexus_score"], reverse=True)
 

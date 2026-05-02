@@ -143,6 +143,7 @@ def read_people(people_csv: str) -> List[Dict]:
         W = robust_sigmoid(eff + bias)
         out.append({
             "person_id": pid,
+            "source_person_id": get_any(r, ["source_person_id"], pid),
             "name": name,
             "text": text,
             "skills": skills,
@@ -523,7 +524,11 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
 
     filtered_people: List[Dict[str, Any]] = []
     for person in all_people:
-        sched_info = schedule_map.get(person["person_id"], {})
+        sched_info = (
+            schedule_map.get(person["person_id"], {})
+            or schedule_map.get(person.get("source_person_id", ""), {})
+            or schedule_map.get(person.get("user_id", ""), {})
+        )
         intervals = sched_info.get("intervals", [])
         if intervals and intervals_overlap(intervals, task_interval):
             continue

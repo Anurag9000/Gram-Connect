@@ -68,6 +68,7 @@ def run_recommender(config: RecommendationConfig) -> Dict[str, Any]:
         overwork_penalty=config.overwork_penalty,
         transcription=config.transcription,
         visual_tags=config.visual_tags,
+        schedule_csv=config.schedule_csv,
         _distance_lookup=config.loaded_bundle.get("_distance_lookup") if isinstance(config.loaded_bundle, dict) else None,
         _village_names=config.loaded_bundle.get("_village_names") if isinstance(config.loaded_bundle, dict) else None,
     )
@@ -185,6 +186,7 @@ class RecommenderService:
                     overwork_penalty=legacy_cfg.overwork_penalty,
                     transcription=legacy_cfg.transcription,
                     visual_tags=legacy_cfg.visual_tags,
+                    schedule_csv=legacy_cfg.schedule_csv,
                     _people=people_rows,
                     _distance_lookup=distance_lookup,
                     _village_names=village_names,

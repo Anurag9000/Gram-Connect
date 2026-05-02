@@ -76,8 +76,18 @@ def verify_recommender(model_path: str) -> None:
     _assert(baseline["teams"], "Expected baseline recommendation teams")
     baseline_members = {member["person_id"] for team in baseline["teams"] for member in team["members"]}
     filtered_members = {member["person_id"] for team in filtered["teams"] for member in team["members"]}
-    _assert("VOL-002" in baseline_members, "Expected seeded handpump expert in baseline recommendations")
-    _assert("VOL-002" not in filtered_members, "Schedule filtering should exclude overlapping volunteer VOL-002")
+    people_lookup = {
+        row["person_id"]: row.get("source_person_id") or row["person_id"]
+        for row in read_csv_norm(api_server.DEFAULT_PEOPLE_CSV)
+        if row.get("person_id")
+    }
+    blocked_sources = {row["person_id"] for row in read_csv_norm(api_server.DEFAULT_PEOPLE_CSV.replace("people.csv", "schedule.csv")) if row.get("person_id")}
+    baseline_blocked = {
+        pid for pid in baseline_members
+        if people_lookup.get(pid) in blocked_sources or pid in blocked_sources
+    }
+    _assert(baseline_blocked, "Expected at least one scheduled volunteer in baseline recommendations")
+    _assert(baseline_blocked.isdisjoint(filtered_members), "Schedule filtering should exclude overlapping volunteers")
     _assert(len(filtered["teams"]) <= 2, "num_teams limit must be enforced")
 
 

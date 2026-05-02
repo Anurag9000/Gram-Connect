@@ -187,6 +187,16 @@ def _normalize_tags(raw_tags: Any, top_label: str) -> List[str]:
     return tags[:5]
 
 
+def _get_gemini_types():
+    try:
+        from google.genai import types  # type: ignore
+
+        return types
+    except Exception as exc:
+        logger.debug("Gemini types unavailable: %s", exc)
+        return None
+
+
 @lru_cache(maxsize=1)
 def get_whisper():
     global _whisper_model
@@ -264,7 +274,9 @@ def transcribe_audio(audio_path: str) -> Dict[str, Any]:
             client = get_gemini_client()
             mime_type = mimetypes.guess_type(audio_path)[0] or "audio/wav"
             audio_bytes = _read_file_bytes(audio_path)
-            from google.genai import types
+            types = _get_gemini_types()
+            if types is None:
+                raise RuntimeError("Gemini types unavailable")
 
             audio_part = types.Part.from_bytes(data=audio_bytes, mime_type=mime_type)
             response = client.models.generate_content(
@@ -292,17 +304,27 @@ def transcribe_audio(audio_path: str) -> Dict[str, Any]:
         except Exception as exc:
             logger.warning("Gemini transcription failed, falling back to Whisper: %s", exc)
 
-    model = get_whisper()
-    result = model.transcribe(audio_path)
-    transcript = str(result.get("text", "")).strip()
-    language_code = result.get("language")
-    return {
-        "text": transcript,
-        "language": language_code,
-        "language_code": language_code,
-        "language_name": result.get("language_name"),
-        "source": "whisper",
-    }
+    try:
+        model = get_whisper()
+        result = model.transcribe(audio_path)
+        transcript = str(result.get("text", "")).strip()
+        language_code = result.get("language")
+        return {
+            "text": transcript,
+            "language": language_code,
+            "language_code": language_code,
+            "language_name": result.get("language_name"),
+            "source": "whisper",
+        }
+    except Exception as exc:
+        logger.warning("Whisper fallback unavailable, returning empty transcript: %s", exc)
+        return {
+            "text": "",
+            "language": None,
+            "language_code": None,
+            "language_name": None,
+            "source": "unavailable",
+        }
 
 
 def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
@@ -330,7 +352,9 @@ def analyze_image(image_path: str, candidate_labels: list = None) -> dict:
             client = get_gemini_client()
             image_bytes = _read_file_bytes(image_path)
             mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
-            from google.genai import types
+            types = _get_gemini_types()
+            if types is None:
+                raise RuntimeError("Gemini types unavailable")
 
             image_part = types.Part.from_bytes(data=image_bytes, mime_type=mime_type)
             prompt = (
@@ -482,7 +506,18 @@ def verify_resolution_proof(
         }
 
     client = get_gemini_client()
-    from google.genai import types
+    types = _get_gemini_types()
+    if types is None:
+        return {
+            "accepted": False,
+            "confidence": 0.0,
+            "task_match": False,
+            "same_scene": False,
+            "issue_fixed": False,
+            "summary": "Proof verification unavailable because Gemini types are not configured.",
+            "detected_change": "unknown",
+            "source": "none",
+        }
 
     parts: List[Any] = []
     if before_image_path and os.path.exists(before_image_path):
@@ -744,7 +779,16 @@ def suggest_jugaad_fix(
         )
 
     client = get_gemini_client()
-    from google.genai import types
+    types = _get_gemini_types()
+    if types is None:
+        return _jugaad_fallback_plan(
+            problem_title=problem_title,
+            problem_description=problem_description,
+            category=category,
+            broken_analysis=broken_analysis,
+            materials_analysis=materials_analysis,
+            materials_note=materials_note,
+        )
 
     broken_mime = mimetypes.guess_type(broken_image_path)[0] or "image/jpeg"
     materials_mime = mimetypes.guess_type(materials_image_path)[0] or "image/jpeg"
@@ -1145,7 +1189,9 @@ def extract_problem_from_whatsapp(transcript: str, image_path: Optional[str] = N
 
     try:
         client = get_gemini_client()
-        from google.genai import types
+        types = _get_gemini_types()
+        if types is None:
+            raise RuntimeError("Gemini types unavailable")
         
         parts: List[Any] = []
         if image_path and os.path.exists(image_path):

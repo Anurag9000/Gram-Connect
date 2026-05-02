@@ -98,6 +98,36 @@ def test_service_generates_recommendations_with_trained_model(tmp_path):
     assert result["teams"][0]["members"][0]["person_id"] == "p1"
 
 
+def test_service_honors_schedule_conflicts(tmp_path):
+    model_path, people_csv = _train_tiny_bundle(tmp_path)
+    schedule_csv = tmp_path / "schedule.csv"
+    schedule_csv.write_text(
+        "person_id,start,end\n"
+        "p1,2026-01-01T09:00:00,2026-01-01T13:00:00\n",
+        encoding="utf-8",
+    )
+
+    service = RecommenderService(
+        model_path=str(model_path),
+        people_csv=str(people_csv),
+        dataset_root=str(tmp_path),
+    )
+
+    result = service.generate_recommendations(
+        {
+            "proposal_text": "Urgent handpump repair needed in Village A",
+            "task_start": "2026-01-01T10:00:00",
+            "task_end": "2026-01-01T12:00:00",
+            "auto_extract": True,
+            "team_size": 1,
+            "num_teams": 1,
+            "schedule_csv": str(schedule_csv),
+        }
+    )
+
+    assert all(member["person_id"] != "p1" for team in result["teams"] for member in team["members"])
+
+
 @patch("recommender_service.run_recommender")
 def test_service_passes_optional_fields_to_core(mock_run, tmp_path):
     model_path, people_csv = _train_tiny_bundle(tmp_path)

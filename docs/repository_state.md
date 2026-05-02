@@ -4,7 +4,7 @@ This document records the current implementation status of Gram Connect at the r
 
 ## Current Summary
 
-Gram Connect is a FastAPI and Vite application for community issue intake, volunteer assignment, map-based operations, and persisted recommendation-driven coordination. The repository contains a live backend, a live frontend, a canonical synthetic dataset, a persisted trained recommender bundle, and end-to-end operational flows for villager reporting, coordinator dispatch, and volunteer proof submission.
+Gram Connect is a FastAPI and Vite application for community issue intake, volunteer assignment, map-based operations, persisted recommendation-driven coordination, and platform administration. The repository contains a live backend, a live frontend, a canonical synthetic dataset, a persisted trained recommender bundle, and end-to-end operational flows for villager reporting, coordinator dispatch, volunteer proof submission, and management studio workflows.
 
 For a current feature-by-feature implementation inventory, see [`IMPLEMENTED_FEATURES.md`](../IMPLEMENTED_FEATURES.md).
 
@@ -18,6 +18,7 @@ For a current feature-by-feature implementation inventory, see [`IMPLEMENTED_FEA
 ## Implemented Subsystems
 
 - Backend API service with persisted runtime state and media storage.
+- Platform studio and management workflows for assets, procurement, confirmations, analytics, community signals, and admin exports.
 - Canonical dataset generator for synthetic proposals, volunteers, pair labels, and operational metadata.
 - Persisted recommender bundle with checkpointed training and resumable continuation.
 - Multimodal issue intake using image analysis, audio transcription, WhatsApp ingestion, and auto-severity inference.
@@ -27,6 +28,7 @@ For a current feature-by-feature implementation inventory, see [`IMPLEMENTED_FEA
 - Prevention and planning analytics for seasonal risk, preventive maintenance, hotspot heatmaps, and campaign planning.
 - Persistent media upload, proof submission, and resolution verification workflows.
 - Postgres-backed runtime storage for seed catalog data, live records, learning events, and metadata.
+- Installable PWA shell with offline-capable frontend shell and caching.
 - Formal documentation for the backend interface, model architecture, and demo procedures.
 
 ## Intentionally Deferred Subsystems
@@ -34,6 +36,10 @@ For a current feature-by-feature implementation inventory, see [`IMPLEMENTED_FEA
 - Authentication and authorization are deliberately lightweight and remain demo scaffolding.
 - CLIP and Whisper are used as pretrained inference components and are not finetuned on repository data.
 - Production deployment infrastructure, external secrets management, and hardened access control are out of scope for the current repository state.
+
+## Completion Note
+
+The repository should be treated as complete for the current scope documented here. Future additions should be planned as new capabilities rather than missing baseline work.
 
 ## Canonical Artifacts
 

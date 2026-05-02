@@ -138,3 +138,21 @@ The repository also includes `run_full_verification.py`, which performs a real t
 - Weekly workload fairness works by tracking hours in `schedule_csv`. Provide cumulative shifts to enforce the quota.
 - All weight parameters (`lambda_*`, `distance_*`, `overwork_penalty`, and related fields) are intended to be tunable without code changes.
 - FastAPI request bodies pass parsed datetimes into the backend; the current backend accepts both ISO strings and native `datetime` values.
+
+---
+
+## Platform Studio API
+
+The repository also exposes platform administration endpoints in `backend/api_server.py`:
+
+- `GET /api/v1/platform/overview`
+- `GET /api/v1/platform/records/{record_type}`
+- `POST /api/v1/platform/records/{record_type}`
+- `POST /api/v1/platform/resident-confirmation/{problem_id}`
+- `GET /api/v1/platform/audit-pack/{problem_id}`
+- `POST /api/v1/platform/form-autofill`
+- `GET /api/v1/platform/case-similarity/{problem_id}`
+- `POST /api/v1/platform/policy`
+- `GET /api/v1/platform/export`
+
+These endpoints power the platform studio UI, audit exports, resident confirmation, policy copilot, and the related administrative workflows.

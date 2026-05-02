@@ -32,6 +32,8 @@ python -m uvicorn api_server:app --host 0.0.0.0 --port 8000
 
 - `backend/runtime_data/` is created automatically and holds uploaded media only.
 - Postgres is the source of truth for canonical seed data, live runtime state, and learning events.
+- Platform records, audit packs, custom forms, confirmation flows, and export bundles are also stored or derived from the Postgres-backed runtime.
 - Set `DATABASE_URL` to point at a writable Postgres instance with the `vector` extension enabled.
 - `GRAM_CONNECT_SKIP_BOOTSTRAP=1` disables startup seeding when you want a manual boot.
 - The backend expects `data/*.csv` to be present, or alternative paths via `GRAM_CONNECT_*` environment variables.
+- This repository is considered feature-complete for the scope documented in `IMPLEMENTED_FEATURES.md`.

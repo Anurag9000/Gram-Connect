@@ -1,6 +1,8 @@
 # Gram Connect
 
-Gram Connect is a full-stack community operations app with a FastAPI backend and a Vite + React frontend. The current runtime uses the Nexus scoring engine for recommendations, with optional multimodal fallbacks for transcription and image analysis.
+Gram Connect is a full-stack community operations app with a FastAPI backend and a Vite + React frontend. The current runtime uses a Postgres-backed state store, the Nexus scoring engine for recommendations, and a broad set of operational and AI-assisted workflows for intake, dispatch, verification, planning, and community visibility.
+
+Project status: the repository is complete for its current scope. The implemented feature inventory is documented in [`IMPLEMENTED_FEATURES.md`](IMPLEMENTED_FEATURES.md).
 
 ## Repo Layout
 - `backend/`: FastAPI service, Nexus recommender, multimodal helpers, tests, and runtime scripts
@@ -10,7 +12,9 @@ Gram Connect is a full-stack community operations app with a FastAPI backend and
 
 ## Current Runtime
 - Recommendation requests are served by `backend/nexus.py` through `backend/recommender_service.py`
-- Runtime state is seeded from `data/*.csv` and stored under `backend/runtime_data/`
+- Runtime state, learning events, and platform records are persisted in Postgres
+- Canonical seed data is ingested from `data/*.csv` into Postgres
+- Uploaded media still lives under `backend/runtime_data/media/`
 - The backend can boot without a trained model; legacy training utilities remain only for verification and experimentation
 
 ## Local Development
@@ -67,6 +71,7 @@ If the platform does not provide `$PORT`, use `8000` or another open port.
 - The frontend and backend are deployed separately
 - The frontend must point at the backend with `VITE_API_BASE_URL`
 - The backend serves API traffic only; it does not need the frontend build artifacts
+- The frontend includes a lightweight PWA shell for installable/offline-capable access
 
 ## Verification
 ```bash

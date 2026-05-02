@@ -7,7 +7,7 @@ This document defines the local verification and development sequence for the Gr
 ## Install and Verify
 
 ```bash
-cd /home/anurag-basistha/Projects/TODO/Gram-Connect/frontend
+cd /home/anurag-basistha/Projects/ToFix/Gram-Connect/frontend
 npm install
 printf 'VITE_API_BASE_URL=http://127.0.0.1:8011\n' > .env
 npm test -- --run
@@ -28,6 +28,12 @@ The development server prints a local URL, typically `http://127.0.0.1:5173`.
 
 The frontend expects the backend API to be reachable at `http://127.0.0.1:8011` unless `VITE_API_BASE_URL` is changed.
 
+## Current UI Scope
+
+- Coordinator, volunteer, supervisor, partner, and public surfaces are all wired in the app shell.
+- The platform studio is available for administrative workflows, platform records, confirmations, policy lookups, and export bundles.
+- The frontend ships with a lightweight offline-capable PWA shell.
+
 ## Demo Access Credentials
 
 - Coordinator: `coordinator@test.com` / `password`
@@ -41,3 +47,5 @@ The frontend expects the backend API to be reachable at `http://127.0.0.1:8011` 
 - Problem submission reaches the backend and persists media metadata.
 - Volunteer dashboard loads assigned tasks.
 - Volunteer profile loads and saves successfully.
+- The platform studio loads and can create or inspect platform records.
+- The public status board renders resident-facing status information.

@@ -9,6 +9,8 @@ It is meant to be an implementation inventory, not a product roadmap.
 - React + Vite frontend in `frontend/src/App.tsx`.
 - Role-based navigation and page routing for villagers, volunteers, coordinators, supervisors, and partners.
 - Internationalization support across the frontend with locale bundles.
+- Management studio for platform records, confirmations, audits, exports, policy, and AI-assisted admin workflows.
+- Installable PWA shell with offline caching for the frontend shell.
 
 ## Data and Persistence
 
@@ -57,6 +59,7 @@ It is meant to be an implementation inventory, not a product roadmap.
 - Operations intelligence panel with escalations, route clustering, playbooks, inventory, and volunteer reliability.
 - Planning and prevention panels for seasonal risk, preventive maintenance, hotspot mapping, and campaign mode.
 - Evidence comparison view for completed cases with before/after proof data.
+- Platform studio entry point for asset lifecycle, procurement, privacy, certification, scheduling, training, community signals, analytics, and admin exports.
 
 ## AI and Recommendation Layer
 
@@ -117,3 +120,7 @@ It is meant to be an implementation inventory, not a product roadmap.
 - Authentication remains lightweight and demo-oriented.
 - SMS delivery is currently mocked by logging in `backend/notification_service.py`.
 - Deployment infrastructure and secret management are intentionally left out of scope.
+
+## Completion Note
+
+The repository should be treated as feature-complete for its current scope. Remaining work, if any, belongs to future expansion rather than completing a partial baseline.

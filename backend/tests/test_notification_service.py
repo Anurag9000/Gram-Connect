@@ -35,3 +35,12 @@ def test_notify_team_assignment(mock_send):
 def test_notify_problem_resolved(mock_send):
     notification_service.notify_problem_resolved("333", "Broken Pipe")
     mock_send.assert_called_with("333", "Good news! Your reported issue 'Broken Pipe' has been marked as resolved by our volunteers. Thank you for your patience.")
+
+
+@patch('notification_service.send_sms_notification')
+def test_notify_problem_follow_up(mock_send):
+    notification_service.notify_problem_follow_up("444", "Broken Pipe")
+    mock_send.assert_called_with(
+        "444",
+        "Gram Connect follow-up: is the issue 'Broken Pipe' still fixed? Reply RESOLVED, STILL BROKEN, or NEED MORE HELP."
+    )

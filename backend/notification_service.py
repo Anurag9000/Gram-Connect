@@ -50,3 +50,13 @@ def notify_problem_resolved(villager_phone: str, problem_title: str):
     if villager_phone:
         msg = f"Good news! Your reported issue '{problem_title}' has been marked as resolved by our volunteers. Thank you for your patience."
         send_sms_notification(villager_phone, msg)
+
+
+def notify_problem_follow_up(villager_phone: str, problem_title: str):
+    """Asks the resident to confirm whether the fix is still holding."""
+    if villager_phone:
+        msg = (
+            f"Gram Connect follow-up: is the issue '{problem_title}' still fixed? "
+            "Reply RESOLVED, STILL BROKEN, or NEED MORE HELP."
+        )
+        send_sms_notification(villager_phone, msg)

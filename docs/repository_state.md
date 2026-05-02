@@ -6,6 +6,8 @@ This document records the current implementation status of Gram Connect at the r
 
 Gram Connect is a FastAPI and Vite application for community issue intake, volunteer assignment, map-based operations, and persisted recommendation-driven coordination. The repository contains a live backend, a live frontend, a canonical synthetic dataset, a persisted trained recommender bundle, and end-to-end operational flows for villager reporting, coordinator dispatch, and volunteer proof submission.
 
+For a current feature-by-feature implementation inventory, see [`IMPLEMENTED_FEATURES.md`](../IMPLEMENTED_FEATURES.md).
+
 ## Deployment Status
 
 - Public hosted prototype URL: not currently configured in the repository.
@@ -18,9 +20,13 @@ Gram Connect is a FastAPI and Vite application for community issue intake, volun
 - Backend API service with persisted runtime state and media storage.
 - Canonical dataset generator for synthetic proposals, volunteers, pair labels, and operational metadata.
 - Persisted recommender bundle with checkpointed training and resumable continuation.
-- Multimodal issue intake using image analysis and audio transcription services.
-- Coordinator dashboard, volunteer dashboard, villager onboarding, and map-based operational views.
-- Persistent media upload and proof submission workflows.
+- Multimodal issue intake using image analysis, audio transcription, WhatsApp ingestion, and auto-severity inference.
+- Coordinator dashboard, volunteer dashboard, supervisor dashboard, partner dashboard, villager onboarding, map-based operational views, and live refresh flows.
+- Problem submission guidance, volunteer repair assistance, and AI-generated instant help for reporters.
+- Conversational coordinator analytics with village summaries, idle-volunteer lookup, and risk clustering.
+- Prevention and planning analytics for seasonal risk, preventive maintenance, hotspot heatmaps, and campaign planning.
+- Persistent media upload, proof submission, and resolution verification workflows.
+- Postgres-backed runtime storage for seed catalog data, live records, learning events, and metadata.
 - Formal documentation for the backend interface, model architecture, and demo procedures.
 
 ## Intentionally Deferred Subsystems

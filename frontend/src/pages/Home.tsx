@@ -1,4 +1,4 @@
-import { ArrowRight, Zap, MessageSquare, Map, Users } from 'lucide-react';
+import { ArrowRight, Zap, MessageSquare, Map, Users, Briefcase, ClipboardList, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -8,8 +8,133 @@ export default function Home() {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  // Show this view if a user (Volunteer or Coordinator) is logged in
   if (profile) {
+    const dashboardCard = (title: string, description: string, buttonLabel: string, onClick: () => void, accentClass: string, icon: JSX.Element) => (
+      <div
+        className="rounded-2xl border border-gray-100 bg-white p-8 shadow-sm transition hover:shadow-md"
+        onClick={onClick}
+      >
+        <div className={`mb-6 flex h-12 w-12 items-center justify-center rounded-xl ${accentClass}`}>
+          {icon}
+        </div>
+        <h2 className="mb-4 text-2xl font-bold text-gray-900">{title}</h2>
+        <p className="mb-6 text-gray-600">{description}</p>
+        <div className={`flex items-center font-semibold ${accentClass.replace('bg-', 'text-').replace('100', '600')}`}>
+          {buttonLabel} <ArrowRight className="ml-2" size={20} />
+        </div>
+      </div>
+    );
+
+    const loggedInView = () => {
+      switch (profile.role) {
+        case 'coordinator':
+          return (
+            <>
+              {dashboardCard(
+                t('home.dashboard_title'),
+                t('home.dashboard_desc'),
+                t('common.go_to_dashboard'),
+                () => navigate('/dashboard'),
+                'bg-green-100',
+                <Zap className="text-green-600" size={24} />
+              )}
+              {dashboardCard(
+                t('home.submit_title'),
+                t('home.submit_desc'),
+                t('common.submit_problem'),
+                () => navigate('/submit'),
+                'bg-blue-100',
+                <MessageSquare className="text-blue-600" size={24} />
+              )}
+              {dashboardCard(
+                t('home.live_map_view'),
+                t('home.live_map_desc'),
+                t('common.open_map'),
+                () => navigate('/map'),
+                'bg-purple-100',
+                <Map className="text-purple-600" size={24} />
+              )}
+            </>
+          );
+        case 'volunteer':
+          return (
+            <>
+              {dashboardCard(
+                t('home.volunteer_portal'),
+                t('home.volunteer_desc'),
+                t('common.go_to_tasks'),
+                () => navigate('/volunteer-dashboard'),
+                'bg-green-100',
+                <Users className="text-green-600" size={24} />
+              )}
+              {dashboardCard(
+                'Repair assistant',
+                'Open the photo-based Jugaad assistant for temporary field fixes.',
+                'Open repair assistant',
+                () => navigate('/volunteer-dashboard'),
+                'bg-amber-100',
+                <MessageSquare className="text-amber-600" size={24} />
+              )}
+            </>
+          );
+        case 'supervisor':
+          return (
+            <>
+              {dashboardCard(
+                'Supervisor dashboard',
+                'Review escalations, seasonal risk, maintenance reminders, and campaign activity.',
+                'Open supervisor view',
+                () => navigate('/supervisor-dashboard'),
+                'bg-amber-100',
+                <LayoutDashboard className="text-amber-600" size={24} />
+              )}
+              {dashboardCard(
+                'Public status board',
+                'Check what residents can currently see before program reviews.',
+                'Open status board',
+                () => navigate('/status'),
+                'bg-sky-100',
+                <ClipboardList className="text-sky-600" size={24} />
+              )}
+            </>
+          );
+        case 'partner':
+          return (
+            <>
+              {dashboardCard(
+                'Partner dashboard',
+                'Track the weekly briefing, public accountability, and early warning signals.',
+                'Open partner view',
+                () => navigate('/partner-dashboard'),
+                'bg-emerald-100',
+                <Briefcase className="text-emerald-600" size={24} />
+              )}
+              {dashboardCard(
+                'Public status board',
+                'Review the resident-facing problem snapshot and completion mix.',
+                'Open status board',
+                () => navigate('/status'),
+                'bg-sky-100',
+                <ClipboardList className="text-sky-600" size={24} />
+              )}
+            </>
+          );
+        default:
+          return (
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/volunteer-dashboard')}>
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
+                <Users className="text-green-600" size={24} />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.volunteer_portal')}</h2>
+              <p className="text-gray-600 mb-6">{t('home.volunteer_desc')}</p>
+              <div className="flex items-center text-green-600 font-semibold">
+                {t('common.go_to_tasks')} <ArrowRight className="ml-2" size={20} />
+              </div>
+            </div>
+          );
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gray-50 py-12 px-4">
         <div className="max-w-4xl mx-auto">
@@ -20,53 +145,7 @@ export default function Home() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {profile.role === 'coordinator' ? (
-              <>
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/dashboard')}>
-                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
-                    <Zap className="text-green-600" size={24} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.dashboard_title')}</h2>
-                  <p className="text-gray-600 mb-6">{t('home.dashboard_desc')}</p>
-                  <div className="flex items-center text-green-600 font-semibold">
-                    {t('common.go_to_dashboard')} <ArrowRight className="ml-2" size={20} />
-                  </div>
-                </div>
-
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/submit')}>
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-6">
-                    <MessageSquare className="text-blue-600" size={24} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.submit_title')}</h2>
-                  <p className="text-gray-600 mb-6">{t('home.submit_desc')}</p>
-                  <div className="flex items-center text-blue-600 font-semibold">
-                    {t('common.submit_problem')} <ArrowRight className="ml-2" size={20} />
-                  </div>
-                </div>
-
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer md:col-span-2" onClick={() => navigate('/map')}>
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-6">
-                    <Map className="text-purple-600" size={24} />
-                  </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.live_map_view')}</h2>
-                  <p className="text-gray-600 mb-6">{t('home.live_map_desc')}</p>
-                  <div className="flex items-center text-purple-600 font-semibold">
-                    {t('common.open_map')} <ArrowRight className="ml-2" size={20} />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition cursor-pointer" onClick={() => navigate('/volunteer-dashboard')}>
-                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-6">
-                  <Users className="text-green-600" size={24} />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('home.volunteer_portal')}</h2>
-                <p className="text-gray-600 mb-6">{t('home.volunteer_desc')}</p>
-                <div className="flex items-center text-green-600 font-semibold">
-                  {t('common.go_to_tasks')} <ArrowRight className="ml-2" size={20} />
-                </div>
-              </div>
-            )}
+            {loggedInView()}
           </div>
         </div>
       </div>
@@ -113,6 +192,24 @@ export default function Home() {
               className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-green-600 hover:text-green-600 transition"
             >
               {t('home.explore_projects')}
+            </button>
+            <button
+              onClick={() => navigate('/supervisor-login')}
+              className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-amber-600 hover:text-amber-600 transition"
+            >
+              Supervisor access
+            </button>
+            <button
+              onClick={() => navigate('/partner-login')}
+              className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-emerald-600 hover:text-emerald-600 transition"
+            >
+              Partner access
+            </button>
+            <button
+              onClick={() => navigate('/status')}
+              className="bg-white text-gray-900 border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg hover:border-green-600 hover:text-green-600 transition"
+            >
+              Public status board
             </button>
           </div>
         </div>

@@ -66,8 +66,10 @@ def test_analyze_image_endpoint(mock_analyze):
     assert response["top_label"] == "Infrastructure"
 
 
+@patch("api_server.find_duplicate_problem_candidates")
 @patch("api_server.suggest_immediate_problem_actions")
-def test_problem_guidance_endpoint(mock_guidance):
+def test_problem_guidance_endpoint(mock_guidance, mock_duplicates):
+    mock_duplicates.return_value = []
     mock_guidance.return_value = {
         "topic": "water",
         "summary": "Keep the joint stable.",
@@ -93,6 +95,329 @@ def test_problem_guidance_endpoint(mock_guidance):
     assert response.topic == "water"
     assert response.what_you_can_do_now[0] == "Lower flow"
     assert mock_guidance.called
+
+
+@patch.object(api_server, "find_duplicate_problem_candidates")
+def test_submit_problem_attaches_duplicate_report(mock_duplicates, tmp_path):
+    original_state_path = api_server.RUNTIME_STATE_JSON
+    api_server.RUNTIME_STATE_JSON = str(tmp_path / "app_state.json")
+    target_problem = {
+        "id": "problem-duplicate-target",
+        "title": "Broken handpump",
+        "description": "The pump is leaking near the base",
+        "category": "water-sanitation",
+        "village_name": "Sundarpur",
+        "status": "pending",
+        "matches": [],
+        "media_ids": [],
+        "created_at": "2026-01-01T10:00:00",
+        "updated_at": "2026-01-01T10:00:00",
+        "visual_tags": ["handpump"],
+    }
+    api_server.PROBLEMS.append(target_problem)
+    mock_duplicates.return_value = [{
+        "problem_id": target_problem["id"],
+        "title": target_problem["title"],
+        "village_name": target_problem["village_name"],
+        "category": target_problem["category"],
+        "status": target_problem["status"],
+        "created_at": target_problem["created_at"],
+        "distance_km": 0.0,
+        "score": 0.93,
+        "semantic_score": 0.91,
+        "reason": "same village, same water topic",
+        "suggested_action": "Attach to this case instead of opening a new one.",
+    }]
+    try:
+        response = asyncio.run(
+            api_server.submit_problem_endpoint(
+                api_server.ProblemRequest(
+                    title="Broken handpump",
+                    description="Same pump leaking again",
+                    category="water-sanitation",
+                    village_name="Sundarpur",
+                    village_address="Near the school",
+                    reporter_name="Resident",
+                    reporter_phone="9999999999",
+                    visual_tags=["handpump"],
+                )
+            )
+        )
+        assert response["status"] == "duplicate_attached"
+        assert response["id"] == target_problem["id"]
+        assert response["duplicate_of"] == target_problem["id"]
+        assert target_problem["duplicate_reports"]
+        assert target_problem["duplicate_reports"][0]["duplicate_score"] == 0.93
+    finally:
+        api_server.PROBLEMS[:] = [problem for problem in api_server.PROBLEMS if problem["id"] != target_problem["id"]]
+        api_server.RUNTIME_STATE_JSON = original_state_path
+        api_server.reset_runtime_state()
+
+
+def test_problem_timeline_endpoint_includes_case_history(tmp_path):
+    original_state_path = api_server.RUNTIME_STATE_JSON
+    original_media_root = api_server.MEDIA_ROOT
+    api_server.RUNTIME_STATE_JSON = str(tmp_path / "app_state.json")
+    api_server.MEDIA_ROOT = tmp_path / "media"
+    api_server.MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    problem = {
+        "id": "problem-timeline",
+        "title": "Leaking pipe",
+        "description": "Pipe leaks near the road",
+        "category": "water-sanitation",
+        "village_name": "Sundarpur",
+        "status": "in_progress",
+        "matches": [{
+            "id": "match-1",
+            "problem_id": "problem-timeline",
+            "volunteer_id": "VOL-001",
+            "assigned_at": "2026-01-01T11:00:00",
+            "completed_at": None,
+            "notes": "Assigned for repair",
+            "volunteers": {
+                "id": "VOL-001",
+                "user_id": "vol-001",
+                "profiles": {"full_name": "Test Volunteer"},
+            },
+        }],
+        "media_ids": [],
+        "duplicate_reports": [{
+            "id": "dup-1",
+            "problem_id": "problem-timeline",
+            "reported_at": "2026-01-01T12:00:00",
+            "duplicate_reason": "same village, same topic",
+            "title": "Leaking pipe",
+        }],
+        "created_at": "2026-01-01T10:00:00",
+        "updated_at": "2026-01-01T12:30:00",
+        "visual_tags": ["pipe"],
+    }
+    api_server.PROBLEMS.append(problem)
+    try:
+        media = asyncio.run(
+            api_server.upload_media(
+                file=UploadFile(filename="photo.jpg", file=io.BytesIO(b"photo-bytes")),
+                kind="problem_photo",
+                problem_id=problem["id"],
+            )
+        )["media"]
+        api_server._record_learning_event(
+            "problem_edited",
+            entity_type="problem",
+            entity_id=problem["id"],
+            summary="Edited problem problem-timeline",
+            payload={"problem_id": problem["id"]},
+            text="leaking pipe",
+        )
+
+        response = asyncio.run(api_server.problem_timeline_endpoint(problem["id"]))
+        assert response["problem_id"] == problem["id"]
+        event_types = [item["type"] for item in response["timeline"]]
+        assert "reported" in event_types
+        assert "duplicate_reported" in event_types
+        assert "media_uploaded" in event_types
+        assert "assigned" in event_types
+        assert any(item["type"] == "problem_edited" for item in response["timeline"])
+        assert response["summary"]["duplicate_count"] == 1
+        assert media["id"] in response["problem"]["media_ids"]
+    finally:
+        api_server.PROBLEMS[:] = [item for item in api_server.PROBLEMS if item.get("id") != problem["id"]]
+        api_server.MEDIA_ASSETS[:] = [item for item in api_server.MEDIA_ASSETS if item.get("problem_id") != problem["id"]]
+        api_server.RUNTIME_STATE_JSON = original_state_path
+        api_server.MEDIA_ROOT = original_media_root
+        api_server.reset_runtime_state()
+
+
+def test_weekly_briefing_endpoint_returns_root_cause_graph():
+    response = asyncio.run(api_server.insights_briefing_endpoint(7))
+    assert response["window_days"] == 7
+    assert "root_cause_graph" in response
+    assert "summary" in response["root_cause_graph"]
+    assert isinstance(response["highlights"], list)
+
+
+def test_public_status_board_endpoint_returns_summary():
+    response = asyncio.run(api_server.public_status_board_endpoint(days_back=30))
+    assert response["window_days"] == 30
+    assert "items" in response
+    assert "total_count" in response
+
+
+@patch.object(api_server.DATA_STORE, "list_playbooks")
+@patch.object(api_server.DATA_STORE, "list_inventory")
+@patch("api_server._volunteer_reputation")
+@patch("api_server._route_optimizer")
+def test_operations_endpoints_return_data(mock_routes, mock_reputation, mock_inventory, mock_playbooks):
+    mock_playbooks.return_value = [{
+        "id": "playbook-1",
+        "topic": "water",
+        "village_name": "Sundarpur",
+        "data": {
+            "id": "playbook-1",
+            "topic": "water",
+            "title": "Handpump fix",
+            "summary": "Temporary seal",
+            "materials": ["tube"],
+            "safety_notes": ["Keep pressure low"],
+            "steps": ["Step 1"],
+            "created_at": "2026-01-01T00:00:00",
+        },
+        "updated_at": "2026-01-01T00:00:00",
+    }]
+    mock_inventory.return_value = [{
+        "id": "inv-1",
+        "owner_type": "village",
+        "owner_id": "Sundarpur",
+        "item_name": "rubber tube",
+        "quantity": 4,
+        "data": {"notes": "Stored in the panchayat room"},
+        "updated_at": "2026-01-01T00:00:00",
+    }]
+    mock_reputation.return_value = [{
+        "volunteer_id": "vol-1",
+        "name": "Alice",
+        "home_location": "Sundarpur",
+        "skills": ["plumbing"],
+        "completed_count": 3,
+        "open_assignments": 1,
+        "duplicate_reports_seen": 0,
+        "avg_resolution_hours": 12.5,
+        "reliability_score": 0.88,
+    }]
+    mock_routes.return_value = [{
+        "route_id": "route-1",
+        "village_name": "Sundarpur",
+        "problem_ids": ["prob-1"],
+        "titles": ["Leaking pipe"],
+        "problem_count": 1,
+        "severity_counts": {"HIGH": 1},
+        "recommended_volunteers": [{"volunteer_id": "vol-1", "name": "Alice", "skills": ["plumbing"]}],
+        "route_hint": "Cluster this village's open cases into one visit where possible.",
+    }]
+
+    playbooks = asyncio.run(api_server.playbooks_endpoint())
+    inventory = asyncio.run(api_server.inventory_list_endpoint())
+    assert playbooks[0]["title"] == "Handpump fix"
+    assert inventory[0]["item_name"] == "rubber tube"
+    assert asyncio.run(api_server.reputation_endpoint())["volunteers"][0]["name"] == "Alice"
+    assert asyncio.run(api_server.route_optimizer_endpoint())["routes"][0]["route_id"] == "route-1"
+
+
+@patch("api_server.build_seasonal_risk_forecast")
+@patch("api_server.build_preventive_maintenance_plan")
+@patch("api_server.build_hotspot_heatmap")
+@patch("api_server.build_campaign_mode_plan")
+def test_planning_endpoints_return_data(mock_campaign, mock_heatmap, mock_maintenance, mock_seasonal):
+    mock_seasonal.return_value = {
+        "generated_at": "2026-01-01T00:00:00",
+        "window_days": 365,
+        "summary": "Seasonal forecast",
+        "risks": [{"risk_id": "risk-1", "topic": "water"}],
+        "top_topics": [("water", 2)],
+        "top_months": [("2026-01", 2)],
+    }
+    mock_maintenance.return_value = {
+        "generated_at": "2026-01-01T00:00:00",
+        "window_days": 180,
+        "summary": "Maintenance plan",
+        "items": [{"plan_id": "maint-1", "village_name": "Sundarpur", "asset_type": "water-system"}],
+        "top_assets": [("water-system", 2)],
+    }
+    mock_heatmap.return_value = {
+        "generated_at": "2026-01-01T00:00:00",
+        "window_days": 90,
+        "summary": "Heatmap",
+        "cells": [{"cell_id": "heat-1", "village_name": "Sundarpur"}],
+    }
+    mock_campaign.return_value = {
+        "generated_at": "2026-01-01T00:00:00",
+        "window_days": 30,
+        "summary": "Campaign plan",
+        "campaigns": [{"campaign_id": "campaign-water", "target_villages": ["Sundarpur"]}],
+        "top_topics": [("water", 3)],
+    }
+
+    assert asyncio.run(api_server.seasonal_risk_endpoint())["risks"][0]["topic"] == "water"
+    assert asyncio.run(api_server.maintenance_plan_endpoint())["items"][0]["asset_type"] == "water-system"
+    assert asyncio.run(api_server.hotspot_heatmap_endpoint())["cells"][0]["cell_id"] == "heat-1"
+    assert asyncio.run(api_server.campaign_mode_endpoint())["campaigns"][0]["campaign_id"] == "campaign-water"
+
+
+def test_evidence_comparison_endpoint_returns_proof_details():
+    problem = {
+        "id": "problem-evidence",
+        "title": "Broken handpump",
+        "description": "Handpump leak",
+        "category": "infrastructure",
+        "village_name": "Sundarpur",
+        "status": "completed",
+        "matches": [],
+        "media_ids": [],
+        "created_at": "2026-01-01T10:00:00",
+        "updated_at": "2026-01-01T12:00:00",
+        "visual_tags": ["handpump"],
+        "proof": {
+            "before_media_id": "before-1",
+            "after_media_id": "after-1",
+            "verification": {
+                "accepted": True,
+                "confidence": 0.93,
+                "summary": "The after image shows the pump repaired.",
+                "detected_change": "seal repaired",
+                "source": "stored-proof",
+            },
+        },
+    }
+    api_server.PROBLEMS.append(problem)
+    with patch.object(api_server, "_asset_by_id") as mock_asset:
+        mock_asset.side_effect = [
+            {"id": "before-1", "url": "/media/before.jpg"},
+            {"id": "after-1", "url": "/media/after.jpg"},
+        ]
+        try:
+            response = asyncio.run(api_server.evidence_comparison_endpoint(problem["id"]))
+            assert response["accepted"] is True
+            assert response["before_url"] == "/media/before.jpg"
+            assert response["after_url"] == "/media/after.jpg"
+            assert response["detected_change"] == "seal repaired"
+        finally:
+            api_server.PROBLEMS[:] = [item for item in api_server.PROBLEMS if item.get("id") != problem["id"]]
+
+
+@patch.object(api_server.DATA_STORE, "record_followup_feedback")
+def test_follow_up_feedback_endpoint_records_and_reopens(mock_record, tmp_path):
+    problem = {
+        "id": "problem-followup",
+        "title": "Leaking pipe",
+        "description": "Pipe leaks near the road",
+        "category": "water-sanitation",
+        "village_name": "Sundarpur",
+        "status": "completed",
+        "matches": [],
+        "media_ids": [],
+        "created_at": "2026-01-01T10:00:00",
+        "updated_at": "2026-01-01T12:00:00",
+        "visual_tags": ["pipe"],
+    }
+    api_server.PROBLEMS.append(problem)
+    mock_record.return_value = {
+        "id": "fb-1",
+        "problem_id": problem["id"],
+        "source": "public-board",
+        "response": "still_broken",
+    }
+    try:
+        response = asyncio.run(
+            api_server.problem_follow_up_feedback_endpoint(
+                problem["id"],
+                api_server.FollowUpFeedbackRequest(response="still_broken", source="public-board"),
+            )
+        )
+        assert response["status"] == "success"
+        assert response["problem"]["status"] == "in_progress"
+        assert response["feedback"]["response"] == "still_broken"
+    finally:
+        api_server.PROBLEMS[:] = [item for item in api_server.PROBLEMS if item.get("id") != problem["id"]]
 
 
 @patch("api_server.suggest_jugaad_fix")

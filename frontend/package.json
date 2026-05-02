@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest",
+    "test:comprehensive": "vitest run src/tests/comprehensive_feature_coverage.test.tsx",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "test:e2e": "playwright test",

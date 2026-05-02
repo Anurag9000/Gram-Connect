@@ -216,6 +216,43 @@ class PostgresStore:
             )
             conn.execute(
                 """
+                CREATE TABLE IF NOT EXISTS knowledge_playbooks (
+                    id text PRIMARY KEY,
+                    topic text,
+                    village_name text,
+                    data jsonb NOT NULL,
+                    embedding vector,
+                    updated_at timestamptz NOT NULL DEFAULT now()
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inventory_items (
+                    id text PRIMARY KEY,
+                    owner_type text NOT NULL,
+                    owner_id text NOT NULL,
+                    item_name text NOT NULL,
+                    quantity integer NOT NULL DEFAULT 0,
+                    data jsonb NOT NULL,
+                    updated_at timestamptz NOT NULL DEFAULT now()
+                )
+                """
+            )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS followup_feedback (
+                    id text PRIMARY KEY,
+                    problem_id text NOT NULL,
+                    source text,
+                    response text NOT NULL,
+                    data jsonb NOT NULL,
+                    created_at timestamptz NOT NULL DEFAULT now()
+                )
+                """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS learning_events_entity_idx
                 ON learning_events (entity_type, entity_id)
                 """
@@ -571,6 +608,186 @@ class PostgresStore:
             }
             for row in rows
         ]
+
+    def upsert_inventory_item(
+        self,
+        *,
+        owner_type: str,
+        owner_id: str,
+        item_name: str,
+        quantity: int,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        self.ensure_schema()
+        item_id = hashlib.sha256(
+            f"{owner_type}:{owner_id}:{item_name}".encode("utf-8")
+        ).hexdigest()[:24]
+        updated_at = _now_iso()
+        payload = {
+            "id": item_id,
+            "owner_type": owner_type,
+            "owner_id": owner_id,
+            "item_name": item_name,
+            "quantity": int(quantity),
+            **(data or {}),
+            "updated_at": updated_at,
+        }
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO inventory_items (id, owner_type, owner_id, item_name, quantity, data, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE
+                SET owner_type = EXCLUDED.owner_type,
+                    owner_id = EXCLUDED.owner_id,
+                    item_name = EXCLUDED.item_name,
+                    quantity = EXCLUDED.quantity,
+                    data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (item_id, owner_type, owner_id, item_name, int(quantity), Jsonb(_jsonable(payload)), updated_at),
+            )
+        return payload
+
+    def list_inventory(
+        self,
+        *,
+        owner_type: Optional[str] = None,
+        owner_id: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        self.ensure_schema()
+        clauses: List[str] = []
+        params: List[Any] = []
+        if owner_type:
+            clauses.append("owner_type = %s")
+            params.append(owner_type)
+        if owner_id:
+            clauses.append("owner_id = %s")
+            params.append(owner_id)
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        query = f"""
+            SELECT id, owner_type, owner_id, item_name, quantity, data, updated_at
+            FROM inventory_items
+            {where_sql}
+            ORDER BY owner_type ASC, owner_id ASC, item_name ASC
+        """
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "owner_type": row["owner_type"],
+                "owner_id": row["owner_id"],
+                "item_name": row["item_name"],
+                "quantity": row["quantity"],
+                "data": dict(row["data"]) if row["data"] is not None else {},
+                "updated_at": row["updated_at"].isoformat() if hasattr(row["updated_at"], "isoformat") else row["updated_at"],
+            }
+            for row in rows
+        ]
+
+    def save_playbook(
+        self,
+        *,
+        playbook_id: str,
+        topic: str,
+        village_name: Optional[str],
+        data: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        self.ensure_schema()
+        payload = {
+            "id": playbook_id,
+            "topic": topic,
+            "village_name": village_name,
+            **data,
+        }
+        embedding = _embedding_for_text(" ".join([
+            str(payload.get("title") or ""),
+            str(payload.get("summary") or ""),
+            str(payload.get("topic") or ""),
+            str(payload.get("materials") or ""),
+            str(payload.get("problem_title") or ""),
+        ]))
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO knowledge_playbooks (id, topic, village_name, data, embedding, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE
+                SET topic = EXCLUDED.topic,
+                    village_name = EXCLUDED.village_name,
+                    data = EXCLUDED.data,
+                    embedding = EXCLUDED.embedding,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (playbook_id, topic, village_name, Jsonb(_jsonable(payload)), embedding, _now_iso()),
+            )
+        return payload
+
+    def list_playbooks(
+        self,
+        *,
+        topic: Optional[str] = None,
+        village_name: Optional[str] = None,
+        limit: int = 25,
+    ) -> List[Dict[str, Any]]:
+        self.ensure_schema()
+        clauses: List[str] = []
+        params: List[Any] = []
+        if topic:
+            clauses.append("topic = %s")
+            params.append(topic)
+        if village_name:
+            clauses.append("village_name = %s")
+            params.append(village_name)
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        params.append(max(1, int(limit)))
+        query = f"""
+            SELECT id, topic, village_name, data, updated_at
+            FROM knowledge_playbooks
+            {where_sql}
+            ORDER BY updated_at DESC
+            LIMIT %s
+        """
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "topic": row["topic"],
+                "village_name": row["village_name"],
+                "data": dict(row["data"]) if row["data"] is not None else {},
+                "updated_at": row["updated_at"].isoformat() if hasattr(row["updated_at"], "isoformat") else row["updated_at"],
+            }
+            for row in rows
+        ]
+
+    def record_followup_feedback(
+        self,
+        *,
+        problem_id: str,
+        source: str,
+        response: str,
+        data: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        self.ensure_schema()
+        feedback_id = f"fb-{uuid.uuid4().hex[:12]}"
+        payload = {
+            "id": feedback_id,
+            "problem_id": problem_id,
+            "source": source,
+            "response": response,
+            **(data or {}),
+        }
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO followup_feedback (id, problem_id, source, response, data, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (feedback_id, problem_id, source, response, Jsonb(_jsonable(payload)), _now_iso()),
+            )
+        return payload
 
     def has_runtime_data(self) -> bool:
         self.ensure_schema()

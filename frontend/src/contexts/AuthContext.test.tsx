@@ -13,6 +13,8 @@ const TestComponent = () => {
             <div data-testid="loading">{loading ? 'true' : 'false'}</div>
             <button onClick={() => signIn('volunteer@test.com', 'password')}>Sign In Volunteer</button>
             <button onClick={() => signIn('coordinator@test.com', 'password')}>Sign In Coordinator</button>
+            <button onClick={() => signIn('supervisor@test.com', 'password')}>Sign In Supervisor</button>
+            <button onClick={() => signIn('partner@test.com', 'password')}>Sign In Partner</button>
             <button onClick={() => signOut()}>Sign Out</button>
         </div>
     );
@@ -59,6 +61,36 @@ describe('AuthContext', () => {
 
         expect(screen.getByTestId('user').textContent).toBe('mock-coordinator-uuid');
         expect(screen.getByTestId('role').textContent).toBe('coordinator');
+    });
+
+    it('should sign in a supervisor', async () => {
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        await act(async () => {
+            screen.getByText('Sign In Supervisor').click();
+        });
+
+        expect(screen.getByTestId('user').textContent).toBe('mock-supervisor-uuid');
+        expect(screen.getByTestId('role').textContent).toBe('supervisor');
+    });
+
+    it('should sign in a partner', async () => {
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        await act(async () => {
+            screen.getByText('Sign In Partner').click();
+        });
+
+        expect(screen.getByTestId('user').textContent).toBe('mock-partner-uuid');
+        expect(screen.getByTestId('role').textContent).toBe('partner');
     });
 
     it('should sign out', async () => {

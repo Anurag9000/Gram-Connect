@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, Bot, Loader2, Send, Sparkles, TrendingUp } from 'lucide-react';
-import { api, type InsightChatResponse, type InsightOverview, type InsightCluster } from '../services/api';
+import { api, type InsightChatResponse, type InsightOverview, type InsightCluster, type WeeklyBriefing } from '../services/api';
 import { subscribeLiveRefresh } from '../lib/liveRefresh';
 
 const QUICK_PROMPTS = [
@@ -32,6 +32,7 @@ export default function GramSahayakaPanel() {
     },
   ]);
   const [overview, setOverview] = useState<InsightOverview | null>(null);
+  const [briefing, setBriefing] = useState<WeeklyBriefing | null>(null);
   const [latestResponse, setLatestResponse] = useState<InsightChatResponse | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(true);
   const [loadingAnswer, setLoadingAnswer] = useState(false);
@@ -41,8 +42,12 @@ export default function GramSahayakaPanel() {
     setLoadingOverview(true);
     setError(null);
     try {
-      const data = await api.getInsightOverview();
-      setOverview(data);
+      const [overviewData, briefingData] = await Promise.all([
+        api.getInsightOverview(),
+        api.getWeeklyBriefing(7),
+      ]);
+      setOverview(overviewData);
+      setBriefing(briefingData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load insights overview.');
     } finally {
@@ -307,6 +312,50 @@ export default function GramSahayakaPanel() {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+              Weekly briefing
+            </div>
+            {briefing ? (
+              <div className="space-y-3">
+                <div className="rounded-xl bg-slate-950/50 p-3 text-sm text-slate-100">
+                  <div className="font-semibold text-white">{briefing.summary}</div>
+                  {briefing.highlights.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-xs text-slate-300">
+                      {briefing.highlights.slice(0, 3).map((item) => (
+                        <li key={item}>• {item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {briefing.root_cause_graph.summary && (
+                  <div className="rounded-xl bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                    <div className="font-semibold text-white">Root-cause signal</div>
+                    <div className="mt-1 leading-5 text-emerald-100/85">{briefing.root_cause_graph.summary}</div>
+                  </div>
+                )}
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-lg bg-slate-950/50 p-2">
+                    <div className="text-slate-400">Open</div>
+                    <div className="mt-1 font-semibold text-white">{briefing.stats.open_problem_count}</div>
+                  </div>
+                  <div className="rounded-lg bg-slate-950/50 p-2">
+                    <div className="text-slate-400">Risk</div>
+                    <div className="mt-1 font-semibold text-white">{briefing.risk_alerts.length}</div>
+                  </div>
+                  <div className="rounded-lg bg-slate-950/50 p-2">
+                    <div className="text-slate-400">Load</div>
+                    <div className="mt-1 font-semibold text-white">{briefing.volunteer_load.length}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-slate-950/50 px-3 py-2 text-sm text-slate-400">
+                No briefing available yet.
+              </div>
+            )}
           </div>
 
           <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">

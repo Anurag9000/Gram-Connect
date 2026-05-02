@@ -40,6 +40,38 @@ const MOCK_COORDINATOR_PROFILE: Profile = {
   role: 'coordinator',
   created_at: new Date().toISOString(),
 };
+
+const MOCK_SUPERVISOR_USER: User = {
+  id: 'mock-supervisor-uuid',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+};
+const MOCK_SUPERVISOR_PROFILE: Profile = {
+  id: 'mock-supervisor-uuid',
+  email: 'supervisor@test.com',
+  full_name: 'Test Supervisor',
+  phone: '1112223333',
+  role: 'supervisor',
+  created_at: new Date().toISOString(),
+};
+
+const MOCK_PARTNER_USER: User = {
+  id: 'mock-partner-uuid',
+  app_metadata: {},
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+};
+const MOCK_PARTNER_PROFILE: Profile = {
+  id: 'mock-partner-uuid',
+  email: 'partner@test.com',
+  full_name: 'Test Partner',
+  phone: '4445556666',
+  role: 'partner',
+  created_at: new Date().toISOString(),
+};
 // --- END DUMMY DATA ---
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -56,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     fullName: string,
     phone: string,
-    role: 'villager' | 'volunteer' | 'coordinator'
+    role: 'villager' | 'volunteer' | 'coordinator' | 'supervisor' | 'partner'
   ) {
     // This is mocked, it will just log to console and return
     console.log('Mock SignUp Attempt:', { email, password, fullName, phone, role });
@@ -78,6 +110,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(MOCK_COORDINATOR_USER);
         setProfile(MOCK_COORDINATOR_PROFILE);
         setSession({} as Session); // Mock session
+        return { error: null };
+      }
+
+      if (email === 'supervisor@test.com' && password === 'password') {
+        setUser(MOCK_SUPERVISOR_USER);
+        setProfile(MOCK_SUPERVISOR_PROFILE);
+        setSession({} as Session);
+        return { error: null };
+      }
+
+      if (email === 'partner@test.com' && password === 'password') {
+        setUser(MOCK_PARTNER_USER);
+        setProfile(MOCK_PARTNER_PROFILE);
+        setSession({} as Session);
         return { error: null };
       }
       // --- END DUMMY LOGIN LOGIC ---

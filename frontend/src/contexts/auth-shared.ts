@@ -14,7 +14,7 @@ export interface AuthContextType {
     password: string,
     fullName: string,
     phone: string,
-    role: 'villager' | 'volunteer' | 'coordinator'
+    role: 'villager' | 'volunteer' | 'coordinator' | 'supervisor' | 'partner'
   ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;

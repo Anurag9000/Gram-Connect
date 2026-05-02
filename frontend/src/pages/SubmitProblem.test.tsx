@@ -54,6 +54,9 @@ describe('SubmitProblem', () => {
     });
     requestProblemGuidanceMock.mockResolvedValue({
       topic: 'digital',
+      department: 'Education / digital literacy',
+      urgency: 'this-week',
+      response_path: 'Route to the education/digital support path and verify whether the issue is a device, network, or training gap.',
       summary: 'Stabilize the device with basic cleanup and cable checks.',
       what_you_can_do_now: ['Restart the device', 'Check the power cable', 'Keep the area dry'],
       materials_to_find: ['dry cloth', 'spare cable'],
@@ -63,6 +66,9 @@ describe('SubmitProblem', () => {
       confidence: 0.81,
       source: 'gemini',
       visual_tags: ['digital literacy', 'education'],
+      duplicate_candidates: [],
+      similar_problem_count: 0,
+      root_cause_hint: 'Repeated digital complaints may reflect a training gap.',
     });
     uploadMediaMock.mockResolvedValue({ status: 'success', media: { id: 'media-1' } });
     submitProblemMock.mockResolvedValue({ status: 'success', id: 'prob-new' });

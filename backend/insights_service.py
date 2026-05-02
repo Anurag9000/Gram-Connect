@@ -279,6 +279,226 @@ def _recent_problem_examples(items: Sequence[Dict[str, Any]], limit: int = 5) ->
     ]
 
 
+def _text_tokens(value: str) -> set[str]:
+    return {
+        token
+        for token in re.split(r"[^a-z0-9]+", _normalize_text(value))
+        if token and token not in _STOPWORDS
+    }
+
+
+def _jaccard_score(left: str, right: str) -> float:
+    left_tokens = _text_tokens(left)
+    right_tokens = _text_tokens(right)
+    if not left_tokens or not right_tokens:
+        return 0.0
+    return len(left_tokens & right_tokens) / max(1, len(left_tokens | right_tokens))
+
+
+def _asset_type_for_problem(problem: Dict[str, Any]) -> str:
+    text = _problem_text(problem).lower()
+    if any(keyword in text for keyword in _HEALTH_ALERT_TERMS):
+        return "health-service"
+    if any(keyword in text for keyword in _WATER_ALERT_TERMS):
+        return "water-system"
+    if any(keyword in text for keyword in ["road", "bridge", "culvert", "pothole", "street", "path"]):
+        return "transport-infrastructure"
+    if any(keyword in text for keyword in ["solar", "electricity", "wire", "wiring", "power", "inverter", "pole"]):
+        return "power-infrastructure"
+    if any(keyword in text for keyword in ["digital", "computer", "internet", "spreadsheet", "mobile", "phone", "app"]):
+        return "digital-services"
+    if any(keyword in text for keyword in ["agriculture", "farm", "crop", "irrigation", "seed", "soil", "livestock"]):
+        return "agriculture"
+    topic = _top_topic_for_text(text)
+    return topic if topic != "general" else "general"
+
+
+def _department_for_topic(topic: str) -> str:
+    mapping = {
+        "water": "Public works / water",
+        "health": "Health worker / medical officer",
+        "infrastructure": "Panchayat / engineering",
+        "agriculture": "Agriculture / irrigation",
+        "digital": "Education / digital literacy",
+    }
+    return mapping.get(topic, "Coordinator review")
+
+
+def _urgency_from_topic(topic: str, severity: Optional[str], text: str) -> str:
+    norm = _normalize_text(text)
+    if severity == "HIGH" or any(term in norm for term in ["emergency", "danger", "collapse", "flooding", "smoke", "blood", "fever"]):
+        return "immediate"
+    if topic in {"health", "water"}:
+        return "same-day"
+    if severity == "NORMAL":
+        return "this-week"
+    return "routine"
+
+
+def _response_path_for_topic(topic: str, urgency: str) -> str:
+    paths = {
+        "water": "Route to the local water/public works crew and keep a volunteer watch until the repair is scheduled.",
+        "health": "Route to the health coordinator and local health worker; treat it as a referral rather than a field repair.",
+        "infrastructure": "Route to the panchayat or engineering review queue and secure the area if it is unsafe.",
+        "agriculture": "Route to the agriculture or irrigation support path and check whether a temporary field fix is possible.",
+        "digital": "Route to the education/digital support path and verify whether the issue is a device, network, or training gap.",
+    }
+    base = paths.get(topic, "Route to coordinator review for manual triage.")
+    if urgency == "immediate":
+        return f"Immediate escalation needed. {base}"
+    if urgency == "same-day":
+        return f"Prioritise for same-day attention. {base}"
+    return base
+
+
+def infer_problem_triage(
+    *,
+    problem_title: str,
+    problem_description: str,
+    category: Optional[str] = None,
+    visual_tags: Optional[List[str]] = None,
+    severity: Optional[str] = None,
+) -> Dict[str, Any]:
+    topic = _top_topic_for_text(" ".join([
+        problem_title or "",
+        problem_description or "",
+        category or "",
+        " ".join(visual_tags or []),
+    ]))
+    department = _department_for_topic(topic)
+    urgency = _urgency_from_topic(topic, severity, f"{problem_title} {problem_description}")
+    response_path = _response_path_for_topic(topic, urgency)
+    topic_hits = sum(1 for keyword in _TOPIC_KEYWORDS.get(topic, []) if keyword in _normalize_text(f"{problem_title} {problem_description} {' '.join(visual_tags or [])}"))
+    severity_bonus = 0.18 if severity == "HIGH" else 0.08 if severity == "NORMAL" else 0.04
+    confidence = min(1.0, 0.42 + (0.08 * topic_hits) + severity_bonus)
+    if topic == "general":
+        confidence = min(confidence, 0.62)
+
+    root_cause_hint = {
+        "water": "Repeated water complaints often point to a shared pump, pipe, or contamination issue rather than isolated failures.",
+        "health": "Repeated health complaints may indicate a seasonal outbreak or a shared environmental trigger.",
+        "infrastructure": "Repeated infrastructure complaints often mean one asset is failing across multiple villages or routes.",
+        "agriculture": "Repeated agriculture complaints may reflect irrigation, soil, or equipment issues across the same field pattern.",
+        "digital": "Repeated digital complaints may reflect a training gap, a device issue, or a shared connectivity problem.",
+    }.get(topic, "Use the timeline and duplicate detection to see whether this is part of a recurring pattern.")
+
+    return {
+        "topic": topic,
+        "department": department,
+        "urgency": urgency,
+        "response_path": response_path,
+        "confidence": round(max(0.0, min(1.0, confidence)), 3),
+        "root_cause_hint": root_cause_hint,
+    }
+
+
+def find_duplicate_problem_candidates(
+    problems: Sequence[Dict[str, Any]],
+    *,
+    title: str,
+    description: str,
+    village_name: Optional[str] = None,
+    category: Optional[str] = None,
+    visual_tags: Optional[List[str]] = None,
+    transcript: Optional[str] = None,
+    limit: int = 5,
+) -> List[Dict[str, Any]]:
+    indexed = _flatten_problem_index(problems)
+    open_items = [item for item in indexed if item["status"] != "completed"]
+    if not open_items:
+        return []
+
+    query_text = " ".join(
+        part for part in [
+            title or "",
+            description or "",
+            category or "",
+            " ".join(visual_tags or []),
+            transcript or "",
+            village_name or "",
+        ]
+        if part
+    ).strip()
+    if not query_text:
+        return []
+
+    _, embeddings, _ = embed_texts([query_text] + [item["text"] for item in open_items], model_name="tfidf")
+    if hasattr(embeddings, "shape") and len(embeddings.shape) == 1:
+        embeddings = embeddings.reshape(1, -1)
+    query_vector = embeddings[:1]
+    candidate_vectors = embeddings[1:]
+    try:
+        semantic_scores = cosine_sim(query_vector, candidate_vectors)[0]
+    except Exception:
+        semantic_scores = np.zeros(len(open_items), dtype=float)
+
+    query_tokens = _text_tokens(query_text)
+    query_topic = _top_topic_for_text(query_text)
+    query_lat, query_lng = _village_coordinates(village_name)
+    query_village_norm = _normalize_text(village_name or "")
+    duplicates: List[Dict[str, Any]] = []
+
+    for item, semantic in zip(open_items, semantic_scores):
+        problem = item["problem"]
+        candidate_text = item["text"]
+        lexical = _jaccard_score(query_text, candidate_text)
+        candidate_topic = _top_topic_for_text(candidate_text)
+        candidate_category = _normalize_text(problem.get("category") or "")
+        same_village = bool(village_name) and _normalize_text(item["village_name"] or "") == query_village_norm
+        distance_km = _haversine_km(query_lat, query_lng, item["lat"], item["lng"]) if village_name else None
+        geo_bonus = 0.0
+        if same_village:
+            geo_bonus = 1.0
+        elif distance_km is not None:
+            geo_bonus = max(0.0, 1.0 - min(distance_km, 80.0) / 80.0)
+
+        topic_bonus = 0.15 if query_topic != "general" and candidate_topic == query_topic else 0.0
+        category_bonus = 0.12 if category and candidate_category == _normalize_text(category) else 0.0
+        recency_bonus = 0.06 if item["status"] == "pending" else 0.03 if item["status"] == "in_progress" else 0.0
+        score = (
+            (0.55 * float(semantic))
+            + (0.18 * lexical)
+            + (0.16 * geo_bonus)
+            + topic_bonus
+            + category_bonus
+            + recency_bonus
+        )
+
+        if score < 0.42 and float(semantic) < 0.48:
+            continue
+
+        reason_parts = []
+        if same_village:
+            reason_parts.append("same village")
+        elif distance_km is not None and distance_km <= 20.0:
+            reason_parts.append(f"{distance_km:.1f} km away")
+        if candidate_topic == query_topic and query_topic != "general":
+            reason_parts.append(f"same {query_topic} topic")
+        if category and candidate_category == _normalize_text(category):
+            reason_parts.append("same category")
+        if lexical >= 0.2:
+            reason_parts.append("shared keywords")
+        if semantic >= 0.4:
+            reason_parts.append("semantic similarity")
+
+        duplicates.append({
+            "problem_id": problem.get("id"),
+            "title": problem.get("title"),
+            "village_name": problem.get("village_name"),
+            "category": problem.get("category"),
+            "status": problem.get("status"),
+            "created_at": problem.get("created_at"),
+            "distance_km": round(distance_km, 2) if distance_km is not None else None,
+            "score": round(float(score), 3),
+            "semantic_score": round(float(semantic), 3),
+            "reason": ", ".join(reason_parts) if reason_parts else "Likely duplicate of an open case",
+            "suggested_action": "Attach to this case instead of opening a new one.",
+        })
+
+    duplicates.sort(key=lambda item: (item["score"], item.get("created_at") or ""), reverse=True)
+    return duplicates[: max(1, int(limit))]
+
+
 def _query_villages_by_topic(items: Sequence[Dict[str, Any]], topic: str, days_back: int, limit: int) -> Dict[str, Any]:
     recent = _recent_window(items, days_back)
     matched = [item for item in recent if any(keyword in item["norm_text"] for keyword in _TOPIC_KEYWORDS.get(topic, []))]
@@ -558,6 +778,500 @@ def build_insight_overview(problems: Sequence[Dict[str, Any]], volunteers: Seque
     }
 
 
+def build_root_cause_graph(problems: Sequence[Dict[str, Any]], days_back: int = 90) -> Dict[str, Any]:
+    indexed = _flatten_problem_index(problems)
+    recent = _recent_window(indexed, days_back)
+    if not recent:
+        return {
+            "generated_at": _now().isoformat(),
+            "window_days": days_back,
+            "nodes": [],
+            "edges": [],
+            "summary": "No recent problems available for graphing.",
+        }
+
+    topic_counts: Counter[str] = Counter()
+    village_counts: Counter[str] = Counter()
+    asset_counts: Counter[str] = Counter()
+    month_counts: Counter[str] = Counter()
+    edges: Counter[Tuple[str, str]] = Counter()
+
+    for item in recent:
+        problem = item["problem"]
+        topic = _top_topic_for_text(item["text"])
+        village = item["village_name"] or "Unknown"
+        asset_type = _asset_type_for_problem(problem)
+        month = item["created_at"].strftime("%Y-%m")
+        topic_counts[topic] += 1
+        village_counts[village] += 1
+        asset_counts[asset_type] += 1
+        month_counts[month] += 1
+        edges[(f"topic:{topic}", f"village:{village}")] += 1
+        edges[(f"topic:{topic}", f"asset:{asset_type}")] += 1
+        edges[(f"topic:{topic}", f"month:{month}")] += 1
+
+    nodes: List[Dict[str, Any]] = []
+    for topic, count in topic_counts.most_common():
+        nodes.append({
+            "id": f"topic:{topic}",
+            "label": topic.replace("_", " ").title(),
+            "kind": "topic",
+            "weight": count,
+        })
+    for village, count in village_counts.most_common():
+        nodes.append({
+            "id": f"village:{village}",
+            "label": village,
+            "kind": "village",
+            "weight": count,
+        })
+    for asset_type, count in asset_counts.most_common():
+        nodes.append({
+            "id": f"asset:{asset_type}",
+            "label": asset_type.replace("-", " ").title(),
+            "kind": "asset",
+            "weight": count,
+        })
+    for month, count in month_counts.most_common():
+        nodes.append({
+            "id": f"month:{month}",
+            "label": month,
+            "kind": "month",
+            "weight": count,
+        })
+
+    edge_rows: List[Dict[str, Any]] = [
+        {
+            "source": source,
+            "target": target,
+            "weight": weight,
+        }
+        for (source, target), weight in edges.most_common()
+        if weight >= 2
+    ]
+
+    strongest_topic = topic_counts.most_common(1)[0][0] if topic_counts else "general"
+    strongest_village = village_counts.most_common(1)[0][0] if village_counts else "Unknown"
+    strongest_asset = asset_counts.most_common(1)[0][0] if asset_counts else "general"
+    return {
+        "generated_at": _now().isoformat(),
+        "window_days": days_back,
+        "nodes": nodes[:30],
+        "edges": edge_rows[:60],
+        "summary": (
+            f"Recurring {strongest_topic} issues are most visible in {strongest_village}, "
+            f"especially around {strongest_asset.replace('-', ' ')} cases."
+        ),
+        "top_topics": topic_counts.most_common(5),
+        "top_villages": village_counts.most_common(5),
+        "top_assets": asset_counts.most_common(5),
+        "top_months": month_counts.most_common(4),
+    }
+
+
+def build_weekly_briefing(
+    problems: Sequence[Dict[str, Any]],
+    volunteers: Sequence[Dict[str, Any]],
+    days_back: int = 7,
+) -> Dict[str, Any]:
+    overview = build_insight_overview(problems, volunteers, days_back=days_back)
+    graph = build_root_cause_graph(problems, days_back=max(days_back * 4, 30))
+    indexed = _flatten_problem_index(problems)
+    recent = _recent_window(indexed, days_back)
+
+    open_cases = sorted(
+        [item for item in recent if item["status"] != "completed"],
+        key=lambda item: (
+            2 if item["status"] == "pending" else 1,
+            item["created_at"],
+        ),
+        reverse=True,
+    )
+    open_case_rows = [
+        {
+            "problem_id": item["problem"].get("id"),
+            "title": item["problem"].get("title"),
+            "village_name": item["village_name"],
+            "category": item["problem"].get("category"),
+            "status": item["status"],
+            "severity": item["problem"].get("severity"),
+            "created_at": item["problem"].get("created_at"),
+            "age_days": max(0, (_now() - item["created_at"]).days),
+            "topic": _top_topic_for_text(item["text"]),
+        }
+        for item in open_cases[:10]
+    ]
+
+    volunteer_load: Counter[str] = Counter()
+    volunteer_by_id: Dict[str, Dict[str, Any]] = {}
+    for volunteer in volunteers:
+        volunteer_id = str(volunteer.get("id") or volunteer.get("user_id") or "")
+        if volunteer_id:
+            volunteer_by_id[volunteer_id] = volunteer
+
+    for problem in recent:
+        for match in problem["problem"].get("matches") or []:
+            volunteer_id = str(match.get("volunteer_id") or (match.get("volunteers") or {}).get("id") or "")
+            if volunteer_id:
+                volunteer_load[volunteer_id] += 1
+
+    volunteer_rows = []
+    for volunteer_id, count in volunteer_load.most_common(10):
+        volunteer = volunteer_by_id.get(volunteer_id, {})
+        volunteer_rows.append({
+            "volunteer_id": volunteer_id,
+            "name": _volunteer_name(volunteer),
+            "home_location": volunteer.get("home_location") or "",
+            "assignment_count": count,
+            "skills": _volunteer_skills(volunteer),
+        })
+
+    highlights = []
+    if graph.get("top_topics"):
+        highlights.append(f"Most repeated topic: {graph['top_topics'][0][0]} ({graph['top_topics'][0][1]} cases).")
+    if graph.get("top_villages"):
+        highlights.append(f"Most affected village: {graph['top_villages'][0][0]} ({graph['top_villages'][0][1]} cases).")
+    if overview["alerts"]:
+        top_alert = overview["alerts"][0]
+        highlights.append(f"Active risk alert: {top_alert['summary']} (score {top_alert['risk_score']:.2f}).")
+    if volunteer_rows:
+        highlights.append(f"Busiest volunteer: {volunteer_rows[0]['name']} ({volunteer_rows[0]['assignment_count']} assignments).")
+
+    return {
+        "generated_at": _now().isoformat(),
+        "window_days": days_back,
+        "summary": (
+            f"Weekly briefing for the last {days_back} days. "
+            f"{overview['stats']['problem_count']} recent problems, "
+            f"{overview['stats']['open_problem_count']} open items, "
+            f"{overview['stats']['completed_problem_count']} completed items."
+        ),
+        "highlights": highlights,
+        "stats": overview["stats"],
+        "risk_alerts": overview["alerts"],
+        "open_cases": open_case_rows,
+        "volunteer_load": volunteer_rows,
+        "root_cause_graph": graph,
+        "duplicate_patterns": graph.get("top_topics", [])[:5],
+    }
+
+
+def build_seasonal_risk_forecast(
+    problems: Sequence[Dict[str, Any]],
+    days_back: int = 365,
+) -> Dict[str, Any]:
+    indexed = _flatten_problem_index(problems)
+    recent = _recent_window(indexed, days_back)
+    if not recent:
+        return {
+            "generated_at": _now().isoformat(),
+            "window_days": days_back,
+            "summary": "No recent problems available for seasonal forecasting.",
+            "risks": [],
+            "top_topics": [],
+            "top_months": [],
+        }
+
+    topic_month_counts: Dict[str, Counter[int]] = defaultdict(Counter)
+    topic_counts: Counter[str] = Counter()
+    month_counts: Counter[str] = Counter()
+    village_topic_counts: Dict[Tuple[str, str], int] = defaultdict(int)
+
+    for item in recent:
+        topic = _top_topic_for_text(item["text"])
+        month = item["created_at"].month
+        month_key = item["created_at"].strftime("%Y-%m")
+        village = item["village_name"] or "Unknown"
+        topic_month_counts[topic][month] += 1
+        topic_counts[topic] += 1
+        month_counts[month_key] += 1
+        village_topic_counts[(village, topic)] += 1
+
+    risks: List[Dict[str, Any]] = []
+    current_month = _now().month
+    month_names = {
+        1: "January", 2: "February", 3: "March", 4: "April",
+        5: "May", 6: "June", 7: "July", 8: "August",
+        9: "September", 10: "October", 11: "November", 12: "December",
+    }
+
+    for topic, counts in topic_month_counts.items():
+        peak_month, peak_count = counts.most_common(1)[0]
+        current_count = counts.get(current_month, 0)
+        total = sum(counts.values())
+        baseline = total / max(1, len(counts))
+        if peak_count < 2:
+            continue
+        if current_count < max(2, math.ceil(baseline * 0.75)) and current_month != peak_month:
+            continue
+
+        strongest_village = "Unknown"
+        strongest_village_count = 0
+        for (village, village_topic), count in village_topic_counts.items():
+            if village_topic == topic and count > strongest_village_count:
+                strongest_village = village
+                strongest_village_count = count
+
+        risks.append({
+            "risk_id": f"seasonal-{topic}",
+            "topic": topic,
+            "season": month_names.get(current_month, str(current_month)),
+            "peak_month": month_names.get(peak_month, str(peak_month)),
+            "current_month_count": current_count,
+            "peak_month_count": peak_count,
+            "supporting_village": strongest_village,
+            "supporting_village_count": strongest_village_count,
+            "confidence": round(min(1.0, 0.35 + (0.08 * current_count) + (0.05 * strongest_village_count)), 3),
+            "summary": (
+                f"{topic.title()} complaints are recurring this season and are strongest in "
+                f"{strongest_village}."
+            ),
+            "recommended_action": (
+                f"Pre-position supplies and inspect common {topic} assets before the next spike."
+            ),
+        })
+
+    risks.sort(key=lambda item: (item["confidence"], item["current_month_count"]), reverse=True)
+    top_months = month_counts.most_common(4)
+    return {
+        "generated_at": _now().isoformat(),
+        "window_days": days_back,
+        "summary": (
+            f"Seasonal forecast generated from {len(recent)} recent problems across "
+            f"{len(topic_counts)} recurring topics."
+        ),
+        "risks": risks[:8],
+        "top_topics": topic_counts.most_common(5),
+        "top_months": top_months,
+    }
+
+
+def build_preventive_maintenance_plan(
+    problems: Sequence[Dict[str, Any]],
+    volunteers: Sequence[Dict[str, Any]],
+    days_back: int = 180,
+) -> Dict[str, Any]:
+    indexed = _flatten_problem_index(problems)
+    recent = _recent_window(indexed, days_back)
+    if not recent:
+        return {
+            "generated_at": _now().isoformat(),
+            "window_days": days_back,
+            "summary": "No recent problems available for maintenance planning.",
+            "items": [],
+        }
+
+    asset_counts: Counter[str] = Counter()
+    village_asset_counts: Dict[Tuple[str, str], int] = defaultdict(int)
+    open_counts: Dict[Tuple[str, str], int] = defaultdict(int)
+    asset_examples: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
+
+    for item in recent:
+        problem = item["problem"]
+        asset_type = _asset_type_for_problem(problem)
+        village = item["village_name"] or "Unknown"
+        key = (village, asset_type)
+        asset_counts[asset_type] += 1
+        village_asset_counts[key] += 1
+        if item["status"] != "completed":
+            open_counts[key] += 1
+        if len(asset_examples[key]) < 3:
+            asset_examples[key].append({
+                "problem_id": problem.get("id"),
+                "title": problem.get("title"),
+                "status": item["status"],
+            })
+
+    cadence_by_asset = {
+        "health-service": 7,
+        "water-system": 14,
+        "transport-infrastructure": 30,
+        "power-infrastructure": 21,
+        "digital-services": 30,
+        "agriculture": 21,
+    }
+    action_by_asset = {
+        "health-service": "Check standing water, sanitation points, and common illness signals.",
+        "water-system": "Inspect pumps, seals, joints, and storage tanks before failure grows.",
+        "transport-infrastructure": "Inspect road edges, culverts, and drainage before the next heavy use period.",
+        "power-infrastructure": "Check wiring, switches, inverters, and earthing before the next outage.",
+        "digital-services": "Verify device power, connectivity, and user training gaps.",
+        "agriculture": "Check irrigation lines, field channels, and seasonal water availability.",
+    }
+
+    items: List[Dict[str, Any]] = []
+    for (village, asset_type), count in sorted(village_asset_counts.items(), key=lambda item: item[1], reverse=True):
+        if count < 2 and open_counts.get((village, asset_type), 0) == 0:
+            continue
+        cadence_days = cadence_by_asset.get(asset_type, 30)
+        items.append({
+            "plan_id": f"maint-{village}-{asset_type}",
+            "village_name": village,
+            "asset_type": asset_type,
+            "inspection_frequency_days": cadence_days,
+            "next_due_in_days": cadence_days,
+            "priority": "high" if open_counts.get((village, asset_type), 0) > 0 or count >= 4 else "normal",
+            "related_problem_count": count,
+            "open_problem_count": open_counts.get((village, asset_type), 0),
+            "recommended_action": action_by_asset.get(asset_type, "Inspect the recurring asset for wear and repeat failure."),
+            "examples": asset_examples[(village, asset_type)],
+            "assigned_volunteers": [
+                {
+                    "volunteer_id": str(volunteer.get("id") or volunteer.get("user_id")),
+                    "name": _volunteer_name(volunteer),
+                    "skills": _volunteer_skills(volunteer),
+                }
+                for volunteer in volunteers
+                if _normalize_text(volunteer.get("home_location") or "") == _normalize_text(village)
+            ][:3],
+        })
+
+    priority_rank = {"high": 1, "normal": 0}
+    items.sort(key=lambda item: (priority_rank.get(item["priority"], 0), item["related_problem_count"]), reverse=True)
+    return {
+        "generated_at": _now().isoformat(),
+        "window_days": days_back,
+        "summary": (
+            f"Preventive maintenance plan prepared from {len(recent)} recent issues and "
+            f"{len(items)} recurring asset/village combinations."
+        ),
+        "items": items[:20],
+        "top_assets": asset_counts.most_common(5),
+    }
+
+
+def build_hotspot_heatmap(
+    problems: Sequence[Dict[str, Any]],
+    days_back: int = 90,
+) -> Dict[str, Any]:
+    indexed = _flatten_problem_index(problems)
+    recent = _recent_window(indexed, days_back)
+    if not recent:
+        return {
+            "generated_at": _now().isoformat(),
+            "window_days": days_back,
+            "summary": "No recent problems available for hotspot mapping.",
+            "cells": [],
+        }
+
+    village_counts: Counter[str] = Counter()
+    village_open_counts: Counter[str] = Counter()
+    village_topics: Dict[str, Counter[str]] = defaultdict(Counter)
+    village_severity: Dict[str, Counter[str]] = defaultdict(Counter)
+    cells: List[Dict[str, Any]] = []
+
+    for item in recent:
+        village = item["village_name"] or "Unknown"
+        topic = _top_topic_for_text(item["text"])
+        village_counts[village] += 1
+        village_topics[village][topic] += 1
+        village_severity[village][str(item["problem"].get("severity") or "NORMAL")] += 1
+        if item["status"] != "completed":
+            village_open_counts[village] += 1
+
+    for village, count in village_counts.most_common():
+        lat, lng = _village_coordinates(village)
+        top_topic = village_topics[village].most_common(1)[0][0] if village_topics[village] else "general"
+        cells.append({
+            "cell_id": f"heat-{village}",
+            "village_name": village,
+            "lat": lat,
+            "lng": lng,
+            "weight": round(count + (0.75 * village_open_counts[village]), 2),
+            "problem_count": count,
+            "open_count": village_open_counts[village],
+            "top_topic": top_topic,
+            "severity_counts": dict(village_severity[village]),
+        })
+
+    cells.sort(key=lambda item: (item["weight"], item["problem_count"]), reverse=True)
+    return {
+        "generated_at": _now().isoformat(),
+        "window_days": days_back,
+        "summary": f"Hotspot map built from {len(recent)} recent problems across {len(village_counts)} villages.",
+        "cells": cells[:25],
+    }
+
+
+def build_campaign_mode_plan(
+    problems: Sequence[Dict[str, Any]],
+    volunteers: Sequence[Dict[str, Any]],
+    days_back: int = 30,
+    focus_topic: Optional[str] = None,
+) -> Dict[str, Any]:
+    indexed = _flatten_problem_index(problems)
+    recent = _recent_window(indexed, days_back)
+    if not recent:
+        return {
+            "generated_at": _now().isoformat(),
+            "window_days": days_back,
+            "summary": "No recent problems available for campaign planning.",
+            "campaigns": [],
+        }
+
+    topic_counts: Counter[str] = Counter()
+    village_counts: Counter[str] = Counter()
+    for item in recent:
+        topic = _top_topic_for_text(item["text"])
+        if focus_topic and topic != focus_topic:
+            continue
+        topic_counts[topic] += 1
+        village_counts[item["village_name"] or "Unknown"] += 1
+
+    selected_topic = focus_topic or (topic_counts.most_common(1)[0][0] if topic_counts else "general")
+    target_villages = [village for village, _ in village_counts.most_common(5)]
+    topic_label = selected_topic.replace("_", " ").title()
+
+    recommended_volunteers: List[Dict[str, Any]] = []
+    for volunteer in volunteers:
+        skills = _volunteer_skills(volunteer)
+        if any(selected_topic in _normalize_text(skill) for skill in skills) or _matches_skill(selected_topic, skills):
+            recommended_volunteers.append({
+                "volunteer_id": str(volunteer.get("id") or volunteer.get("user_id")),
+                "name": _volunteer_name(volunteer),
+                "skills": skills,
+                "home_location": volunteer.get("home_location") or "",
+            })
+    if not recommended_volunteers:
+        recommended_volunteers = [
+            {
+                "volunteer_id": str(volunteer.get("id") or volunteer.get("user_id")),
+                "name": _volunteer_name(volunteer),
+                "skills": _volunteer_skills(volunteer),
+                "home_location": volunteer.get("home_location") or "",
+            }
+            for volunteer in volunteers[:5]
+        ]
+
+    campaign = {
+        "campaign_id": f"campaign-{selected_topic}",
+        "topic": selected_topic,
+        "title": f"{topic_label} campaign",
+        "goal": f"Run a short {topic_label.lower()} drive in the villages with the most repeated complaints.",
+        "target_villages": target_villages,
+        "problem_count": sum(topic_counts.values()),
+        "recommended_volunteers": recommended_volunteers[:5],
+        "talking_points": [
+            f"Explain the common {topic_label.lower()} failure pattern.",
+            "Collect fresh reports, photos, and follow-up feedback.",
+            "Record what simple fixes can be done locally before escalation.",
+        ],
+        "field_tasks": [
+            "Short resident awareness visit",
+            "Asset inspection and note-taking",
+            "Photo documentation and feedback capture",
+        ],
+    }
+
+    return {
+        "generated_at": _now().isoformat(),
+        "window_days": days_back,
+        "summary": f"Campaign mode prepared around {topic_label.lower()} issues in {len(target_villages)} target villages.",
+        "campaigns": [campaign],
+        "top_topics": topic_counts.most_common(5),
+    }
+
+
 def _plan_query_with_gemini(query: str, overview: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     try:
         from importlib import import_module
@@ -792,4 +1506,3 @@ def analyze_coordinator_query(
             "Scan for outbreak or infrastructure risk clusters.",
         ],
     }
-

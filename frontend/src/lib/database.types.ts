@@ -9,7 +9,7 @@ export interface Database {
           email: string | null;
           full_name: string;
           phone: string | null;
-          role: 'villager' | 'volunteer' | 'coordinator';
+          role: 'villager' | 'volunteer' | 'coordinator' | 'supervisor' | 'partner';
           village_name?: string | null;
           created_at: string;
           updated_at?: string;

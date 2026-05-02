@@ -29,5 +29,7 @@ describe('Navigation', () => {
         // The buttons show "Volunteer" and "Coordinator" text (without "Login")
         expect(screen.getByText('Volunteer')).toBeInTheDocument();
         expect(screen.getByText('Coordinator')).toBeInTheDocument();
+        expect(screen.getByText('Supervisor')).toBeInTheDocument();
+        expect(screen.getByText('Partner')).toBeInTheDocument();
     });
 });

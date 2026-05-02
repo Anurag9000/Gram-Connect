@@ -1,4 +1,4 @@
-import { Home, FileText, UserPlus, LayoutDashboard, LogOut, LogIn, MapPinned } from 'lucide-react';
+import { Home, FileText, UserPlus, LayoutDashboard, LogOut, LogIn, MapPinned, ClipboardList, Shield, Briefcase } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useNavigate, useLocation } from 'react-router-dom';
 import LanguageToggle from './LanguageToggle';
@@ -97,6 +97,28 @@ export default function Navigation() {
               </button>
             )}
 
+            {profile?.role === 'supervisor' && (
+              <button
+                onClick={() => navigate('/supervisor-dashboard')}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${isActive('/supervisor-dashboard') ? 'bg-green-700' : 'hover:bg-green-700'
+                  }`}
+              >
+                <Shield size={20} />
+                <span className="hidden sm:inline">Supervisor dashboard</span>
+              </button>
+            )}
+
+            {profile?.role === 'partner' && (
+              <button
+                onClick={() => navigate('/partner-dashboard')}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${isActive('/partner-dashboard') ? 'bg-green-700' : 'hover:bg-green-700'
+                  }`}
+              >
+                <Briefcase size={20} />
+                <span className="hidden sm:inline">Partner dashboard</span>
+              </button>
+            )}
+
             <button
               onClick={() => navigate('/map')}
               className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${isActive('/map') ? 'bg-green-700' : 'hover:bg-green-700'
@@ -104,6 +126,15 @@ export default function Navigation() {
             >
               <MapPinned size={20} />
               <span className="hidden sm:inline">{t('nav.map')}</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/status')}
+              className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${isActive('/status') ? 'bg-green-700' : 'hover:bg-green-700'
+                }`}
+            >
+              <ClipboardList size={20} />
+              <span className="hidden sm:inline">Status</span>
             </button>
 
             {profile ? (
@@ -114,24 +145,38 @@ export default function Navigation() {
                 <LogOut size={20} />
                 <span className="hidden sm:inline">{t('nav.logout')}</span>
               </button>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => navigate('/volunteer-login')}
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => navigate('/volunteer-login')}
                   className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition border border-white/20"
                 >
                   <LogIn size={20} />
                   <span className="hidden sm:inline">{t('nav.volunteer')}</span>
                 </button>
-                <button
-                  onClick={() => navigate('/coordinator-login')}
-                  className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-green-700 hover:bg-green-800 transition shadow-sm"
-                >
-                  <LogIn size={20} />
-                  <span className="hidden sm:inline">{t('nav.coordinator')}</span>
-                </button>
-              </div>
-            )}
+                  <button
+                    onClick={() => navigate('/coordinator-login')}
+                    className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-green-700 hover:bg-green-800 transition shadow-sm"
+                  >
+                    <LogIn size={20} />
+                    <span className="hidden sm:inline">{t('nav.coordinator')}</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/supervisor-login')}
+                    className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 transition shadow-sm"
+                  >
+                    <LogIn size={20} />
+                    <span className="hidden sm:inline">Supervisor</span>
+                  </button>
+                  <button
+                    onClick={() => navigate('/partner-login')}
+                    className="flex items-center space-x-1 px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 transition shadow-sm"
+                  >
+                    <LogIn size={20} />
+                    <span className="hidden sm:inline">Partner</span>
+                  </button>
+                </div>
+              )}
 
             <div className="ml-2">
               <LanguageToggle />

@@ -9,7 +9,7 @@ import AudioRecorder from '../components/AudioRecorder';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { loadStoredProfile, saveStoredProfile, type ProfileRecord } from '../lib/profileStorage';
-import type { ProblemGuidanceResponse } from '../services/api';
+import type { DuplicateCandidate, ProblemGuidanceResponse, ProblemSubmissionResponse } from '../services/api';
 
 // Non-overlapping problem categories.
 // Category is a routing/display label only. Actual multi-domain skill matching
@@ -126,6 +126,7 @@ export default function SubmitProblem() {
   const [instantGuidance, setInstantGuidance] = useState<ProblemGuidanceResponse | null>(null);
   const [instantGuidanceLoading, setInstantGuidanceLoading] = useState(false);
   const [instantGuidanceError, setInstantGuidanceError] = useState('');
+  const [submitResult, setSubmitResult] = useState<ProblemSubmissionResponse | null>(null);
 
   const canSubmitAsCoordinator = profile?.role === 'coordinator';
   const needsReporterProfile = !canSubmitAsCoordinator;
@@ -162,6 +163,8 @@ export default function SubmitProblem() {
             title: title.trim() || 'Reported problem',
             description: description.trim() || 'No additional description provided yet.',
             category: category || undefined,
+            village_name: villageName.trim() || undefined,
+            transcript: description.trim() || undefined,
             severity: resolvedSeverity,
             visual_tags: visualTags,
           });
@@ -176,7 +179,7 @@ export default function SubmitProblem() {
     }, 350);
 
     return () => window.clearTimeout(timer);
-  }, [category, description, severityChoice, title, visualTags]);
+  }, [category, description, severityChoice, title, villageName, visualTags]);
 
 
   const handleSaveReporterProfile = async (): Promise<ProfileRecord> => {
@@ -244,6 +247,7 @@ export default function SubmitProblem() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    setSubmitResult(null);
 
     let problemId: string | null = null;
 
@@ -285,6 +289,7 @@ export default function SubmitProblem() {
       });
 
       problemId = submission.id;
+      setSubmitResult(submission);
 
       const uploads: Promise<unknown>[] = [];
       if (selectedImageFile && problemId) {
@@ -351,11 +356,21 @@ export default function SubmitProblem() {
           </div>
           <h2 className="text-2xl font-bold text-green-700 mb-4">{t('submit.success_title')}</h2>
           <p className="text-gray-600 mb-6">
-            {t('submit.success_desc')}
+            {submitResult?.status === 'duplicate_attached'
+              ? 'Your report was attached to an existing open case so coordinators can work in one thread.'
+              : t('submit.success_desc')}
           </p>
+          {submitResult?.duplicate_of && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              Attached to existing case <span className="font-bold">{submitResult.duplicate_of}</span>.
+            </div>
+          )}
           <div className="space-y-3">
             <button
-              onClick={() => setSuccess(false)}
+              onClick={() => {
+                setSuccess(false);
+                setSubmitResult(null);
+              }}
               className="w-full bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition"
             >
               {t('submit.submit_another')}
@@ -654,6 +669,21 @@ export default function SubmitProblem() {
                     <div className="mt-1 text-sm text-gray-600">{instantGuidance.best_duration}</div>
                   </div>
 
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Department</div>
+                      <div className="mt-1 text-sm font-semibold text-gray-900">{instantGuidance.department}</div>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Urgency</div>
+                      <div className="mt-1 text-sm font-semibold text-gray-900">{instantGuidance.urgency}</div>
+                    </div>
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500">Response path</div>
+                      <div className="mt-1 text-sm text-gray-700">{instantGuidance.response_path}</div>
+                    </div>
+                  </div>
+
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-xl border border-gray-200 bg-white p-4">
                       <div className="text-sm font-bold text-gray-900 mb-2">What to do now</div>
@@ -687,6 +717,34 @@ export default function SubmitProblem() {
                       </div>
                     </div>
                   </div>
+
+                  {instantGuidance.duplicate_candidates.length > 0 && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <div className="text-sm font-bold text-amber-900">Possible duplicate cases nearby</div>
+                      <div className="mt-2 space-y-2">
+                        {instantGuidance.duplicate_candidates.map((candidate: DuplicateCandidate) => (
+                          <div key={candidate.problem_id} className="rounded-lg border border-amber-100 bg-white p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="text-sm font-semibold text-gray-900">
+                                {candidate.title || candidate.problem_id}
+                              </div>
+                              <div className="text-xs font-bold text-amber-700">
+                                Match {(candidate.score * 100).toFixed(0)}%
+                              </div>
+                            </div>
+                            <div className="mt-1 text-xs text-gray-600">
+                              {candidate.village_name || 'Unknown village'}
+                              {candidate.category ? ` · ${candidate.category}` : ''}
+                              {candidate.reason ? ` · ${candidate.reason}` : ''}
+                            </div>
+                            <div className="mt-2 text-xs text-amber-800">
+                              {candidate.suggested_action}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="rounded-xl border border-gray-200 bg-white p-4">

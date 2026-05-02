@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Activity, Clock, AlertTriangle, CheckCircle, Search,
-  BarChart3, LayoutGrid, List, MapPin, ChevronRight, X, UserCheck, Cpu, Trash2
+  BarChart3, LayoutGrid, List, MapPin, ChevronRight, X, UserCheck, Cpu, Trash2,
+  BookOpen, Route, Package, ShieldAlert, TrendingUp, CalendarDays, Megaphone, Wrench, Image
 } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
-import { api, type MediaRecord, type ProblemRecord, type ProofRecord, type TeamMember, type VolunteerRecord } from '../services/api';
+import { api, type MediaRecord, type ProblemRecord, type ProblemTimelineResponse, type ProofRecord, type TeamMember, type VolunteerRecord, type EscalationRecord, type InventoryRecord, type PlaybookRecord, type ReputationRecord, type RouteOptimizationRecord, type SeasonalRiskRecord, type MaintenancePlanRecord, type HeatmapCell, type CampaignModeRecord, type EvidenceComparisonResponse } from '../services/api';
 import { Navigate, useNavigate } from 'react-router-dom';
 import type { Database } from '../lib/database.types';
 import GramSahayakaPanel from '../components/GramSahayakaPanel';
@@ -76,7 +77,7 @@ export default function CoordinatorDashboard() {
 
   const [selectedProblem, setSelectedProblem] = useState<ProblemWithDetails | null>(null);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [modalTab, setModalTab] = useState<'manual' | 'ai'>('manual');
+  const [modalTab, setModalTab] = useState<'manual' | 'ai' | 'timeline'>('manual');
 
   // AI Team Generation State
   const [aiLoading, setAiLoading] = useState(false);
@@ -85,6 +86,31 @@ export default function CoordinatorDashboard() {
   const [aiTeams, setAiTeams] = useState<AITeam[]>([]);
   const [teamSize, setTeamSize] = useState(2);
   const [numTeamsToShow, setNumTeamsToShow] = useState(3);
+  const [problemTimeline, setProblemTimeline] = useState<ProblemTimelineResponse | null>(null);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [operationsLoading, setOperationsLoading] = useState(true);
+  const [operationsError, setOperationsError] = useState<string | null>(null);
+  const [escalations, setEscalations] = useState<EscalationRecord[]>([]);
+  const [reputationRows, setReputationRows] = useState<ReputationRecord[]>([]);
+  const [routeRows, setRouteRows] = useState<RouteOptimizationRecord[]>([]);
+  const [playbooks, setPlaybooks] = useState<PlaybookRecord[]>([]);
+  const [inventoryRows, setInventoryRows] = useState<InventoryRecord[]>([]);
+  const [seasonalRisks, setSeasonalRisks] = useState<SeasonalRiskRecord[]>([]);
+  const [maintenanceRows, setMaintenanceRows] = useState<MaintenancePlanRecord[]>([]);
+  const [heatmapCells, setHeatmapCells] = useState<HeatmapCell[]>([]);
+  const [campaignPlans, setCampaignPlans] = useState<CampaignModeRecord[]>([]);
+  const [evidenceComparison, setEvidenceComparison] = useState<EvidenceComparisonResponse | null>(null);
+  const [evidenceLoading, setEvidenceLoading] = useState(false);
+  const [evidenceError, setEvidenceError] = useState<string | null>(null);
+  const [inventoryForm, setInventoryForm] = useState({
+    owner_type: 'village',
+    owner_id: '',
+    item_name: '',
+    quantity: 1,
+    notes: '',
+  });
+  const [inventorySaving, setInventorySaving] = useState(false);
 
   // Manual Assignment State
   const [individualSearch, setIndividualSearch] = useState('');
@@ -231,12 +257,86 @@ export default function CoordinatorDashboard() {
     }
   }, [numTeamsToShow, selectedProblem, teamSize]);
 
+  const loadProblemTimeline = useCallback(async () => {
+    if (!selectedProblem) {
+      return;
+    }
+    setTimelineLoading(true);
+    setTimelineError(null);
+    setEvidenceLoading(true);
+    setEvidenceError(null);
+    setEvidenceComparison(null);
+    try {
+      const [timelineData, evidenceData] = await Promise.all([
+        api.getProblemTimeline(selectedProblem.id),
+        selectedProblem.proof ? api.getEvidenceComparison(selectedProblem.id).catch((err) => {
+          setEvidenceError(err instanceof Error ? err.message : 'Failed to load evidence comparison.');
+          return null;
+        }) : Promise.resolve(null),
+      ]);
+      setProblemTimeline(timelineData);
+      setEvidenceComparison(evidenceData);
+    } catch (err) {
+      setTimelineError(err instanceof Error ? err.message : 'Failed to load case timeline.');
+      setProblemTimeline(null);
+    } finally {
+      setTimelineLoading(false);
+      setEvidenceLoading(false);
+    }
+  }, [selectedProblem]);
+
+  const loadOperationsData = useCallback(async () => {
+    if (!profile) return;
+    setOperationsLoading(true);
+    setOperationsError(null);
+    try {
+      const [escalationsData, reputationData, routesData, playbooksData, inventoryData, seasonalData, maintenanceData, heatmapData, campaignData] = await Promise.all([
+        api.getEscalations(7),
+        api.getReputation(90),
+        api.getRouteOptimization(14),
+        api.getPlaybooks({ limit: 10 }),
+        api.getInventory(),
+        api.getSeasonalRiskForecast(365),
+        api.getMaintenancePlan(180),
+        api.getHotspotHeatmap(90),
+        api.getCampaignMode(30),
+      ]);
+      setEscalations(escalationsData.items || []);
+      setReputationRows(reputationData.volunteers || []);
+      setRouteRows(routesData.routes || []);
+      setPlaybooks(playbooksData || []);
+      setInventoryRows(inventoryData || []);
+      setSeasonalRisks(seasonalData.risks || []);
+      setMaintenanceRows(maintenanceData.items || []);
+      setHeatmapCells(heatmapData.cells || []);
+      setCampaignPlans(campaignData.campaigns || []);
+    } catch (err) {
+      setOperationsError(err instanceof Error ? err.message : 'Failed to load operations data.');
+      setEscalations([]);
+      setReputationRows([]);
+      setRouteRows([]);
+      setPlaybooks([]);
+      setInventoryRows([]);
+      setSeasonalRisks([]);
+      setMaintenanceRows([]);
+      setHeatmapCells([]);
+      setCampaignPlans([]);
+    } finally {
+      setOperationsLoading(false);
+    }
+  }, [profile]);
+
   useEffect(() => {
     if (!profile) return;
     const unsubscribe = subscribeLiveRefresh(() => {
       loadDashboardData();
+      loadOperationsData();
       if (showAssignModal && selectedProblem && modalTab === 'ai') {
         runAiAlgo();
+        return;
+      }
+      if (showAssignModal && selectedProblem && modalTab === 'timeline') {
+        loadProblemTimeline();
         return;
       }
       setAiTeams([]);
@@ -247,7 +347,13 @@ export default function CoordinatorDashboard() {
     const handleFocus = () => loadDashboardData();
     window.addEventListener('focus', handleFocus);
     return () => { unsubscribe(); window.removeEventListener('focus', handleFocus); };
-  }, [loadDashboardData, modalTab, profile, runAiAlgo, selectedProblem, showAssignModal]);
+  }, [loadDashboardData, loadOperationsData, loadProblemTimeline, modalTab, profile, runAiAlgo, selectedProblem, showAssignModal]);
+
+  useEffect(() => {
+    if (showAssignModal && selectedProblem && modalTab === 'timeline') {
+      loadProblemTimeline();
+    }
+  }, [loadProblemTimeline, modalTab, selectedProblem, showAssignModal]);
 
   useEffect(() => {
     if (!selectedProblem) return;
@@ -258,12 +364,22 @@ export default function CoordinatorDashboard() {
       setAiTeams([]);
       setAiSummary(null);
       setAiError(null);
+      setProblemTimeline(null);
+      setTimelineError(null);
       return;
     }
     if (latestProblem !== selectedProblem) {
       setSelectedProblem(latestProblem);
+      setProblemTimeline(null);
+      setTimelineError(null);
     }
   }, [problems, selectedProblem]);
+
+  useEffect(() => {
+    if (profile) {
+      loadOperationsData();
+    }
+  }, [loadOperationsData, profile]);
 
   const confirmManualTeam = async (problemId: string) => {
     if (selectedManualIds.size === 0) return;
@@ -324,6 +440,36 @@ export default function CoordinatorDashboard() {
     } catch (err) {
       console.error("Failed to unassign volunteer", err);
       alert("Failed to unassign volunteer.");
+    }
+  };
+
+  const handleInventorySave = async () => {
+    if (!inventoryForm.owner_id.trim() || !inventoryForm.item_name.trim()) {
+      alert("Please enter an owner and item name.");
+      return;
+    }
+    setInventorySaving(true);
+    try {
+      await api.upsertInventory({
+        owner_type: inventoryForm.owner_type,
+        owner_id: inventoryForm.owner_id.trim(),
+        item_name: inventoryForm.item_name.trim(),
+        quantity: inventoryForm.quantity,
+        notes: inventoryForm.notes.trim() || undefined,
+      });
+      setInventoryForm({
+        owner_type: inventoryForm.owner_type,
+        owner_id: '',
+        item_name: '',
+        quantity: 1,
+        notes: '',
+      });
+      loadOperationsData();
+    } catch (err) {
+      console.error("Failed to update inventory:", err);
+      alert(err instanceof Error ? err.message : "Failed to update inventory.");
+    } finally {
+      setInventorySaving(false);
     }
   };
 
@@ -401,6 +547,329 @@ export default function CoordinatorDashboard() {
               <span className="text-3xl font-bold text-green-600">{stats.resolved}</span>
               <CheckCircle className="text-green-200 mb-1" size={20} />
             </div>
+          </div>
+        </div>
+
+        <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Operations intelligence</h2>
+                <p className="text-sm text-gray-500">Escalations, route clustering, playbooks, inventory, and volunteer reliability in one view.</p>
+              </div>
+              <TrendingUp className="text-green-600" />
+            </div>
+
+            {operationsError && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {operationsError}
+              </div>
+            )}
+
+            {operationsLoading ? (
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                Loading operations data...
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                    <ShieldAlert size={16} className="text-red-600" />
+                    Escalations due
+                  </div>
+                  <div className="mt-2 text-3xl font-extrabold text-red-600">{escalations.length}</div>
+                  <div className="mt-3 space-y-2">
+                    {escalations.slice(0, 3).map((item) => (
+                      <div key={item.problem_id} className="rounded-lg bg-white px-3 py-2 text-xs text-gray-700">
+                        <div className="font-semibold text-gray-900">{item.title || item.problem_id}</div>
+                        <div className="mt-0.5 text-gray-500">{item.village_name || 'Unknown village'} · {item.escalation_level} · {item.age_hours.toFixed(0)}h</div>
+                        <div className="mt-1 text-red-700">{item.next_action}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                    <BookOpen size={16} className="text-emerald-600" />
+                    Playbooks saved
+                  </div>
+                  <div className="mt-2 text-3xl font-extrabold text-emerald-700">{playbooks.length}</div>
+                  <div className="mt-3 space-y-2">
+                    {playbooks.slice(0, 3).map((item) => (
+                      <div key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs text-gray-700">
+                        <div className="font-semibold text-gray-900">{item.title}</div>
+                        <div className="mt-0.5 text-gray-500">{item.topic}{item.village_name ? ` · ${item.village_name}` : ''}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                    <Route size={16} className="text-blue-600" />
+                    Route clusters
+                  </div>
+                  <div className="mt-2 text-3xl font-extrabold text-blue-700">{routeRows.length}</div>
+                  <div className="mt-3 space-y-2">
+                    {routeRows.slice(0, 3).map((item) => (
+                      <div key={item.route_id} className="rounded-lg bg-white px-3 py-2 text-xs text-gray-700">
+                        <div className="font-semibold text-gray-900">{item.village_name}</div>
+                        <div className="mt-0.5 text-gray-500">{item.problem_count} open cases · {Object.entries(item.severity_counts).map(([severity, count]) => `${severity}:${count}`).join(' ')}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-bold text-gray-900">
+                    <Package size={16} className="text-amber-600" />
+                    Inventory items tracked
+                  </div>
+                  <div className="mt-2 text-3xl font-extrabold text-amber-700">{inventoryRows.length}</div>
+                  <div className="mt-3 space-y-2">
+                    {inventoryRows.slice(0, 3).map((item) => (
+                      <div key={item.id} className="rounded-lg bg-white px-3 py-2 text-xs text-gray-700">
+                        <div className="font-semibold text-gray-900">{item.item_name}</div>
+                        <div className="mt-0.5 text-gray-500">{item.owner_type} · {item.owner_id} · qty {item.quantity}</div>
+                      </div>
+                    ))}
+                    {inventoryRows.length === 0 && (
+                      <div className="rounded-lg bg-white px-3 py-2 text-xs text-gray-500">
+                        No inventory records yet.
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4 rounded-xl border border-amber-100 bg-white p-3">
+                    <div className="mb-3 text-xs font-bold uppercase tracking-wide text-amber-700">Add or update stock</div>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      <select
+                        value={inventoryForm.owner_type}
+                        onChange={(event) => setInventoryForm((current) => ({ ...current, owner_type: event.target.value }))}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                      >
+                        <option value="village">Village</option>
+                        <option value="volunteer">Volunteer</option>
+                        <option value="coordinator">Coordinator</option>
+                      </select>
+                      <input
+                        value={inventoryForm.owner_id}
+                        onChange={(event) => setInventoryForm((current) => ({ ...current, owner_id: event.target.value }))}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="Owner ID or village name"
+                      />
+                      <input
+                        value={inventoryForm.item_name}
+                        onChange={(event) => setInventoryForm((current) => ({ ...current, item_name: event.target.value }))}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="Item name"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={inventoryForm.quantity}
+                        onChange={(event) => setInventoryForm((current) => ({ ...current, quantity: Number(event.target.value) || 0 }))}
+                        className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        placeholder="Qty"
+                      />
+                      <textarea
+                        value={inventoryForm.notes}
+                        onChange={(event) => setInventoryForm((current) => ({ ...current, notes: event.target.value }))}
+                        className="md:col-span-2 rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                        rows={2}
+                        placeholder="Optional notes"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void handleInventorySave()}
+                      disabled={inventorySaving}
+                      className="mt-3 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-400 disabled:opacity-60"
+                    >
+                      {inventorySaving ? 'Saving...' : 'Save inventory'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Volunteer reliability</h2>
+                <p className="text-sm text-gray-500">Completed work, backlog, and average resolution speed from the last 90 days.</p>
+              </div>
+              <Clock className="text-green-600" />
+            </div>
+            {reputationRows.length > 0 ? (
+              <div className="space-y-3">
+                {reputationRows.slice(0, 4).map((item) => (
+                  <div key={item.volunteer_id} className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-gray-900">{item.name}</div>
+                        <div className="text-xs text-gray-500">{item.home_location || 'Unknown location'}</div>
+                      </div>
+                      <div className="rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">
+                        {(item.reliability_score * 100).toFixed(0)}%
+                      </div>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-center text-xs text-gray-600">
+                      <div className="rounded-lg bg-white px-2 py-1">
+                        <div className="font-semibold text-gray-900">{item.completed_count}</div>
+                        <div>Done</div>
+                      </div>
+                      <div className="rounded-lg bg-white px-2 py-1">
+                        <div className="font-semibold text-gray-900">{item.open_assignments}</div>
+                        <div>Open</div>
+                      </div>
+                      <div className="rounded-lg bg-white px-2 py-1">
+                        <div className="font-semibold text-gray-900">{item.avg_resolution_hours != null ? `${item.avg_resolution_hours.toFixed(1)}h` : '—'}</div>
+                        <div>Avg time</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                No reputation data yet.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Seasonal risk forecast</h2>
+                <p className="text-sm text-gray-500">Forward-looking topic spikes based on recent incidents and the current month.</p>
+              </div>
+              <CalendarDays className="text-indigo-600" />
+            </div>
+            {seasonalRisks.length > 0 ? (
+              <div className="space-y-3">
+                {seasonalRisks.slice(0, 3).map((item) => (
+                  <div key={item.risk_id} className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-gray-900">{item.topic}</div>
+                        <div className="text-xs text-gray-500">{item.season} · peak {item.peak_month} · {item.supporting_village}</div>
+                      </div>
+                      <div className="rounded-full bg-indigo-600 px-2 py-1 text-xs font-bold text-white">
+                        {(item.confidence * 100).toFixed(0)}%
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-700">{item.summary}</p>
+                    <p className="mt-2 text-xs font-medium text-indigo-700">{item.recommended_action}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                No seasonal risks detected yet.
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Preventive maintenance plan</h2>
+                <p className="text-sm text-gray-500">Recurring asset patterns turned into inspection reminders.</p>
+              </div>
+              <Wrench className="text-amber-600" />
+            </div>
+            {maintenanceRows.length > 0 ? (
+              <div className="space-y-3">
+                {maintenanceRows.slice(0, 3).map((item) => (
+                  <div key={item.plan_id} className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-gray-900">{item.village_name} · {item.asset_type}</div>
+                        <div className="text-xs text-gray-500">{item.related_problem_count} recent issues · next due in {item.next_due_in_days} days</div>
+                      </div>
+                      <div className={`rounded-full px-2 py-1 text-xs font-bold ${item.priority === 'high' ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'}`}>
+                        {item.priority}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-700">{item.recommended_action}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                No preventive maintenance plan yet.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Hotspot map</h2>
+                <p className="text-sm text-gray-500">Villages with repeated complaints, weighted by open work.</p>
+              </div>
+              <MapPin className="text-rose-600" />
+            </div>
+            {heatmapCells.length > 0 ? (
+              <div className="space-y-3">
+                {heatmapCells.slice(0, 4).map((item) => (
+                  <div key={item.cell_id} className="rounded-xl border border-rose-100 bg-rose-50/60 p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-semibold text-gray-900">{item.village_name}</div>
+                        <div className="text-xs text-gray-500">{item.top_topic} · {item.problem_count} cases · {item.open_count} open</div>
+                      </div>
+                      <div className="rounded-full bg-rose-600 px-2 py-1 text-xs font-bold text-white">
+                        {item.weight.toFixed(1)}
+                      </div>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-600">
+                      {item.lat.toFixed(3)}, {item.lng.toFixed(3)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                No hotspot data yet.
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Campaign mode</h2>
+                <p className="text-sm text-gray-500">Village-wide drives for sanitation, repair days, and inspection rounds.</p>
+              </div>
+              <Megaphone className="text-green-600" />
+            </div>
+            {campaignPlans.length > 0 ? (
+              <div className="space-y-3">
+                {campaignPlans.slice(0, 2).map((item) => (
+                  <div key={item.campaign_id} className="rounded-xl border border-green-100 bg-green-50/60 p-3">
+                    <div className="font-semibold text-gray-900">{item.title}</div>
+                    <div className="mt-1 text-xs text-gray-500">{item.target_villages.join(', ') || 'No target villages yet'}</div>
+                    <p className="mt-2 text-sm text-gray-700">{item.goal}</p>
+                    <ul className="mt-2 space-y-1 text-xs text-green-800">
+                      {item.field_tasks.slice(0, 3).map((task) => (
+                        <li key={task}>• {task}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-500">
+                No campaign plan yet.
+              </div>
+            )}
           </div>
         </div>
 
@@ -594,7 +1063,14 @@ export default function CoordinatorDashboard() {
                 <h2 className="text-2xl font-bold text-gray-800">{t('dashboard.assign_modal_title')}</h2>
                 <p className="text-gray-500 text-sm mt-1">{t('dashboard.assign_modal_for')} <span className="font-semibold text-gray-900">{seedText(selectedProblem.title, selectedProblem.title)}</span></p>
               </div>
-              <button onClick={() => { setShowAssignModal(false); setSelectedManualIds(new Set()); setExpandedVolunteerId(null); }} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition">
+              <button onClick={() => {
+                setShowAssignModal(false);
+                setSelectedManualIds(new Set());
+                setExpandedVolunteerId(null);
+                setModalTab('manual');
+                setProblemTimeline(null);
+                setTimelineError(null);
+              }} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-full transition">
                 <X size={24} />
               </button>
             </div>
@@ -612,6 +1088,12 @@ export default function CoordinatorDashboard() {
                 className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${modalTab === 'ai' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
                 <div className="flex items-center justify-center gap-2"><Cpu size={18} /> {t('dashboard.tab_ai')}</div>
+              </button>
+              <button
+                onClick={() => setModalTab('timeline')}
+                className={`flex-1 py-3 text-sm font-medium border-b-2 transition ${modalTab === 'timeline' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                <div className="flex items-center justify-center gap-2"><Clock size={18} /> Case timeline</div>
               </button>
             </div>
 
@@ -883,6 +1365,139 @@ export default function CoordinatorDashboard() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {modalTab === 'timeline' && (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-bold text-gray-900">Case timeline</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          Full audit trail for reports, media, assignments, proof, and learning events.
+                        </p>
+                      </div>
+                      {problemTimeline?.summary && (
+                        <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                          <div className="rounded-lg bg-gray-50 px-3 py-2">
+                            <div className="text-gray-500">Events</div>
+                            <div className="mt-1 font-bold text-gray-900">{problemTimeline.summary.event_count}</div>
+                          </div>
+                          <div className="rounded-lg bg-gray-50 px-3 py-2">
+                            <div className="text-gray-500">Duplicates</div>
+                            <div className="mt-1 font-bold text-gray-900">{problemTimeline.summary.duplicate_count}</div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {(evidenceLoading || evidenceError || evidenceComparison) && (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-green-700">
+                            <Image size={14} /> Evidence comparison
+                          </div>
+                          <p className="mt-1 text-sm text-gray-500">
+                            Before/after proof review for the selected case.
+                          </p>
+                        </div>
+                        {evidenceComparison && (
+                          <div className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+                            {(evidenceComparison.confidence * 100).toFixed(0)}% confidence
+                          </div>
+                        )}
+                      </div>
+                      {evidenceError && (
+                        <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                          {evidenceError}
+                        </div>
+                      )}
+                      {evidenceLoading && (
+                        <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                          Loading evidence comparison...
+                        </div>
+                      )}
+                      {evidenceComparison && (
+                        <div className="mt-3 space-y-3">
+                          <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                            {evidenceComparison.summary}
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+                              <div className="font-semibold text-gray-900">Before</div>
+                              <div className="mt-1 text-gray-600">{evidenceComparison.before_media_id || 'No before image recorded'}</div>
+                              {evidenceComparison.before_url && (
+                                <a href={evidenceComparison.before_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-green-700">
+                                  View image
+                                </a>
+                              )}
+                            </div>
+                            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm">
+                              <div className="font-semibold text-gray-900">After</div>
+                              <div className="mt-1 text-gray-600">{evidenceComparison.after_media_id || 'No after image recorded'}</div>
+                              {evidenceComparison.after_url && (
+                                <a href={evidenceComparison.after_url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-green-700">
+                                  View image
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
+                            <div className="font-semibold text-gray-900">Detected change</div>
+                            <div className="mt-1">{evidenceComparison.detected_change}</div>
+                            <div className="mt-2 text-xs text-gray-500">
+                              {evidenceComparison.accepted ? 'Comparison accepted.' : 'Comparison rejected or inconclusive.'} Source: {evidenceComparison.source}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {timelineError && (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                      {timelineError}
+                    </div>
+                  )}
+
+                  {timelineLoading && (
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-500">
+                      Loading case timeline...
+                    </div>
+                  )}
+
+                  {!timelineLoading && !timelineError && problemTimeline?.timeline?.length ? (
+                    <div className="space-y-3">
+                      {problemTimeline.timeline.map((item) => (
+                        <div key={`${item.type}-${item.timestamp}-${item.title}`} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <div className="text-xs font-bold uppercase tracking-wider text-green-700">{item.type.replace(/_/g, ' ')}</div>
+                              <h4 className="mt-1 font-semibold text-gray-900">{item.title}</h4>
+                              <p className="mt-1 text-sm text-gray-600">{item.summary}</p>
+                            </div>
+                            {item.timestamp && (
+                              <div className="text-xs text-gray-400">{new Date(item.timestamp).toLocaleString()}</div>
+                            )}
+                          </div>
+                          {item.details && (
+                            <div className="mt-3 rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                              {item.details}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    !timelineLoading && !timelineError && (
+                      <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-500">
+                        No timeline events yet for this case.
+                      </div>
+                    )
+                  )}
                 </div>
               )}
             </div>

@@ -23,6 +23,69 @@ const CATEGORY_LABEL: Record<string, string> = {
     'health':                 'Health',
     'digital':                'Digital',
 };
+
+const OFFLINE_QUEUE_KEY = 'gram-connect-volunteer-offline-drafts';
+
+type OfflineProofDraft = {
+    id: string;
+    kind: 'proof';
+    problemId: string;
+    taskTitle: string;
+    volunteerId: string;
+    createdAt: string;
+    beforeImage?: string | null;
+    afterImage: string;
+    notes?: string;
+};
+
+type OfflineJugaadDraft = {
+    id: string;
+    kind: 'jugaad';
+    problemId: string;
+    taskTitle: string;
+    volunteerId: string;
+    createdAt: string;
+    brokenImage: string;
+    materialsImage: string;
+    materialsNote?: string;
+};
+
+type OfflineDraft = OfflineProofDraft | OfflineJugaadDraft;
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+    return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Failed to read file for offline storage.'));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+    const response = await fetch(dataUrl);
+    return await response.blob();
+}
+
+function loadOfflineDrafts(): OfflineDraft[] {
+    try {
+        const raw = localStorage.getItem(OFFLINE_QUEUE_KEY);
+        if (!raw) {
+            return [];
+        }
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed as OfflineDraft[] : [];
+    } catch {
+        return [];
+    }
+}
+
+function saveOfflineDrafts(drafts: OfflineDraft[]) {
+    try {
+        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(drafts));
+    } catch {
+        // Ignore storage quota / privacy-mode failures.
+    }
+}
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import { api, type JugaadRepairResponse, type VolunteerTask } from '../services/api';
@@ -50,6 +113,8 @@ export default function VolunteerDashboard() {
     const [jugaadLoading, setJugaadLoading] = useState(false);
     const [jugaadResult, setJugaadResult] = useState<JugaadRepairResponse | null>(null);
     const [jugaadError, setJugaadError] = useState<string | null>(null);
+    const [offlineDrafts, setOfflineDrafts] = useState<OfflineDraft[]>(() => loadOfflineDrafts());
+    const [syncingDrafts, setSyncingDrafts] = useState(false);
     const activeTasks = tasks.filter((task) => task.status !== 'completed');
     const completedTasks = tasks.filter((task) => task.status === 'completed');
 
@@ -120,6 +185,10 @@ export default function VolunteerDashboard() {
     }, [loadTasks, profile]);
 
     useEffect(() => {
+        saveOfflineDrafts(offlineDrafts);
+    }, [offlineDrafts]);
+
+    useEffect(() => {
         if (!profile) {
             return;
         }
@@ -132,6 +201,103 @@ export default function VolunteerDashboard() {
             unsubscribe();
         };
     }, [loadTasks, profile]);
+
+    const syncOfflineDrafts = useCallback(async () => {
+        if (!profile || offlineDrafts.length === 0) {
+            return;
+        }
+        if (!navigator.onLine) {
+            return;
+        }
+
+        setSyncingDrafts(true);
+        try {
+            const remaining: OfflineDraft[] = [];
+            for (const draft of offlineDrafts) {
+                try {
+                    if (draft.kind === 'proof') {
+                        const afterBlob = await dataUrlToBlob(draft.afterImage);
+                        const beforeBlob = draft.beforeImage ? await dataUrlToBlob(draft.beforeImage) : null;
+                        let beforeMediaId: string | undefined;
+                        let afterMediaId: string | undefined;
+                        if (beforeBlob) {
+                            const beforeUpload = await api.uploadMedia(beforeBlob, {
+                                kind: 'proof_before',
+                                problemId: draft.problemId,
+                                volunteerId: draft.volunteerId,
+                                label: `${draft.taskTitle} before`,
+                                filename: 'offline-before.jpg',
+                            });
+                            beforeMediaId = beforeUpload.media.id;
+                        }
+                        const afterUpload = await api.uploadMedia(afterBlob, {
+                            kind: 'proof_after',
+                            problemId: draft.problemId,
+                            volunteerId: draft.volunteerId,
+                            label: `${draft.taskTitle} after`,
+                            filename: 'offline-after.jpg',
+                        });
+                        afterMediaId = afterUpload.media.id;
+                        await api.submitProof(draft.problemId, {
+                            volunteer_id: draft.volunteerId,
+                            before_media_id: beforeMediaId,
+                            after_media_id: afterMediaId,
+                            notes: draft.notes || 'Synced from offline draft',
+                        });
+                    } else {
+                        const brokenBlob = await dataUrlToBlob(draft.brokenImage);
+                        const materialsBlob = await dataUrlToBlob(draft.materialsImage);
+                        const [brokenUpload, materialsUpload] = await Promise.all([
+                            api.uploadMedia(brokenBlob, {
+                                kind: 'jugaad_broken',
+                                problemId: draft.problemId,
+                                volunteerId: draft.volunteerId,
+                                label: `${draft.taskTitle} broken mechanism`,
+                                filename: 'offline-broken.jpg',
+                            }),
+                            api.uploadMedia(materialsBlob, {
+                                kind: 'jugaad_materials',
+                                problemId: draft.problemId,
+                                volunteerId: draft.volunteerId,
+                                label: `${draft.taskTitle} available materials`,
+                                filename: 'offline-materials.jpg',
+                            }),
+                        ]);
+                        await api.requestJugaadRepair({
+                            problem_id: draft.problemId,
+                            volunteer_id: draft.volunteerId,
+                            broken_media_id: brokenUpload.media.id,
+                            materials_media_id: materialsUpload.media.id,
+                            notes: draft.materialsNote || undefined,
+                        });
+                    }
+                } catch (err) {
+                    console.error('Failed to sync offline draft', err);
+                    remaining.push(draft);
+                }
+            }
+            setOfflineDrafts(remaining);
+            if (remaining.length < offlineDrafts.length) {
+                await loadTasks();
+            }
+        } finally {
+            setSyncingDrafts(false);
+        }
+    }, [loadTasks, offlineDrafts, profile]);
+
+    useEffect(() => {
+        if (!profile) {
+            return;
+        }
+        void syncOfflineDrafts();
+        const handleOnline = () => {
+            void syncOfflineDrafts();
+        };
+        window.addEventListener('online', handleOnline);
+        return () => {
+            window.removeEventListener('online', handleOnline);
+        };
+    }, [profile, syncOfflineDrafts]);
 
     useEffect(() => {
         if (!selectedTask) {
@@ -158,6 +324,64 @@ export default function VolunteerDashboard() {
             setSelectedTaskTab('details');
         }
     }, [selectedTask]);
+
+    const queueProofDraft = useCallback(async () => {
+        if (!selectedTask || !profile || !afterImageFile) {
+            return false;
+        }
+        try {
+            const afterImage = await blobToDataUrl(afterImageFile);
+            const beforeImage = beforeImageFile ? await blobToDataUrl(beforeImageFile) : null;
+            setOfflineDrafts((current) => [
+                ...current,
+                {
+                    id: `draft-proof-${Date.now()}`,
+                    kind: 'proof',
+                    problemId: selectedTask.id,
+                    taskTitle: selectedTask.title,
+                    volunteerId: profile.id,
+                    createdAt: new Date().toISOString(),
+                    beforeImage,
+                    afterImage,
+                    notes: 'Stored offline while network was unavailable.',
+                },
+            ]);
+            return true;
+        } catch (err) {
+            console.error('Failed to store offline proof draft', err);
+            return false;
+        }
+    }, [afterImageFile, beforeImageFile, profile, selectedTask]);
+
+    const queueJugaadDraft = useCallback(async () => {
+        if (!selectedTask || !profile || !jugaadBrokenFile || !jugaadMaterialsFile) {
+            return false;
+        }
+        try {
+            const [brokenImage, materialsImage] = await Promise.all([
+                blobToDataUrl(jugaadBrokenFile),
+                blobToDataUrl(jugaadMaterialsFile),
+            ]);
+            setOfflineDrafts((current) => [
+                ...current,
+                {
+                    id: `draft-jugaad-${Date.now()}`,
+                    kind: 'jugaad',
+                    problemId: selectedTask.id,
+                    taskTitle: selectedTask.title,
+                    volunteerId: profile.id,
+                    createdAt: new Date().toISOString(),
+                    brokenImage,
+                    materialsImage,
+                    materialsNote: jugaadMaterialsNote.trim() || undefined,
+                },
+            ]);
+            return true;
+        } catch (err) {
+            console.error('Failed to store offline jugaad draft', err);
+            return false;
+        }
+    }, [jugaadBrokenFile, jugaadMaterialsFile, jugaadMaterialsNote, profile, selectedTask]);
 
     const handleComplete = async () => {
         if (!afterImageFile) {
@@ -207,7 +431,12 @@ export default function VolunteerDashboard() {
             loadTasks();
         } catch (err) {
             console.error("Task completion failed:", err);
-            alert(err instanceof Error ? err.message : "Failed to verify impact. Please try again.");
+            const stored = !navigator.onLine && await queueProofDraft();
+            alert(stored
+                ? "No connection detected. The proof was saved offline and will sync automatically."
+                : err instanceof Error
+                    ? err.message
+                    : "Failed to verify impact. Please try again.");
         } finally {
             setIsSubmitting(false);
         }
@@ -258,6 +487,10 @@ export default function VolunteerDashboard() {
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to generate temporary repair guidance.';
             setJugaadError(message);
+            const stored = !navigator.onLine && await queueJugaadDraft();
+            if (stored) {
+                setJugaadError('No connection detected. The repair request was saved offline and will sync automatically.');
+            }
         } finally {
             setJugaadLoading(false);
         }
@@ -283,6 +516,25 @@ export default function VolunteerDashboard() {
                     >
                         <ArrowLeft size={20} /> {t('volunteer.back_to_tasks')}
                     </button>
+
+                    {offlineDrafts.length > 0 && (
+                        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <div className="font-bold">Offline drafts waiting to sync</div>
+                                    <div className="mt-1">{offlineDrafts.length} proof or repair updates are stored locally.</div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => void syncOfflineDrafts()}
+                                    disabled={syncingDrafts || !navigator.onLine}
+                                    className="rounded-xl bg-amber-500 px-4 py-2 font-semibold text-white transition hover:bg-amber-600 disabled:opacity-60"
+                                >
+                                    {syncingDrafts ? 'Syncing...' : navigator.onLine ? 'Sync now' : 'Offline'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="bg-white rounded-2xl shadow-lg p-8">
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('seed.' + selectedTask.title, selectedTask.title)}</h2>
@@ -653,6 +905,25 @@ export default function VolunteerDashboard() {
                         {profile && <span className="text-xs text-gray-400">ID: {profile.id.slice(0, 8)}</span>}
                     </div>
                 </div>
+
+                {offlineDrafts.length > 0 && (
+                    <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <div className="font-bold">Offline drafts waiting to sync</div>
+                                <div className="mt-1">{offlineDrafts.length} proof or repair updates are stored locally.</div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => void syncOfflineDrafts()}
+                                disabled={syncingDrafts || !navigator.onLine}
+                                className="rounded-xl bg-amber-500 px-4 py-2 font-semibold text-white transition hover:bg-amber-600 disabled:opacity-60"
+                            >
+                                {syncingDrafts ? 'Syncing...' : navigator.onLine ? 'Sync now' : 'Offline'}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid gap-6">
                     <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">

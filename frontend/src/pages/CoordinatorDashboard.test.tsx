@@ -7,6 +7,17 @@ const getProblemsMock = vi.fn();
 const getVolunteersMock = vi.fn();
 const getRecommendationsMock = vi.fn();
 const assignTaskMock = vi.fn();
+const getEscalationsMock = vi.fn();
+const getReputationMock = vi.fn();
+const getRouteOptimizationMock = vi.fn();
+const getPlaybooksMock = vi.fn();
+const getInventoryMock = vi.fn();
+const getSeasonalRiskForecastMock = vi.fn();
+const getMaintenancePlanMock = vi.fn();
+const getHotspotHeatmapMock = vi.fn();
+const getCampaignModeMock = vi.fn();
+const getProblemTimelineMock = vi.fn();
+const getEvidenceComparisonMock = vi.fn();
 const mockProfile = {
   id: 'coord-1',
   full_name: 'Test Coordinator',
@@ -25,6 +36,17 @@ vi.mock('../services/api', () => ({
     getVolunteers: (...args: unknown[]) => getVolunteersMock(...args),
     getRecommendations: (...args: unknown[]) => getRecommendationsMock(...args),
     assignTask: (...args: unknown[]) => assignTaskMock(...args),
+    getEscalations: (...args: unknown[]) => getEscalationsMock(...args),
+    getReputation: (...args: unknown[]) => getReputationMock(...args),
+    getRouteOptimization: (...args: unknown[]) => getRouteOptimizationMock(...args),
+    getPlaybooks: (...args: unknown[]) => getPlaybooksMock(...args),
+    getInventory: (...args: unknown[]) => getInventoryMock(...args),
+    getSeasonalRiskForecast: (...args: unknown[]) => getSeasonalRiskForecastMock(...args),
+    getMaintenancePlan: (...args: unknown[]) => getMaintenancePlanMock(...args),
+    getHotspotHeatmap: (...args: unknown[]) => getHotspotHeatmapMock(...args),
+    getCampaignMode: (...args: unknown[]) => getCampaignModeMock(...args),
+    getProblemTimeline: (...args: unknown[]) => getProblemTimelineMock(...args),
+    getEvidenceComparison: (...args: unknown[]) => getEvidenceComparisonMock(...args),
     updateProblemStatus: vi.fn(),
   },
 }));
@@ -104,6 +126,36 @@ describe('CoordinatorDashboard', () => {
           ],
         },
       ],
+    });
+    getEscalationsMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 7, overdue_count: 0, items: [] });
+    getReputationMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 90, volunteers: [] });
+    getRouteOptimizationMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 14, routes: [] });
+    getPlaybooksMock.mockResolvedValue([]);
+    getInventoryMock.mockResolvedValue([]);
+    getSeasonalRiskForecastMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 365, summary: 'none', risks: [], top_topics: [], top_months: [] });
+    getMaintenancePlanMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 180, summary: 'none', items: [], top_assets: [] });
+    getHotspotHeatmapMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 90, summary: 'none', cells: [] });
+    getCampaignModeMock.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', window_days: 30, summary: 'none', campaigns: [], top_topics: [] });
+    getProblemTimelineMock.mockResolvedValue({
+      problem_id: 'problem-1',
+      problem: { id: 'problem-1' },
+      timeline: [],
+      summary: { event_count: 0, media_count: 0, assignment_count: 0, duplicate_count: 0, completed: false },
+    });
+    getEvidenceComparisonMock.mockResolvedValue({
+      generated_at: '2026-01-01T00:00:00',
+      problem_id: 'problem-1',
+      title: 'Broken Well Pump',
+      status: 'completed',
+      before_media_id: null,
+      after_media_id: null,
+      before_url: null,
+      after_url: null,
+      accepted: true,
+      confidence: 0.9,
+      summary: 'Looks fixed',
+      detected_change: 'pump repaired',
+      source: 'stored-proof',
     });
   });
 

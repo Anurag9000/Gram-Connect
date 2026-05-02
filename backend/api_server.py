@@ -8,7 +8,7 @@ import threading
 import uuid
 import re
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException, File, UploadFile, Form
@@ -17,14 +17,26 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import shutil
 import tempfile
+from collections import Counter, defaultdict
 
 from env_loader import load_local_env
 from demo_bootstrap import ensure_canonical_dataset, should_bootstrap_models
 from postgres_store import PostgresStore
 from recommender_service import RecommenderService
-from insights_service import analyze_coordinator_query, build_insight_overview
+from insights_service import (
+    analyze_coordinator_query,
+    build_insight_overview,
+    build_campaign_mode_plan,
+    build_hotspot_heatmap,
+    build_preventive_maintenance_plan,
+    build_root_cause_graph,
+    build_seasonal_risk_forecast,
+    build_weekly_briefing,
+    find_duplicate_problem_candidates,
+    infer_problem_triage,
+)
 from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity, extract_problem_from_whatsapp, suggest_jugaad_fix, suggest_immediate_problem_actions
-from notification_service import notify_problem_resolved, notify_team_assignment
+from notification_service import notify_problem_resolved, notify_problem_follow_up, notify_team_assignment
 from path_utils import (
     ensure_runtime_dir,
     get_repo_paths,
@@ -127,7 +139,7 @@ class ProfileRequest(BaseModel):
     email: Optional[str] = None
     full_name: str
     phone: Optional[str] = None
-    role: str = Field("villager", pattern="^(villager|volunteer|coordinator)$")
+    role: str = Field("villager", pattern="^(villager|volunteer|coordinator|supervisor|partner)$")
     village_name: Optional[str] = None
 
 
@@ -215,12 +227,31 @@ class ProblemGuidanceRequest(BaseModel):
     title: str
     description: str
     category: Optional[str] = None
+    village_name: Optional[str] = None
+    transcript: Optional[str] = None
     severity: Optional[str] = Field(None, pattern="^(LOW|NORMAL|HIGH)$")
     visual_tags: List[str] = Field(default_factory=list)
 
 
+class DuplicateCandidateResponse(BaseModel):
+    problem_id: str
+    title: Optional[str] = None
+    village_name: Optional[str] = None
+    category: Optional[str] = None
+    status: Optional[str] = None
+    created_at: Optional[str] = None
+    distance_km: Optional[float] = None
+    score: float
+    semantic_score: float
+    reason: str
+    suggested_action: str
+
+
 class ProblemGuidanceResponse(BaseModel):
     topic: str
+    department: str
+    urgency: str
+    response_path: str
     summary: str
     what_you_can_do_now: List[str]
     materials_to_find: List[str]
@@ -230,6 +261,143 @@ class ProblemGuidanceResponse(BaseModel):
     confidence: float
     source: str
     visual_tags: List[str]
+    duplicate_candidates: List[DuplicateCandidateResponse] = Field(default_factory=list)
+    similar_problem_count: int = 0
+    root_cause_hint: Optional[str] = None
+
+
+class PublicStatusBoardItem(BaseModel):
+    id: str
+    title: str
+    category: Optional[str] = None
+    village_name: Optional[str] = None
+    village_address: Optional[str] = None
+    status: str
+    severity: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    assigned_count: int = 0
+    duplicate_count: int = 0
+    media_count: int = 0
+
+
+class PublicStatusBoardResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    village_name: Optional[str] = None
+    status_filter: Optional[str] = None
+    open_count: int
+    in_progress_count: int
+    completed_count: int
+    total_count: int
+    items: List[PublicStatusBoardItem]
+
+
+class PlaybookResponse(BaseModel):
+    id: str
+    topic: str
+    village_name: Optional[str] = None
+    title: str
+    summary: str
+    materials: List[str]
+    safety_notes: List[str]
+    steps: List[str]
+    source_problem_id: Optional[str] = None
+    source_problem_title: Optional[str] = None
+    created_at: str
+
+
+class InventoryItemRequest(BaseModel):
+    owner_type: str = Field(pattern="^(village|volunteer|coordinator)$")
+    owner_id: str
+    item_name: str
+    quantity: int = Field(ge=0)
+    notes: Optional[str] = None
+
+
+class InventoryItemResponse(BaseModel):
+    id: str
+    owner_type: str
+    owner_id: str
+    item_name: str
+    quantity: int
+    notes: Optional[str] = None
+    updated_at: str
+
+
+class EscalationResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    overdue_count: int
+    items: List[Dict[str, Any]]
+
+
+class ReputationResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    volunteers: List[Dict[str, Any]]
+
+
+class RouteOptimizerResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    routes: List[Dict[str, Any]]
+
+
+class FollowUpFeedbackRequest(BaseModel):
+    source: str = Field("public-board", pattern="^(public-board|whatsapp|sms|manual|phone)$")
+    response: str = Field(pattern="^(resolved|still_broken|needs_more_help)$")
+    note: Optional[str] = None
+    reporter_name: Optional[str] = None
+    reporter_phone: Optional[str] = None
+
+
+class SeasonalRiskResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    summary: str
+    risks: List[Dict[str, Any]]
+    top_topics: List[Any] = Field(default_factory=list)
+    top_months: List[Any] = Field(default_factory=list)
+
+
+class MaintenancePlanResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    summary: str
+    items: List[Dict[str, Any]]
+    top_assets: List[Any] = Field(default_factory=list)
+
+
+class HeatmapResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    summary: str
+    cells: List[Dict[str, Any]]
+
+
+class CampaignModeResponse(BaseModel):
+    generated_at: str
+    window_days: int
+    summary: str
+    campaigns: List[Dict[str, Any]]
+    top_topics: List[Any] = Field(default_factory=list)
+
+
+class EvidenceComparisonResponse(BaseModel):
+    generated_at: str
+    problem_id: str
+    title: str
+    status: str
+    before_media_id: Optional[str] = None
+    after_media_id: Optional[str] = None
+    before_url: Optional[str] = None
+    after_url: Optional[str] = None
+    accepted: bool
+    confidence: float
+    summary: str
+    detected_change: str
+    source: str
 
 
 @app.get("/health")
@@ -1089,6 +1257,467 @@ def _match_targets_volunteer(match: Dict[str, Any], volunteer_id: str) -> bool:
     )
 
 
+def _attach_duplicate_report(
+    target_problem: Dict[str, Any],
+    *,
+    request: ProblemRequest,
+    duplicate_score: float,
+    duplicate_reason: str,
+    matched_problem_id: str,
+) -> Dict[str, Any]:
+    duplicate_report = {
+        "id": f"dup-{uuid.uuid4().hex[:12]}",
+        "problem_id": matched_problem_id,
+        "reported_at": _now_iso(),
+        "reporter_name": request.reporter_name,
+        "reporter_phone": request.reporter_phone,
+        "reporter_id": request.villager_id or request.coordinator_id,
+        "title": request.title,
+        "description": request.description,
+        "category": request.category,
+        "village_name": request.village_name,
+        "village_address": request.village_address,
+        "severity": request.severity,
+        "visual_tags": list(request.visual_tags or []),
+        "transcript": request.transcript,
+        "transcript_language": request.transcript_language,
+        "source": "auto-duplicate-merge",
+        "duplicate_score": round(float(duplicate_score), 3),
+        "duplicate_reason": duplicate_reason,
+    }
+    reports = target_problem.setdefault("duplicate_reports", [])
+    if not isinstance(reports, list):
+        reports = []
+        target_problem["duplicate_reports"] = reports
+    reports.append(duplicate_report)
+    target_problem["duplicate_count"] = len(reports)
+    target_problem["updated_at"] = _now_iso()
+    return duplicate_report
+
+
+def _problem_timeline(problem: Dict[str, Any]) -> Dict[str, Any]:
+    timeline: List[Dict[str, Any]] = []
+    problem_id = str(problem.get("id") or "")
+
+    created_at = problem.get("created_at") or problem.get("updated_at") or _now_iso()
+    timeline.append({
+        "type": "reported",
+        "timestamp": created_at,
+        "title": "Problem reported",
+        "summary": problem.get("title") or "Problem reported",
+        "details": problem.get("description") or "",
+        "source": "problem",
+    })
+
+    for duplicate in problem.get("duplicate_reports") or []:
+        timeline.append({
+            "type": "duplicate_reported",
+            "timestamp": duplicate.get("reported_at") or created_at,
+            "title": "Duplicate report attached",
+            "summary": duplicate.get("title") or "Repeated complaint",
+            "details": duplicate.get("duplicate_reason") or "Attached as a duplicate report.",
+            "source": "duplicate",
+            "data": duplicate,
+        })
+
+    for asset in MEDIA_ASSETS:
+        if asset.get("problem_id") != problem_id:
+            continue
+        timeline.append({
+            "type": "media_uploaded",
+            "timestamp": asset.get("created_at") or created_at,
+            "title": f"Media uploaded: {asset.get('kind') or 'attachment'}",
+            "summary": asset.get("label") or asset.get("filename") or asset.get("kind") or "Uploaded media",
+            "details": asset.get("url") or "",
+            "source": "media",
+            "data": {
+                "media_id": asset.get("id"),
+                "kind": asset.get("kind"),
+                "label": asset.get("label"),
+                "url": asset.get("url"),
+            },
+        })
+
+    for match in problem.get("matches") or []:
+        volunteer = match.get("volunteers") or {}
+        volunteer_name = (
+            volunteer.get("profiles", {}).get("full_name")
+            or volunteer.get("profile", {}).get("full_name")
+            or volunteer.get("name")
+            or volunteer.get("id")
+            or volunteer.get("user_id")
+            or "Volunteer"
+        )
+        timeline.append({
+            "type": "assigned",
+            "timestamp": match.get("assigned_at") or created_at,
+            "title": "Volunteer assigned",
+            "summary": volunteer_name,
+            "details": match.get("notes") or "",
+            "source": "assignment",
+            "data": {
+                "match_id": match.get("id"),
+                "volunteer_id": match.get("volunteer_id"),
+            },
+        })
+        if match.get("completed_at"):
+            timeline.append({
+                "type": "completed",
+                "timestamp": match.get("completed_at") or created_at,
+                "title": "Match completed",
+                "summary": volunteer_name,
+                "details": match.get("notes") or "Volunteer marked the case as complete.",
+                "source": "assignment",
+                "data": {
+                    "match_id": match.get("id"),
+                    "volunteer_id": match.get("volunteer_id"),
+                },
+            })
+
+    try:
+        events = DATA_STORE.get_recent_learning_events(
+            limit=200,
+            entity_type="problem",
+            entity_id=problem_id,
+        )
+        for event in events:
+            timeline.append({
+                "type": event.get("event_type"),
+                "timestamp": event.get("created_at"),
+                "title": event.get("summary") or event.get("event_type"),
+                "summary": event.get("summary") or event.get("event_type"),
+                "details": json.dumps(event.get("data") or {}, ensure_ascii=False),
+                "source": "learning_event",
+                "data": event.get("data") or {},
+            })
+    except Exception as exc:
+        logger.warning("Failed to load learning events for timeline %s: %s", problem_id, exc)
+
+    timeline.sort(key=lambda item: str(item.get("timestamp") or ""))
+    return {
+        "problem_id": problem_id,
+        "problem": _serialize_problem(problem),
+        "timeline": timeline,
+        "summary": {
+            "event_count": len(timeline),
+            "media_count": sum(1 for item in timeline if item["type"] == "media_uploaded"),
+            "assignment_count": sum(1 for item in timeline if item["type"] == "assigned"),
+            "duplicate_count": len(problem.get("duplicate_reports") or []),
+            "completed": problem.get("status") == "completed",
+        },
+    }
+
+
+def _public_status_board(
+    problems: List[Dict[str, Any]],
+    *,
+    village_name: Optional[str] = None,
+    status_filter: Optional[str] = None,
+    days_back: int = 60,
+) -> Dict[str, Any]:
+    cutoff = datetime.now() - timedelta(days=max(1, days_back))
+    filtered: List[Dict[str, Any]] = []
+    for problem in problems:
+        created_at_raw = problem.get("created_at") or problem.get("updated_at")
+        created_at = None
+        if created_at_raw:
+            try:
+                created_at = datetime.fromisoformat(str(created_at_raw).replace("Z", "+00:00"))
+                if created_at.tzinfo:
+                    created_at = created_at.astimezone(timezone.utc).replace(tzinfo=None)
+            except ValueError:
+                created_at = None
+        if created_at and created_at < cutoff:
+            continue
+        if village_name and str(problem.get("village_name") or "").strip().lower() != village_name.strip().lower():
+            continue
+        if status_filter and str(problem.get("status") or "") != status_filter:
+            continue
+        filtered.append(problem)
+
+    items: List[Dict[str, Any]] = []
+    for problem in sorted(filtered, key=lambda item: str(item.get("updated_at") or item.get("created_at") or ""), reverse=True):
+        items.append({
+            "id": str(problem.get("id") or ""),
+            "title": problem.get("title") or "Untitled problem",
+            "category": problem.get("category"),
+            "village_name": problem.get("village_name"),
+            "village_address": problem.get("village_address"),
+            "status": problem.get("status") or "pending",
+            "severity": problem.get("severity"),
+            "created_at": problem.get("created_at"),
+            "updated_at": problem.get("updated_at"),
+            "assigned_count": len(problem.get("matches") or []),
+            "duplicate_count": len(problem.get("duplicate_reports") or []),
+            "media_count": len(problem.get("media_ids") or []),
+        })
+
+    open_count = sum(1 for problem in filtered if problem.get("status") == "pending")
+    in_progress_count = sum(1 for problem in filtered if problem.get("status") == "in_progress")
+    completed_count = sum(1 for problem in filtered if problem.get("status") == "completed")
+    return {
+        "generated_at": _now_iso(),
+        "window_days": days_back,
+        "village_name": village_name,
+        "status_filter": status_filter,
+        "open_count": open_count,
+        "in_progress_count": in_progress_count,
+        "completed_count": completed_count,
+        "total_count": len(filtered),
+        "items": items[:100],
+    }
+
+
+def _problem_topic(problem: Dict[str, Any]) -> str:
+    triage = infer_problem_triage(
+        problem_title=str(problem.get("title") or ""),
+        problem_description=str(problem.get("description") or ""),
+        category=problem.get("category"),
+        visual_tags=list(problem.get("visual_tags") or []),
+        severity=problem.get("severity"),
+    )
+    return str(triage.get("topic") or "general")
+
+
+def _problem_playbook(problem: Dict[str, Any], proof: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    topic = _problem_topic(problem)
+    steps = [
+        f"Inspect the {problem.get('category') or topic} issue reported in {problem.get('village_name') or 'the village'}.",
+        "Secure the area and verify that the issue is safe to approach.",
+        "Apply the smallest safe temporary fix that keeps the service usable.",
+        "Document what was changed with before/after photos and notes.",
+    ]
+    materials = sorted({
+        *(problem.get("visual_tags") or []),
+        problem.get("category") or "",
+        topic,
+    })
+    materials = [item for item in materials if item]
+    safety_notes = [
+        "Do not attempt a repair if the situation is electrically live, pressurized, or structurally unstable.",
+        "Stop if the temporary fix starts failing or creates a new hazard.",
+    ]
+    summary = (
+        proof.get("notes")
+        if proof and proof.get("notes")
+        else problem.get("description")
+        or "Solved case playbook derived from the completed issue."
+    )
+    return {
+        "id": f"playbook-{problem.get('id')}",
+        "topic": topic,
+        "village_name": problem.get("village_name"),
+        "title": problem.get("title") or "Solved case playbook",
+        "summary": summary,
+        "materials": materials,
+        "safety_notes": safety_notes,
+        "steps": steps,
+        "source_problem_id": problem.get("id"),
+        "source_problem_title": problem.get("title"),
+        "created_at": _now_iso(),
+    }
+
+
+def _record_playbook_for_problem(problem: Dict[str, Any], proof: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    playbook = _problem_playbook(problem, proof)
+    try:
+        DATA_STORE.save_playbook(
+            playbook_id=playbook["id"],
+            topic=playbook["topic"],
+            village_name=playbook.get("village_name"),
+            data=playbook,
+        )
+    except Exception as exc:
+        logger.warning("Failed to persist playbook for %s: %s", problem.get("id"), exc)
+    return playbook
+
+
+def _escalation_level(problem: Dict[str, Any]) -> Dict[str, Any]:
+    created_at_raw = problem.get("created_at") or problem.get("updated_at")
+    created_at = None
+    if created_at_raw:
+        try:
+            created_at = datetime.fromisoformat(str(created_at_raw).replace("Z", "+00:00"))
+            if created_at.tzinfo:
+                created_at = created_at.astimezone(timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            created_at = None
+    age_hours = max(0.0, (datetime.now() - created_at).total_seconds() / 3600.0) if created_at else 0.0
+    severity = str(problem.get("severity") or "NORMAL").upper()
+    thresholds = {
+        "HIGH": (12, 48, 96),
+        "NORMAL": (24, 72, 168),
+        "LOW": (48, 120, 240),
+    }
+    coordinator, supervisor, partner = thresholds.get(severity, thresholds["NORMAL"])
+    if age_hours >= partner:
+        level = "partner_org"
+    elif age_hours >= supervisor:
+        level = "supervisor"
+    elif age_hours >= coordinator:
+        level = "coordinator"
+    else:
+        level = "watch"
+    return {
+        "problem_id": problem.get("id"),
+        "title": problem.get("title"),
+        "village_name": problem.get("village_name"),
+        "severity": severity,
+        "status": problem.get("status"),
+        "age_hours": round(age_hours, 1),
+        "escalation_level": level,
+        "next_action": {
+            "coordinator": "Notify the coordinator immediately.",
+            "supervisor": "Escalate to the supervisor and request a review.",
+            "partner_org": "Escalate outside the village chain to the partner org.",
+            "watch": "Continue monitoring for movement.",
+        }.get(level, "Continue monitoring for movement."),
+    }
+
+
+def _volunteer_reputation(problems: List[Dict[str, Any]], volunteers: List[Dict[str, Any]], days_back: int = 90) -> List[Dict[str, Any]]:
+    cutoff = datetime.now() - timedelta(days=max(1, days_back))
+    rows: List[Dict[str, Any]] = []
+    for volunteer in volunteers:
+        volunteer_id = str(volunteer.get("id") or volunteer.get("user_id") or "")
+        if not volunteer_id:
+            continue
+        completed = 0
+        open_assignments = 0
+        duplicate_reports = 0
+        resolution_hours: List[float] = []
+        for problem in problems:
+            problem_created_raw = problem.get("created_at") or problem.get("updated_at")
+            problem_created = None
+            if problem_created_raw:
+                try:
+                    problem_created = datetime.fromisoformat(str(problem_created_raw).replace("Z", "+00:00"))
+                    if problem_created.tzinfo:
+                        problem_created = problem_created.astimezone(timezone.utc).replace(tzinfo=None)
+                except ValueError:
+                    problem_created = None
+            if problem_created and problem_created < cutoff:
+                continue
+
+            duplicate_reports += len(problem.get("duplicate_reports") or [])
+            for match in problem.get("matches") or []:
+                if not _match_targets_volunteer(match, volunteer_id):
+                    continue
+                assigned_at = match.get("assigned_at")
+                completed_at = match.get("completed_at")
+                assigned_dt = None
+                completed_dt = None
+                try:
+                    assigned_dt = datetime.fromisoformat(str(assigned_at).replace("Z", "+00:00")) if assigned_at else None
+                    if assigned_dt and assigned_dt.tzinfo:
+                        assigned_dt = assigned_dt.astimezone(timezone.utc).replace(tzinfo=None)
+                except ValueError:
+                    assigned_dt = None
+                try:
+                    completed_dt = datetime.fromisoformat(str(completed_at).replace("Z", "+00:00")) if completed_at else None
+                    if completed_dt and completed_dt.tzinfo:
+                        completed_dt = completed_dt.astimezone(timezone.utc).replace(tzinfo=None)
+                except ValueError:
+                    completed_dt = None
+                if assigned_dt and assigned_dt < cutoff:
+                    open_assignments += 1 if not completed_dt else 0
+                if completed_dt:
+                    completed += 1
+                    if assigned_dt:
+                        resolution_hours.append(max(0.0, (completed_dt - assigned_dt).total_seconds() / 3600.0))
+
+        avg_hours = sum(resolution_hours) / len(resolution_hours) if resolution_hours else None
+        reliability = 0.5
+        if completed:
+            reliability += min(0.3, completed * 0.03)
+        if avg_hours is not None:
+            reliability += max(0.0, 0.2 - min(avg_hours / 72.0, 0.2))
+        reliability -= min(0.3, open_assignments * 0.05)
+        reliability = max(0.0, min(1.0, reliability))
+        rows.append({
+            "volunteer_id": volunteer_id,
+            "name": str((volunteer.get("profiles") or {}).get("full_name") or volunteer.get("full_name") or volunteer_id),
+            "home_location": volunteer.get("home_location") or "",
+            "skills": list(volunteer.get("skills") or []),
+            "completed_count": completed,
+            "open_assignments": open_assignments,
+            "duplicate_reports_seen": duplicate_reports,
+            "avg_resolution_hours": round(avg_hours, 1) if avg_hours is not None else None,
+            "reliability_score": round(reliability, 3),
+        })
+    rows.sort(key=lambda row: (row["reliability_score"], row["completed_count"]), reverse=True)
+    return rows
+
+
+def _route_optimizer(problems: List[Dict[str, Any]], volunteers: List[Dict[str, Any]], days_back: int = 14) -> List[Dict[str, Any]]:
+    cutoff = datetime.now() - timedelta(days=max(1, days_back))
+    eligible_problems: List[Dict[str, Any]] = []
+    for problem in problems:
+        if problem.get("status") == "completed":
+            continue
+        created_raw = problem.get("created_at") or problem.get("updated_at")
+        if not created_raw:
+            continue
+        try:
+            created_dt = datetime.fromisoformat(str(created_raw).replace("Z", "+00:00"))
+            if created_dt.tzinfo:
+                created_dt = created_dt.astimezone(timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            continue
+        if created_dt >= cutoff:
+            eligible_problems.append(problem)
+
+    indexed = _serialize_problems(eligible_problems)
+    if not indexed:
+        return []
+
+    routes_by_village: Dict[str, Dict[str, Any]] = {}
+    volunteer_by_village: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for volunteer in volunteers:
+        home = str(volunteer.get("home_location") or "").strip()
+        if home:
+            volunteer_by_village[home].append(volunteer)
+
+    for problem in indexed:
+        village = problem.get("village_name") or "Unknown"
+        route = routes_by_village.setdefault(village, {
+            "route_id": f"route-{len(routes_by_village) + 1}",
+            "village_name": village,
+            "problem_ids": [],
+            "titles": [],
+            "severity_counts": Counter(),
+            "recommended_volunteers": [],
+            "route_hint": "Cluster this village's open cases into one visit where possible.",
+        })
+        route["problem_ids"].append(problem.get("id"))
+        route["titles"].append(problem.get("title"))
+        route["severity_counts"][str(problem.get("severity") or "NORMAL")] += 1
+
+    routes: List[Dict[str, Any]] = []
+    for village, route in routes_by_village.items():
+        volunteers_for_village = volunteer_by_village.get(village, [])
+        routes.append({
+            "route_id": route["route_id"],
+            "village_name": village,
+            "problem_ids": route["problem_ids"],
+            "titles": route["titles"][:5],
+            "problem_count": len(route["problem_ids"]),
+            "severity_counts": dict(route["severity_counts"]),
+            "recommended_volunteers": [
+                {
+                    "volunteer_id": str(volunteer.get("id") or volunteer.get("user_id")),
+                    "name": (volunteer.get("profiles") or {}).get("full_name") or volunteer.get("full_name") or volunteer.get("id"),
+                    "skills": list(volunteer.get("skills") or []),
+                }
+                for volunteer in volunteers_for_village[:3]
+            ],
+            "route_hint": route["route_hint"],
+        })
+
+    routes.sort(key=lambda item: (item["problem_count"], item["village_name"]), reverse=True)
+    return routes
+
+
 def _record_learning_event(
     event_type: str,
     *,
@@ -1484,6 +2113,8 @@ async def update_problem_status(problem_id: str, payload: Dict[str, str]):
             or problem.get("profile", {}).get("phone")
         )
         notify_problem_resolved(villager_phone, problem.get("title", "Reported issue"))
+        notify_problem_follow_up(villager_phone, problem.get("title", "Reported issue"))
+        _record_playbook_for_problem(problem)
     elif new_status in {"pending", "in_progress"}:
         for match in problem.get("matches", []):
             match["completed_at"] = None
@@ -1628,6 +2259,7 @@ async def submit_proof(problem_id: str, request: ProofRequest):
             str(verification.get("summary") or ""),
         ]),
     )
+    _record_playbook_for_problem(problem, proof)
     persist_runtime_state()
     return {"status": "success", "problem": _serialize_problem(problem), "proof": proof}
 
@@ -1679,14 +2311,42 @@ async def jugaad_assist_endpoint(request: JugaadRequest):
 @app.post("/api/v1/problems/instant-guidance", response_model=ProblemGuidanceResponse)
 async def problem_guidance_endpoint(request: ProblemGuidanceRequest):
     try:
+        triage = infer_problem_triage(
+            problem_title=request.title,
+            problem_description=request.description,
+            category=request.category,
+            visual_tags=request.visual_tags,
+            severity=request.severity,
+        )
+        duplicate_candidates = find_duplicate_problem_candidates(
+            PROBLEMS,
+            title=request.title,
+            description=request.description,
+            village_name=request.village_name,
+            category=request.category,
+            visual_tags=request.visual_tags,
+            transcript=request.transcript,
+            limit=4,
+        )
+        guidance = suggest_immediate_problem_actions(
+            problem_title=request.title,
+            problem_description=request.description,
+            category=request.category,
+            visual_tags=request.visual_tags,
+            severity=request.severity,
+        )
+        guidance_payload = dict(guidance)
+        guidance_payload.pop("department", None)
+        guidance_payload.pop("urgency", None)
+        guidance_payload.pop("response_path", None)
         response = ProblemGuidanceResponse(
-            **suggest_immediate_problem_actions(
-                problem_title=request.title,
-                problem_description=request.description,
-                category=request.category,
-                visual_tags=request.visual_tags,
-                severity=request.severity,
-            )
+            **guidance_payload,
+            department=triage["department"],
+            urgency=triage["urgency"],
+            response_path=triage["response_path"],
+            duplicate_candidates=duplicate_candidates,
+            similar_problem_count=len(duplicate_candidates),
+            root_cause_hint=triage.get("root_cause_hint"),
         )
         _record_learning_event(
             "instant_guidance_requested",
@@ -1784,6 +2444,35 @@ async def insights_overview_endpoint(days_back: int = 30):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/api/v1/insights/briefing")
+async def insights_briefing_endpoint(days_back: int = 7):
+    try:
+        response = build_weekly_briefing(PROBLEMS, VOLUNTEERS, days_back=days_back)
+        _record_learning_event(
+            "weekly_briefing",
+            entity_type="query",
+            summary=f"Weekly briefing requested for {days_back} days",
+            payload={"days_back": days_back, "response": response},
+            text=f"weekly briefing {days_back} days",
+        )
+        return response
+    except Exception as exc:
+        logger.exception("Weekly briefing generation failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/problems/{problem_id}/timeline")
+async def problem_timeline_endpoint(problem_id: str):
+    problem = next((item for item in PROBLEMS if item["id"] == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    try:
+        return _problem_timeline(problem)
+    except Exception as exc:
+        logger.exception("Problem timeline lookup failed for %s", problem_id)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/v1/learning/events")
 async def learning_events_endpoint(
     limit: int = 50,
@@ -1804,10 +2493,266 @@ async def learning_events_endpoint(
         logger.exception("Learning events lookup failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
+
+@app.get("/api/v1/playbooks", response_model=List[PlaybookResponse])
+async def playbooks_endpoint(
+    topic: Optional[str] = None,
+    village_name: Optional[str] = None,
+    limit: int = 25,
+):
+    try:
+        rows = DATA_STORE.list_playbooks(topic=topic, village_name=village_name, limit=limit)
+        return [
+            {
+                "id": row["id"],
+                "topic": row.get("topic") or row.get("data", {}).get("topic") or "general",
+                "village_name": row.get("village_name") or row.get("data", {}).get("village_name"),
+                "title": row.get("data", {}).get("title") or row["id"],
+                "summary": row.get("data", {}).get("summary") or "",
+                "materials": list(row.get("data", {}).get("materials") or []),
+                "safety_notes": list(row.get("data", {}).get("safety_notes") or []),
+                "steps": list(row.get("data", {}).get("steps") or []),
+                "source_problem_id": row.get("data", {}).get("source_problem_id"),
+                "source_problem_title": row.get("data", {}).get("source_problem_title"),
+                "created_at": row.get("data", {}).get("created_at") or row.get("updated_at") or _now_iso(),
+            }
+            for row in rows
+        ]
+    except Exception as exc:
+        logger.exception("Playbooks lookup failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/inventory", response_model=List[InventoryItemResponse])
+async def inventory_list_endpoint(
+    owner_type: Optional[str] = None,
+    owner_id: Optional[str] = None,
+):
+    try:
+        rows = DATA_STORE.list_inventory(owner_type=owner_type, owner_id=owner_id)
+        return [
+            {
+                "id": row["id"],
+                "owner_type": row["owner_type"],
+                "owner_id": row["owner_id"],
+                "item_name": row["item_name"],
+                "quantity": row["quantity"],
+                "notes": row.get("data", {}).get("notes"),
+                "updated_at": row["updated_at"],
+            }
+            for row in rows
+        ]
+    except Exception as exc:
+        logger.exception("Inventory lookup failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/inventory", response_model=InventoryItemResponse)
+async def inventory_upsert_endpoint(request: InventoryItemRequest):
+    try:
+        return DATA_STORE.upsert_inventory_item(
+            owner_type=request.owner_type,
+            owner_id=request.owner_id,
+            item_name=request.item_name,
+            quantity=request.quantity,
+            data={"notes": request.notes},
+        )
+    except Exception as exc:
+        logger.exception("Inventory update failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/escalations", response_model=EscalationResponse)
+async def escalations_endpoint(days_back: int = 7):
+    try:
+        cutoff = datetime.now() - timedelta(days=max(1, days_back))
+        items = []
+        for problem in PROBLEMS:
+            if problem.get("status") == "completed":
+                continue
+            created_raw = problem.get("created_at") or problem.get("updated_at")
+            created_dt = None
+            if created_raw:
+                try:
+                    created_dt = datetime.fromisoformat(str(created_raw).replace("Z", "+00:00"))
+                    if created_dt.tzinfo:
+                        created_dt = created_dt.astimezone(timezone.utc).replace(tzinfo=None)
+                except ValueError:
+                    created_dt = None
+            if created_dt and created_dt < cutoff:
+                continue
+            items.append(_escalation_level(problem))
+        items = [item for item in items if item["escalation_level"] != "watch"]
+        items.sort(key=lambda item: (item["age_hours"], item["severity"]), reverse=True)
+        return {
+            "generated_at": _now_iso(),
+            "window_days": days_back,
+            "overdue_count": len(items),
+            "items": items[:50],
+        }
+    except Exception as exc:
+        logger.exception("Escalation scan failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/reputation", response_model=ReputationResponse)
+async def reputation_endpoint(days_back: int = 90):
+    try:
+        return {
+            "generated_at": _now_iso(),
+            "window_days": days_back,
+            "volunteers": _volunteer_reputation(PROBLEMS, VOLUNTEERS, days_back=days_back),
+        }
+    except Exception as exc:
+        logger.exception("Reputation scan failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/routes/optimizer", response_model=RouteOptimizerResponse)
+async def route_optimizer_endpoint(days_back: int = 14):
+    try:
+        return {
+            "generated_at": _now_iso(),
+            "window_days": days_back,
+            "routes": _route_optimizer(PROBLEMS, VOLUNTEERS, days_back=days_back),
+        }
+    except Exception as exc:
+        logger.exception("Route optimization failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/insights/seasonal-risk", response_model=SeasonalRiskResponse)
+async def seasonal_risk_endpoint(days_back: int = 365):
+    try:
+        return build_seasonal_risk_forecast(PROBLEMS, days_back=days_back)
+    except Exception as exc:
+        logger.exception("Seasonal risk forecast failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/maintenance/plan", response_model=MaintenancePlanResponse)
+async def maintenance_plan_endpoint(days_back: int = 180):
+    try:
+        return build_preventive_maintenance_plan(PROBLEMS, VOLUNTEERS, days_back=days_back)
+    except Exception as exc:
+        logger.exception("Preventive maintenance plan failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/hotspots/heatmap", response_model=HeatmapResponse)
+async def hotspot_heatmap_endpoint(days_back: int = 90):
+    try:
+        return build_hotspot_heatmap(PROBLEMS, days_back=days_back)
+    except Exception as exc:
+        logger.exception("Hotspot heatmap failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/campaigns/plan", response_model=CampaignModeResponse)
+async def campaign_mode_endpoint(days_back: int = 30, topic: Optional[str] = None):
+    try:
+        return build_campaign_mode_plan(PROBLEMS, VOLUNTEERS, days_back=days_back, focus_topic=topic)
+    except Exception as exc:
+        logger.exception("Campaign mode planning failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/problems/{problem_id}/evidence-comparison", response_model=EvidenceComparisonResponse)
+async def evidence_comparison_endpoint(problem_id: str):
+    problem = next((item for item in PROBLEMS if item.get("id") == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+
+    proof = problem.get("proof") or {}
+    if not proof:
+        raise HTTPException(status_code=404, detail="No proof has been submitted for this problem")
+
+    before_media_id = proof.get("before_media_id")
+    after_media_id = proof.get("after_media_id")
+    before_asset = _asset_by_id(before_media_id) if before_media_id else None
+    after_asset = _asset_by_id(after_media_id) if after_media_id else None
+    verification = proof.get("verification") or {}
+
+    return {
+        "generated_at": _now_iso(),
+        "problem_id": problem_id,
+        "title": problem.get("title") or problem_id,
+        "status": problem.get("status") or "pending",
+        "before_media_id": before_media_id,
+        "after_media_id": after_media_id,
+        "before_url": before_asset.get("url") if before_asset else None,
+        "after_url": after_asset.get("url") if after_asset else None,
+        "accepted": bool(verification.get("accepted")),
+        "confidence": float(verification.get("confidence") or 0.0),
+        "summary": str(verification.get("summary") or "No comparison summary available."),
+        "detected_change": str(verification.get("detected_change") or "unknown"),
+        "source": str(verification.get("source") or "stored-proof"),
+    }
+
+
+@app.post("/problems/{problem_id}/follow-up-feedback")
+async def problem_follow_up_feedback_endpoint(problem_id: str, request: FollowUpFeedbackRequest):
+    problem = next((item for item in PROBLEMS if item.get("id") == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    try:
+        stored = DATA_STORE.record_followup_feedback(
+            problem_id=problem_id,
+            source=request.source,
+            response=request.response,
+            data=request.model_dump(),
+        )
+        if request.response != "resolved":
+            problem["status"] = "in_progress"
+            problem["updated_at"] = _now_iso()
+            persist_runtime_state()
+        _record_learning_event(
+            "problem_followup_feedback",
+            entity_type="problem",
+            entity_id=problem_id,
+            summary=f"Follow-up feedback: {request.response}",
+            payload={"problem_id": problem_id, "feedback": stored},
+            text=" ".join([
+                problem.get("title", ""),
+                problem.get("description", ""),
+                request.response,
+                request.note or "",
+            ]),
+        )
+        return {"status": "success", "feedback": stored, "problem": _serialize_problem(problem)}
+    except Exception as exc:
+        logger.exception("Follow-up feedback failed for %s", problem_id)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/public/status-board", response_model=PublicStatusBoardResponse)
+async def public_status_board_endpoint(
+    village_name: Optional[str] = None,
+    status: Optional[str] = None,
+    days_back: int = 60,
+):
+    try:
+        response = _public_status_board(
+            PROBLEMS,
+            village_name=village_name,
+            status_filter=status,
+            days_back=days_back,
+        )
+        _record_learning_event(
+            "public_status_board_viewed",
+            entity_type="query",
+            summary="Public status board viewed",
+            payload={"village_name": village_name, "status": status, "days_back": days_back},
+            text="public status board",
+        )
+        return response
+    except Exception as exc:
+        logger.exception("Public status board failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
 @app.post("/submit-problem")
 async def submit_problem_endpoint(request: ProblemRequest):
     try:
-        new_id = f"prob-{uuid.uuid4().hex[:12]}"
         reporter_id = request.villager_id or request.coordinator_id or f"villager-{uuid.uuid4().hex[:8]}"
         reporter_profile = _find_profile(reporter_id)
         if not reporter_profile:
@@ -1831,6 +2776,55 @@ async def submit_problem_endpoint(request: ProblemRequest):
             severity = infer_problem_severity(request.title, request.description, tags)
             severity_source = "AI Inferred"
 
+        duplicate_candidates = find_duplicate_problem_candidates(
+            PROBLEMS,
+            title=request.title,
+            description=request.description,
+            village_name=request.village_name,
+            category=request.category,
+            visual_tags=request.visual_tags,
+            transcript=request.transcript,
+            limit=3,
+        )
+        best_duplicate = duplicate_candidates[0] if duplicate_candidates else None
+        if best_duplicate and float(best_duplicate.get("score") or 0.0) >= 0.78:
+            target_problem = next((problem for problem in PROBLEMS if problem.get("id") == best_duplicate["problem_id"]), None)
+            if target_problem and target_problem.get("status") != "completed":
+                duplicate_report = _attach_duplicate_report(
+                    target_problem,
+                    request=request,
+                    duplicate_score=float(best_duplicate.get("score") or 0.0),
+                    duplicate_reason=str(best_duplicate.get("reason") or "Likely duplicate report"),
+                    matched_problem_id=str(best_duplicate["problem_id"]),
+                )
+                _record_learning_event(
+                    "problem_duplicate_attached",
+                    entity_type="problem",
+                    entity_id=str(target_problem.get("id")),
+                    summary=f"Attached duplicate report to {target_problem.get('id')}",
+                    payload={
+                        "target_problem_id": target_problem.get("id"),
+                        "duplicate_report": duplicate_report,
+                        "source_submission": request.model_dump(),
+                    },
+                    text=" ".join([
+                        request.title,
+                        request.description,
+                        request.category or "",
+                        request.village_name or "",
+                        str(best_duplicate.get("reason") or ""),
+                    ]),
+                )
+                persist_runtime_state()
+                return {
+                    "status": "duplicate_attached",
+                    "id": str(target_problem.get("id")),
+                    "duplicate_of": str(target_problem.get("id")),
+                    "duplicate_report": duplicate_report,
+                    "duplicate_candidates": duplicate_candidates,
+                }
+
+        new_id = f"prob-{uuid.uuid4().hex[:12]}"
         new_problem = {
             "id": new_id,
             "villager_id": reporter_id,
@@ -1853,6 +2847,7 @@ async def submit_problem_endpoint(request: ProblemRequest):
             "updated_at": _now_iso(),
             "profiles": reporter_profile,
             "matches": [],
+            "duplicate_reports": [],
         }
         PROBLEMS.insert(0, new_problem)
         _record_learning_event(

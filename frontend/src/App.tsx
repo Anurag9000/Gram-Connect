@@ -14,6 +14,11 @@ const CoordinatorDashboard = lazy(() => import('./pages/CoordinatorDashboard'));
 const VolunteerLogin = lazy(() => import('./pages/VolunteerLogin'));
 const CoordinatorLogin = lazy(() => import('./pages/CoordinatorLogin'));
 const VolunteerDashboard = lazy(() => import('./pages/VolunteerDashboard'));
+const SupervisorDashboard = lazy(() => import('./pages/SupervisorDashboard'));
+const PartnerDashboard = lazy(() => import('./pages/PartnerDashboard'));
+const SupervisorLogin = lazy(() => import('./pages/SupervisorLogin'));
+const PartnerLogin = lazy(() => import('./pages/PartnerLogin'));
+const PublicStatusBoard = lazy(() => import('./pages/PublicStatusBoard'));
 
 function AppContent() {
   const { loading } = useAuth();
@@ -53,7 +58,12 @@ function AppContent() {
               <Route path="/dashboard" element={<CoordinatorDashboard />} />
               <Route path="/volunteer-login" element={<VolunteerLogin />} />
               <Route path="/coordinator-login" element={<CoordinatorLogin />} />
+              <Route path="/supervisor-login" element={<SupervisorLogin />} />
+              <Route path="/partner-login" element={<PartnerLogin />} />
               <Route path="/volunteer-dashboard" element={<VolunteerDashboard />} />
+              <Route path="/supervisor-dashboard" element={<SupervisorDashboard />} />
+              <Route path="/partner-dashboard" element={<PartnerDashboard />} />
+              <Route path="/status" element={<PublicStatusBoard />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

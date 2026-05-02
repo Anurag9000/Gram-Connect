@@ -154,6 +154,20 @@ export interface InsightOverview {
     clusters: InsightCluster[];
 }
 
+export interface DuplicateCandidate {
+    problem_id: string;
+    title?: string;
+    village_name?: string;
+    category?: string;
+    status?: string;
+    created_at?: string;
+    distance_km?: number | null;
+    score: number;
+    semantic_score: number;
+    reason: string;
+    suggested_action: string;
+}
+
 export interface InsightChatRequest {
     query: string;
     days_back?: number;
@@ -169,6 +183,77 @@ export interface InsightChatResponse {
     overview: InsightOverview;
     payload: Record<string, unknown>;
     suggested_questions: string[];
+}
+
+export interface WeeklyBriefing {
+    generated_at: string;
+    window_days: number;
+    summary: string;
+    highlights: string[];
+    stats: InsightOverview['stats'];
+    risk_alerts: InsightCluster[];
+    open_cases: Array<{
+        problem_id: string;
+        title?: string;
+        village_name?: string;
+        category?: string;
+        status?: string;
+        severity?: string;
+        created_at?: string;
+        age_days: number;
+        topic?: string;
+    }>;
+    volunteer_load: Array<{
+        volunteer_id: string;
+        name: string;
+        home_location?: string;
+        assignment_count: number;
+        skills: string[];
+    }>;
+    root_cause_graph: {
+        generated_at: string;
+        window_days: number;
+        nodes: Array<{
+            id: string;
+            label: string;
+            kind: string;
+            weight: number;
+        }>;
+        edges: Array<{
+            source: string;
+            target: string;
+            weight: number;
+        }>;
+        summary: string;
+        top_topics: [string, number][];
+        top_villages: [string, number][];
+        top_assets: [string, number][];
+        top_months: [string, number][];
+    };
+    duplicate_patterns: [string, number][];
+}
+
+export interface ProblemTimelineItem {
+    type: string;
+    timestamp?: string;
+    title: string;
+    summary: string;
+    details?: string;
+    source?: string;
+    data?: Record<string, unknown>;
+}
+
+export interface ProblemTimelineResponse {
+    problem_id: string;
+    problem: ProblemRecord;
+    timeline: ProblemTimelineItem[];
+    summary: {
+        event_count: number;
+        media_count: number;
+        assignment_count: number;
+        duplicate_count: number;
+        completed: boolean;
+    };
 }
 
 export interface ProblemSubmission {
@@ -194,7 +279,7 @@ export interface ProfileSubmission {
     email?: string;
     full_name: string;
     phone?: string;
-    role?: 'villager' | 'volunteer' | 'coordinator';
+    role?: 'villager' | 'volunteer' | 'coordinator' | 'supervisor' | 'partner';
     village_name?: string;
 }
 
@@ -303,12 +388,17 @@ export interface ProblemGuidanceRequest {
     title: string;
     description: string;
     category?: string;
+    village_name?: string;
+    transcript?: string;
     severity?: 'LOW' | 'NORMAL' | 'HIGH';
     visual_tags?: string[];
 }
 
 export interface ProblemGuidanceResponse {
     topic: string;
+    department: string;
+    urgency: string;
+    response_path: string;
     summary: string;
     what_you_can_do_now: string[];
     materials_to_find: string[];
@@ -318,6 +408,219 @@ export interface ProblemGuidanceResponse {
     confidence: number;
     source: string;
     visual_tags: string[];
+    duplicate_candidates: DuplicateCandidate[];
+    similar_problem_count: number;
+    root_cause_hint?: string | null;
+}
+
+export interface ProblemSubmissionResponse {
+    status: string;
+    id: string;
+    duplicate_of?: string | null;
+    duplicate_report?: Record<string, unknown> | null;
+    duplicate_candidates?: DuplicateCandidate[];
+}
+
+export interface PublicStatusBoardItem {
+    id: string;
+    title: string;
+    category?: string | null;
+    village_name?: string | null;
+    village_address?: string | null;
+    status: string;
+    severity?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+    assigned_count: number;
+    duplicate_count: number;
+    media_count: number;
+}
+
+export interface PublicStatusBoardResponse {
+    generated_at: string;
+    window_days: number;
+    village_name?: string | null;
+    status_filter?: string | null;
+    open_count: number;
+    in_progress_count: number;
+    completed_count: number;
+    total_count: number;
+    items: PublicStatusBoardItem[];
+}
+
+export interface PlaybookRecord {
+    id: string;
+    topic: string;
+    village_name?: string | null;
+    title: string;
+    summary: string;
+    materials: string[];
+    safety_notes: string[];
+    steps: string[];
+    source_problem_id?: string | null;
+    source_problem_title?: string | null;
+    created_at: string;
+}
+
+export interface InventoryRecord {
+    id: string;
+    owner_type: string;
+    owner_id: string;
+    item_name: string;
+    quantity: number;
+    notes?: string | null;
+    updated_at: string;
+}
+
+export interface EscalationRecord {
+    problem_id: string;
+    title?: string;
+    village_name?: string;
+    severity?: string;
+    status?: string;
+    age_hours: number;
+    escalation_level: string;
+    next_action: string;
+}
+
+export interface ReputationRecord {
+    volunteer_id: string;
+    name: string;
+    home_location: string;
+    skills: string[];
+    completed_count: number;
+    open_assignments: number;
+    duplicate_reports_seen: number;
+    avg_resolution_hours?: number | null;
+    reliability_score: number;
+}
+
+export interface RouteOptimizationRecord {
+    route_id: string;
+    village_name: string;
+    problem_ids: string[];
+    titles: string[];
+    problem_count: number;
+    severity_counts: Record<string, number>;
+    recommended_volunteers: Array<{
+        volunteer_id: string;
+        name?: string | null;
+        skills: string[];
+    }>;
+    route_hint: string;
+}
+
+export interface SeasonalRiskRecord {
+    risk_id: string;
+    topic: string;
+    season: string;
+    peak_month: string;
+    current_month_count: number;
+    peak_month_count: number;
+    supporting_village: string;
+    supporting_village_count: number;
+    confidence: number;
+    summary: string;
+    recommended_action: string;
+}
+
+export interface SeasonalRiskForecast {
+    generated_at: string;
+    window_days: number;
+    summary: string;
+    risks: SeasonalRiskRecord[];
+    top_topics: Array<[string, number]>;
+    top_months: Array<[string, number]>;
+}
+
+export interface MaintenancePlanRecord {
+    plan_id: string;
+    village_name: string;
+    asset_type: string;
+    inspection_frequency_days: number;
+    next_due_in_days: number;
+    priority: 'high' | 'normal';
+    related_problem_count: number;
+    open_problem_count: number;
+    recommended_action: string;
+    examples: Array<{
+        problem_id?: string;
+        title?: string;
+        status?: string;
+    }>;
+    assigned_volunteers: Array<{
+        volunteer_id: string;
+        name: string;
+        skills: string[];
+    }>;
+}
+
+export interface MaintenancePlanResponse {
+    generated_at: string;
+    window_days: number;
+    summary: string;
+    items: MaintenancePlanRecord[];
+    top_assets: Array<[string, number]>;
+}
+
+export interface HeatmapCell {
+    cell_id: string;
+    village_name: string;
+    lat: number;
+    lng: number;
+    weight: number;
+    problem_count: number;
+    open_count: number;
+    top_topic: string;
+    severity_counts: Record<string, number>;
+}
+
+export interface HeatmapResponse {
+    generated_at: string;
+    window_days: number;
+    summary: string;
+    cells: HeatmapCell[];
+}
+
+export interface CampaignModeRecord {
+    campaign_id: string;
+    topic: string;
+    title: string;
+    goal: string;
+    target_villages: string[];
+    problem_count: number;
+    recommended_volunteers: Array<{
+        volunteer_id: string;
+        name: string;
+        skills: string[];
+        home_location: string;
+    }>;
+    talking_points: string[];
+    field_tasks: string[];
+}
+
+export interface CampaignModeResponse {
+    generated_at: string;
+    window_days: number;
+    summary: string;
+    campaigns: CampaignModeRecord[];
+    top_topics: Array<[string, number]>;
+}
+
+export interface EvidenceComparisonResponse {
+    generated_at: string;
+    problem_id: string;
+    title: string;
+    status: string;
+    before_media_id?: string | null;
+    after_media_id?: string | null;
+    before_url?: string | null;
+    after_url?: string | null;
+    accepted: boolean;
+    confidence: number;
+    summary: string;
+    detected_change: string;
+    source: string;
 }
 
 export const api = {
@@ -390,7 +693,7 @@ export const api = {
         return await response.json();
     },
 
-    async submitProblem(problem: ProblemSubmission): Promise<{ status: string; id: string }> {
+    async submitProblem(problem: ProblemSubmission): Promise<ProblemSubmissionResponse> {
         const response = await fetch(`${API_BASE_URL}/submit-problem`, {
             method: 'POST',
             headers: {
@@ -406,6 +709,177 @@ export const api = {
         const data = await response.json();
         signalLiveRefresh();
         return data;
+    },
+
+    async getProblemTimeline(problemId: string): Promise<ProblemTimelineResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/problems/${problemId}/timeline`, {
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch problem timeline');
+        }
+
+        return await response.json();
+    },
+
+    async getWeeklyBriefing(daysBack = 7): Promise<WeeklyBriefing> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/insights/briefing?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch weekly briefing');
+        }
+
+        return await response.json();
+    },
+
+    async getPublicStatusBoard(params: { village_name?: string; status?: string; days_back?: number } = {}): Promise<PublicStatusBoardResponse> {
+        const query = new URLSearchParams();
+        if (params.village_name) {
+            query.set('village_name', params.village_name);
+        }
+        if (params.status) {
+            query.set('status', params.status);
+        }
+        query.set('days_back', String(params.days_back ?? 60));
+        const response = await fetch(`${API_BASE_URL}/api/v1/public/status-board?${query.toString()}`, {
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch public status board');
+        }
+
+        return await response.json();
+    },
+
+    async getPlaybooks(params: { topic?: string; village_name?: string; limit?: number } = {}): Promise<PlaybookRecord[]> {
+        const query = new URLSearchParams();
+        if (params.topic) query.set('topic', params.topic);
+        if (params.village_name) query.set('village_name', params.village_name);
+        query.set('limit', String(params.limit ?? 25));
+        const response = await fetch(`${API_BASE_URL}/api/v1/playbooks?${query.toString()}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch playbooks');
+        }
+        return await response.json();
+    },
+
+    async getInventory(params: { owner_type?: string; owner_id?: string } = {}): Promise<InventoryRecord[]> {
+        const query = new URLSearchParams();
+        if (params.owner_type) query.set('owner_type', params.owner_type);
+        if (params.owner_id) query.set('owner_id', params.owner_id);
+        const response = await fetch(`${API_BASE_URL}/api/v1/inventory${query.toString() ? `?${query.toString()}` : ''}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch inventory');
+        }
+        return await response.json();
+    },
+
+    async upsertInventory(item: { owner_type: string; owner_id: string; item_name: string; quantity: number; notes?: string }): Promise<InventoryRecord> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/inventory`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(item),
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || 'Failed to update inventory');
+        }
+        return await response.json();
+    },
+
+    async getEscalations(daysBack = 7): Promise<{ generated_at: string; window_days: number; overdue_count: number; items: EscalationRecord[] }> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/escalations?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch escalations');
+        }
+        return await response.json();
+    },
+
+    async getReputation(daysBack = 90): Promise<{ generated_at: string; window_days: number; volunteers: ReputationRecord[] }> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/reputation?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch reputation');
+        }
+        return await response.json();
+    },
+
+    async getRouteOptimization(daysBack = 14): Promise<{ generated_at: string; window_days: number; routes: RouteOptimizationRecord[] }> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/routes/optimizer?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch route optimization');
+        }
+        return await response.json();
+    },
+
+    async getSeasonalRiskForecast(daysBack = 365): Promise<SeasonalRiskForecast> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/insights/seasonal-risk?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch seasonal risk forecast');
+        }
+        return await response.json();
+    },
+
+    async getMaintenancePlan(daysBack = 180): Promise<MaintenancePlanResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/maintenance/plan?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch maintenance plan');
+        }
+        return await response.json();
+    },
+
+    async getHotspotHeatmap(daysBack = 90): Promise<HeatmapResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/hotspots/heatmap?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch hotspot heatmap');
+        }
+        return await response.json();
+    },
+
+    async getCampaignMode(daysBack = 30, topic?: string): Promise<CampaignModeResponse> {
+        const query = new URLSearchParams();
+        query.set('days_back', String(daysBack));
+        if (topic) {
+            query.set('topic', topic);
+        }
+        const response = await fetch(`${API_BASE_URL}/api/v1/campaigns/plan?${query.toString()}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch campaign plan');
+        }
+        return await response.json();
+    },
+
+    async getEvidenceComparison(problemId: string): Promise<EvidenceComparisonResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/problems/${problemId}/evidence-comparison`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch evidence comparison');
+        }
+        return await response.json();
     },
 
     async upsertProfile(profile: ProfileSubmission): Promise<{ status: string; profile: Profile }> {
@@ -624,6 +1098,31 @@ export const api = {
 
         if (!response.ok) {
             throw new Error('Failed to update problem status');
+        }
+
+        const data = await response.json();
+        signalLiveRefresh();
+        return data;
+    },
+
+    async submitFollowUpFeedback(problemId: string, payload: {
+        source?: 'public-board' | 'whatsapp' | 'sms' | 'manual' | 'phone';
+        response: 'resolved' | 'still_broken' | 'needs_more_help';
+        note?: string;
+        reporter_name?: string;
+        reporter_phone?: string;
+    }): Promise<{ status: string; feedback: Record<string, unknown>; problem: ProblemRecord }> {
+        const response = await fetch(`${API_BASE_URL}/problems/${problemId}/follow-up-feedback`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || 'Failed to submit follow-up feedback');
         }
 
         const data = await response.json();

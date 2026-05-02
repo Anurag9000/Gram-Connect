@@ -6,7 +6,7 @@ This document records the current implementation status of Gram Connect at the r
 
 Gram Connect is a FastAPI and Vite application for community issue intake, volunteer assignment, map-based operations, persisted recommendation-driven coordination, and platform administration. The repository contains a live backend, a live frontend, a canonical synthetic dataset, a persisted trained recommender bundle, and end-to-end operational flows for villager reporting, coordinator dispatch, volunteer proof submission, and management studio workflows.
 
-For a current feature-by-feature implementation inventory, see [`IMPLEMENTED_FEATURES.md`](../IMPLEMENTED_FEATURES.md).
+For a current feature-by-feature implementation inventory, see [`features.md`](../features.md).
 
 ## Deployment Status
 

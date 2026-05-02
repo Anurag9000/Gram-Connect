@@ -1,4 +1,4 @@
-# Implemented Features
+# Features
 
 This document records the features that are already implemented in the current repository state.
 It is meant to be an implementation inventory, not a product roadmap.

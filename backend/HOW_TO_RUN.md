@@ -36,4 +36,4 @@ python -m uvicorn api_server:app --host 0.0.0.0 --port 8000
 - Set `DATABASE_URL` to point at a writable Postgres instance with the `vector` extension enabled.
 - `GRAM_CONNECT_SKIP_BOOTSTRAP=1` disables startup seeding when you want a manual boot.
 - The backend expects `data/*.csv` to be present, or alternative paths via `GRAM_CONNECT_*` environment variables.
-- This repository is considered feature-complete for the scope documented in `IMPLEMENTED_FEATURES.md`.
+- This repository is considered feature-complete for the scope documented in `features.md`.

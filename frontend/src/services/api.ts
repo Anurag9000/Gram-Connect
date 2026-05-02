@@ -623,6 +623,43 @@ export interface EvidenceComparisonResponse {
     source: string;
 }
 
+export interface PlatformRecordItem {
+    id: string;
+    record_type: string;
+    subtype?: string | null;
+    owner_id?: string | null;
+    status?: string | null;
+    data: Record<string, unknown>;
+    updated_at: string;
+}
+
+export interface PlatformOverviewResponse {
+    generated_at: string;
+    window_days: number;
+    asset_registry: Record<string, unknown>;
+    procurement_tracker: Record<string, unknown>;
+    district_hierarchy: Record<string, unknown>;
+    work_order_templates: Array<Record<string, unknown>>;
+    proof_spoofing: Array<Record<string, unknown>>;
+    resident_confirmation: Array<Record<string, unknown>>;
+    skill_certifications: Array<Record<string, unknown>>;
+    shift_plan: Array<Record<string, unknown>>;
+    training_mode: Array<Record<string, unknown>>;
+    burnout_signals: Array<Record<string, unknown>>;
+    suggestion_box: Array<Record<string, unknown>>;
+    community_polls: Array<Record<string, unknown>>;
+    announcements: Array<Record<string, unknown>>;
+    village_champions: Array<Record<string, unknown>>;
+    impact: Record<string, unknown>;
+    ab_tests: Array<Record<string, unknown>>;
+    anomalies: Array<Record<string, unknown>>;
+    budget_forecast: Record<string, unknown>;
+    forms: Array<Record<string, unknown>>;
+    webhook_events: Array<Record<string, unknown>>;
+    conversation_memory: Record<string, unknown>;
+    record_counts: Record<string, number>;
+}
+
 export const api = {
     async transcribe(blob: Blob): Promise<TranscriptionResponse> {
         const formData = new FormData();
@@ -878,6 +915,136 @@ export const api = {
         });
         if (!response.ok) {
             throw new Error('Failed to fetch evidence comparison');
+        }
+        return await response.json();
+    },
+
+    async getPlatformOverview(daysBack = 180): Promise<PlatformOverviewResponse> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/overview?days_back=${daysBack}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch platform overview');
+        }
+        return await response.json();
+    },
+
+    async getPlatformRecords(recordType: string, params: { subtype?: string; owner_id?: string; limit?: number } = {}): Promise<{ record_type: string; items: PlatformRecordItem[] }> {
+        const query = new URLSearchParams();
+        if (params.subtype) query.set('subtype', params.subtype);
+        if (params.owner_id) query.set('owner_id', params.owner_id);
+        query.set('limit', String(params.limit ?? 50));
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/records/${encodeURIComponent(recordType)}?${query.toString()}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch ${recordType} records`);
+        }
+        return await response.json();
+    },
+
+    async savePlatformRecord(recordType: string, payload: {
+        record_id?: string;
+        subtype?: string;
+        owner_id?: string;
+        status?: string;
+        data?: Record<string, unknown>;
+    }): Promise<PlatformRecordItem> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/records/${encodeURIComponent(recordType)}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                record_id: payload.record_id,
+                subtype: payload.subtype,
+                owner_id: payload.owner_id,
+                status: payload.status,
+                data: payload.data || {},
+            }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || `Failed to save ${recordType} record`);
+        }
+        return await response.json();
+    },
+
+    async submitResidentConfirmation(problemId: string, payload: {
+        source?: 'resident' | 'public-board' | 'sms' | 'whatsapp' | 'phone' | 'manual';
+        response: 'resolved' | 'still_broken' | 'needs_more_help';
+        note?: string;
+        reporter_name?: string;
+        reporter_phone?: string;
+    }): Promise<{ status: string; confirmation: Record<string, unknown>; problem: ProblemRecord }> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/resident-confirmation/${problemId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.detail || 'Failed to submit resident confirmation');
+        }
+        return await response.json();
+    },
+
+    async getAuditPack(problemId: string): Promise<Record<string, unknown>> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/audit-pack/${problemId}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch audit pack');
+        }
+        return await response.json();
+    },
+
+    async autofillProblemForm(payload: { text: string; village_name?: string }): Promise<Record<string, unknown>> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/form-autofill`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to autofill problem form');
+        }
+        return await response.json();
+    },
+
+    async getCaseSimilarity(problemId: string): Promise<Record<string, unknown>> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/case-similarity/${problemId}`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch case similarity');
+        }
+        return await response.json();
+    },
+
+    async askPolicyQuestion(question: string): Promise<Record<string, unknown>> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/policy`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ question }),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to ask policy question');
+        }
+        return await response.json();
+    },
+
+    async getPlatformExport(): Promise<Record<string, unknown>> {
+        const response = await fetch(`${API_BASE_URL}/api/v1/platform/export`, {
+            cache: 'no-store',
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch platform export');
         }
         return await response.json();
     },

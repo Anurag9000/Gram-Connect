@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Gram Connect">
+  <rect width="128" height="128" rx="28" fill="#0f172a"/>
+  <circle cx="64" cy="64" r="38" fill="#16a34a"/>
+  <path d="M42 64c0-12.15 9.85-22 22-22 7.7 0 14.48 3.95 18.42 9.91l-8.19 5.17C71.91 54.85 68.18 53 64 53c-6.07 0-11 4.93-11 11s4.93 11 11 11c5.08 0 9.4-3.46 10.67-8.14H62v-9h24v4.5C86 78.39 75.72 86 64 86c-12.15 0-22-9.85-22-22z" fill="#ffffff"/>
+</svg>

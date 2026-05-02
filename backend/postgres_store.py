@@ -253,6 +253,20 @@ class PostgresStore:
             )
             conn.execute(
                 """
+                CREATE TABLE IF NOT EXISTS platform_records (
+                    id text PRIMARY KEY,
+                    record_type text NOT NULL,
+                    subtype text,
+                    owner_id text,
+                    status text,
+                    data jsonb NOT NULL,
+                    embedding vector,
+                    updated_at timestamptz NOT NULL DEFAULT now()
+                )
+                """
+            )
+            conn.execute(
+                """
                 CREATE INDEX IF NOT EXISTS learning_events_entity_idx
                 ON learning_events (entity_type, entity_id)
                 """
@@ -261,6 +275,12 @@ class PostgresStore:
                 """
                 CREATE INDEX IF NOT EXISTS learning_events_event_type_idx
                 ON learning_events (event_type)
+                """
+            )
+            conn.execute(
+                """
+                CREATE INDEX IF NOT EXISTS platform_records_type_idx
+                ON platform_records (record_type, subtype, owner_id)
                 """
             )
         self._schema_ready = True
@@ -789,6 +809,95 @@ class PostgresStore:
             )
         return payload
 
+    def upsert_platform_record(
+        self,
+        *,
+        record_type: str,
+        record_id: str,
+        data: Dict[str, Any],
+        subtype: Optional[str] = None,
+        owner_id: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        self.ensure_schema()
+        payload = {
+            "id": record_id,
+            "record_type": record_type,
+            "subtype": subtype,
+            "owner_id": owner_id,
+            "status": status,
+            **data,
+        }
+        embedding = _embedding_for_text(" ".join(
+            part for part in [
+                record_type,
+                subtype or "",
+                owner_id or "",
+                status or "",
+                str(data.get("title") or data.get("name") or ""),
+                str(data.get("summary") or data.get("description") or ""),
+            ]
+            if part
+        ))
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO platform_records (id, record_type, subtype, owner_id, status, data, embedding, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE
+                SET record_type = EXCLUDED.record_type,
+                    subtype = EXCLUDED.subtype,
+                    owner_id = EXCLUDED.owner_id,
+                    status = EXCLUDED.status,
+                    data = EXCLUDED.data,
+                    embedding = EXCLUDED.embedding,
+                    updated_at = EXCLUDED.updated_at
+                """,
+                (record_id, record_type, subtype, owner_id, status, Jsonb(_jsonable(payload)), embedding, _now_iso()),
+            )
+        return payload
+
+    def list_platform_records(
+        self,
+        *,
+        record_type: str,
+        subtype: Optional[str] = None,
+        owner_id: Optional[str] = None,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        self.ensure_schema()
+        clauses: List[str] = ["record_type = %s"]
+        params: List[Any] = [record_type]
+        if subtype:
+            clauses.append("subtype = %s")
+            params.append(subtype)
+        if owner_id:
+            clauses.append("owner_id = %s")
+            params.append(owner_id)
+        params.append(max(1, int(limit)))
+        where_sql = "WHERE " + " AND ".join(clauses)
+        query = f"""
+            SELECT id, record_type, subtype, owner_id, status, data, updated_at
+            FROM platform_records
+            {where_sql}
+            ORDER BY updated_at DESC
+            LIMIT %s
+        """
+        with self._connect() as conn:
+            rows = conn.execute(query, params).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "record_type": row["record_type"],
+                "subtype": row["subtype"],
+                "owner_id": row["owner_id"],
+                "status": row["status"],
+                "data": dict(row["data"]) if row["data"] is not None else {},
+                "updated_at": row["updated_at"].isoformat() if hasattr(row["updated_at"], "isoformat") else row["updated_at"],
+            }
+            for row in rows
+        ]
+
     def has_runtime_data(self) -> bool:
         self.ensure_schema()
         with self._connect() as conn:
@@ -799,5 +908,6 @@ class PostgresStore:
                     "runtime_volunteers",
                     "runtime_problems",
                     "runtime_media_assets",
+                    "platform_records",
                 ]
             )

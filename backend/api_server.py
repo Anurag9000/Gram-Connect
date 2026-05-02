@@ -35,6 +35,34 @@ from insights_service import (
     find_duplicate_problem_candidates,
     infer_problem_triage,
 )
+from platform_service import (
+    answer_policy_question,
+    assess_burnout_signals,
+    assess_proof_spoofing,
+    autofill_problem_form,
+    build_ab_test_plan,
+    build_anomaly_dashboard,
+    build_announcement_feed,
+    build_asset_registry,
+    build_audit_pack,
+    build_bulk_export_bundle,
+    build_budget_forecast,
+    build_community_polls,
+    build_conversation_memory,
+    build_custom_forms_bundle,
+    build_district_hierarchy,
+    build_impact_measurement,
+    build_procurement_tracker,
+    build_resident_confirmation,
+    build_shift_plan,
+    build_skill_certifications,
+    build_suggestion_box,
+    build_training_mode,
+    build_village_champions,
+    build_webhook_events,
+    build_work_order_templates,
+    find_case_similarity_explorer,
+)
 from multimodal_service import transcribe_audio, analyze_image, verify_resolution_proof, infer_problem_severity, extract_problem_from_whatsapp, suggest_jugaad_fix, suggest_immediate_problem_actions
 from notification_service import notify_problem_resolved, notify_problem_follow_up, notify_team_assignment
 from path_utils import (
@@ -398,6 +426,31 @@ class EvidenceComparisonResponse(BaseModel):
     summary: str
     detected_change: str
     source: str
+
+
+class PlatformRecordRequest(BaseModel):
+    record_id: Optional[str] = None
+    subtype: Optional[str] = None
+    owner_id: Optional[str] = None
+    status: Optional[str] = None
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ResidentConfirmationRequest(BaseModel):
+    source: str = Field("resident", pattern="^(resident|public-board|sms|whatsapp|phone|manual)$")
+    response: str = Field(pattern="^(resolved|still_broken|needs_more_help)$")
+    note: Optional[str] = None
+    reporter_name: Optional[str] = None
+    reporter_phone: Optional[str] = None
+
+
+class ProblemTextRequest(BaseModel):
+    text: str
+    village_name: Optional[str] = None
+
+
+class PolicyQuestionRequest(BaseModel):
+    question: str
 
 
 @app.get("/health")
@@ -2655,6 +2708,207 @@ async def campaign_mode_endpoint(days_back: int = 30, topic: Optional[str] = Non
     except Exception as exc:
         logger.exception("Campaign mode planning failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/platform/overview")
+async def platform_overview_endpoint(days_back: int = 180):
+    try:
+        villages = DATA_STORE.get_village_name_rows()
+        records = {
+            "assets": DATA_STORE.list_platform_records(record_type="asset", limit=100),
+            "procurement": DATA_STORE.list_platform_records(record_type="procurement", limit=100),
+            "privacy": DATA_STORE.list_platform_records(record_type="privacy_setting", limit=50),
+            "certifications": DATA_STORE.list_platform_records(record_type="certification", limit=100),
+            "shifts": DATA_STORE.list_platform_records(record_type="shift_plan", limit=50),
+            "training": DATA_STORE.list_platform_records(record_type="training_module", limit=50),
+            "burnout": DATA_STORE.list_platform_records(record_type="burnout_signal", limit=100),
+            "suggestions": DATA_STORE.list_platform_records(record_type="suggestion", limit=50),
+            "polls": DATA_STORE.list_platform_records(record_type="poll", limit=50),
+            "announcements": DATA_STORE.list_platform_records(record_type="announcement", limit=50),
+            "champions": DATA_STORE.list_platform_records(record_type="champion", limit=50),
+            "forms": DATA_STORE.list_platform_records(record_type="custom_form", limit=50),
+            "webhooks": DATA_STORE.list_platform_records(record_type="webhook_event", limit=50),
+            "memory": DATA_STORE.list_platform_records(record_type="conversation_memory", limit=20),
+        }
+        overview = {
+            "generated_at": _now_iso(),
+            "window_days": days_back,
+            "asset_registry": build_asset_registry(PROBLEMS, days_back=days_back),
+            "procurement_tracker": build_procurement_tracker(PROBLEMS, days_back=days_back),
+            "district_hierarchy": build_district_hierarchy(PROBLEMS, villages, days_back=days_back),
+            "work_order_templates": build_work_order_templates(),
+            "proof_spoofing": [assess_proof_spoofing(problem) for problem in PROBLEMS if problem.get("proof")],
+            "resident_confirmation": [build_resident_confirmation(problem) for problem in PROBLEMS if problem.get("status") != "completed"][:10],
+            "skill_certifications": build_skill_certifications(VOLUNTEERS, PROBLEMS),
+            "shift_plan": build_shift_plan(VOLUNTEERS, PROBLEMS),
+            "training_mode": build_training_mode(),
+            "burnout_signals": assess_burnout_signals(VOLUNTEERS, PROBLEMS),
+            "suggestion_box": build_suggestion_box(records["suggestions"]),
+            "community_polls": build_community_polls(records["polls"]),
+            "announcements": build_announcement_feed(records["announcements"]),
+            "village_champions": build_village_champions(records["champions"]),
+            "impact": build_impact_measurement(PROBLEMS),
+            "ab_tests": build_ab_test_plan(PROBLEMS),
+            "anomalies": build_anomaly_dashboard(PROBLEMS),
+            "budget_forecast": build_budget_forecast(PROBLEMS),
+            "forms": build_custom_forms_bundle(records["forms"]),
+            "webhook_events": build_webhook_events(records["webhooks"]),
+            "conversation_memory": build_conversation_memory(records["memory"]),
+            "record_counts": {key: len(value) for key, value in records.items()},
+        }
+        _record_learning_event(
+            "platform_overview",
+            entity_type="query",
+            summary=f"Platform overview requested for {days_back} days",
+            payload={"days_back": days_back, "response": overview},
+            text="platform overview",
+        )
+        return overview
+    except Exception as exc:
+        logger.exception("Platform overview failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/v1/platform/records/{record_type}")
+async def platform_records_list_endpoint(
+    record_type: str,
+    subtype: Optional[str] = None,
+    owner_id: Optional[str] = None,
+    limit: int = 50,
+):
+    try:
+        return {
+            "record_type": record_type,
+            "items": DATA_STORE.list_platform_records(
+                record_type=record_type,
+                subtype=subtype,
+                owner_id=owner_id,
+                limit=limit,
+            ),
+        }
+    except Exception as exc:
+        logger.exception("Platform record lookup failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/platform/records/{record_type}")
+async def platform_records_upsert_endpoint(record_type: str, request: PlatformRecordRequest):
+    try:
+        record_id = request.record_id or f"{record_type}-{uuid.uuid4().hex[:12]}"
+        payload = DATA_STORE.upsert_platform_record(
+            record_type=record_type,
+            record_id=record_id,
+            subtype=request.subtype,
+            owner_id=request.owner_id,
+            status=request.status,
+            data=request.data,
+        )
+        _record_learning_event(
+            f"platform_record_{record_type}",
+            entity_type="platform_record",
+            entity_id=record_id,
+            summary=f"Upserted {record_type} record",
+            payload=payload,
+            text=" ".join([
+                record_type,
+                str(request.subtype or ""),
+                str(request.owner_id or ""),
+                json.dumps(request.data, ensure_ascii=False),
+            ]),
+        )
+        return payload
+    except Exception as exc:
+        logger.exception("Platform record upsert failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/v1/platform/resident-confirmation/{problem_id}")
+async def resident_confirmation_endpoint(problem_id: str, request: ResidentConfirmationRequest):
+    problem = next((item for item in PROBLEMS if item.get("id") == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    confirmation = {
+        "id": f"confirm-{problem_id}-{uuid.uuid4().hex[:8]}",
+        "problem_id": problem_id,
+        "source": request.source,
+        "response": request.response,
+        "note": request.note,
+        "reporter_name": request.reporter_name,
+        "reporter_phone": request.reporter_phone,
+        "created_at": _now_iso(),
+    }
+    DATA_STORE.upsert_platform_record(
+        record_type="resident_confirmation",
+        record_id=confirmation["id"],
+        owner_id=problem_id,
+        status=request.response,
+        data=confirmation,
+    )
+    if request.response == "resolved":
+        problem["status"] = "completed"
+        problem["updated_at"] = _now_iso()
+        persist_runtime_state()
+    _record_learning_event(
+        "resident_confirmation",
+        entity_type="problem",
+        entity_id=problem_id,
+        summary=f"Resident confirmation: {request.response}",
+        payload=confirmation,
+        text=" ".join([problem.get("title", ""), request.response, request.note or ""]),
+    )
+    return {"status": "success", "confirmation": confirmation, "problem": _serialize_problem(problem)}
+
+
+@app.get("/api/v1/platform/audit-pack/{problem_id}")
+async def audit_pack_endpoint(problem_id: str):
+    problem = next((item for item in PROBLEMS if item.get("id") == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    timeline = _problem_timeline(problem)["timeline"]
+    learning_events = DATA_STORE.get_recent_learning_events(limit=50, entity_type="problem", entity_id=problem_id)
+    return build_audit_pack(problem, timeline, learning_events)
+
+
+@app.post("/api/v1/platform/form-autofill")
+async def form_autofill_endpoint(request: ProblemTextRequest):
+    return autofill_problem_form(request.text, village_name=request.village_name)
+
+
+@app.get("/api/v1/platform/case-similarity/{problem_id}")
+async def case_similarity_endpoint(problem_id: str):
+    problem = next((item for item in PROBLEMS if item.get("id") == problem_id), None)
+    if not problem:
+        raise HTTPException(status_code=404, detail="Problem not found")
+    return find_case_similarity_explorer(problem, PROBLEMS)
+
+
+@app.post("/api/v1/platform/policy")
+async def policy_question_endpoint(request: PolicyQuestionRequest):
+    return answer_policy_question(request.question)
+
+
+@app.get("/api/v1/platform/export")
+async def platform_export_endpoint():
+    platform_records: List[Dict[str, Any]] = []
+    for record_type in [
+        "asset",
+        "procurement",
+        "privacy_setting",
+        "certification",
+        "shift_plan",
+        "training_module",
+        "burnout_signal",
+        "suggestion",
+        "poll",
+        "announcement",
+        "champion",
+        "custom_form",
+        "webhook_event",
+        "conversation_memory",
+        "resident_confirmation",
+    ]:
+        platform_records.extend(DATA_STORE.list_platform_records(record_type=record_type, limit=1000))
+    return build_bulk_export_bundle(PROBLEMS, VOLUNTEERS, platform_records)
 
 
 @app.get("/api/v1/problems/{problem_id}/evidence-comparison", response_model=EvidenceComparisonResponse)

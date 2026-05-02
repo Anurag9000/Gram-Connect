@@ -1,4 +1,4 @@
-import { Home, FileText, UserPlus, LayoutDashboard, LogOut, LogIn, MapPinned, ClipboardList, Shield, Briefcase } from 'lucide-react';
+import { Home, FileText, UserPlus, LayoutDashboard, LogOut, LogIn, MapPinned, ClipboardList, Shield, Briefcase, Settings2 } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useNavigate, useLocation } from 'react-router-dom';
 import LanguageToggle from './LanguageToggle';
@@ -116,6 +116,17 @@ export default function Navigation() {
               >
                 <Briefcase size={20} />
                 <span className="hidden sm:inline">Partner dashboard</span>
+              </button>
+            )}
+
+            {profile && ['coordinator', 'supervisor', 'partner'].includes(profile.role) && (
+              <button
+                onClick={() => navigate('/platform-studio')}
+                className={`flex items-center space-x-1 px-3 py-2 rounded-lg transition ${isActive('/platform-studio') ? 'bg-green-700' : 'hover:bg-green-700'
+                  }`}
+              >
+                <Settings2 size={20} />
+                <span className="hidden sm:inline">Platform studio</span>
               </button>
             )}
 

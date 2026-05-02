@@ -318,4 +318,160 @@ describe('api service', () => {
       expect.objectContaining({ cache: 'no-store' }),
     );
   });
+
+  it('fetches platform studio data and records correctly', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          generated_at: '2026-01-01T00:00:00',
+          window_days: 180,
+          asset_registry: { assets: [] },
+          procurement_tracker: { items: [] },
+          district_hierarchy: { districts: [] },
+          work_order_templates: [],
+          proof_spoofing: [],
+          resident_confirmation: [],
+          skill_certifications: [],
+          shift_plan: [],
+          training_mode: [],
+          burnout_signals: [],
+          suggestion_box: [],
+          community_polls: [],
+          announcements: [],
+          village_champions: [],
+          impact: {},
+          ab_tests: [],
+          anomalies: [],
+          budget_forecast: {},
+          forms: [],
+          webhook_events: [],
+          conversation_memory: {},
+          record_counts: {},
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({
+          id: 'asset-1',
+          record_type: 'asset',
+          subtype: 'pump',
+          owner_id: 'Sundarpur',
+          status: 'healthy',
+          data: { label: 'Handpump A' },
+          updated_at: '2026-01-01T00:00:00',
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ record_type: 'asset', items: [{ id: 'asset-1' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'success', confirmation: { id: 'confirm-1' }, problem: { id: 'prob-1' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ problem: { id: 'prob-1' }, timeline: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ problem_id: 'prob-1', matches: [{ problem_id: 'prob-2' }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ question: 'How?', answer: 'Use the playbook.' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ generated_at: '2026-01-01T00:00:00', problems: [], volunteers: [], platform_records: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+    await api.getPlatformOverview(180);
+    await api.savePlatformRecord('asset', {
+      record_id: 'asset-1',
+      subtype: 'pump',
+      owner_id: 'Sundarpur',
+      status: 'healthy',
+      data: { label: 'Handpump A' },
+    });
+    await api.getPlatformRecords('asset', { owner_id: 'Sundarpur', limit: 10 });
+    await api.submitResidentConfirmation('prob-1', { response: 'resolved', source: 'public-board', note: 'fixed' });
+    await api.getAuditPack('prob-1');
+    await api.getCaseSimilarity('prob-1');
+    await api.askPolicyQuestion('How do we protect privacy?');
+    await api.getPlatformExport();
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      `${API_BASE_URL}/api/v1/platform/overview?days_back=180`,
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `${API_BASE_URL}/api/v1/platform/records/asset`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          record_id: 'asset-1',
+          subtype: 'pump',
+          owner_id: 'Sundarpur',
+          status: 'healthy',
+          data: { label: 'Handpump A' },
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      `${API_BASE_URL}/api/v1/platform/records/asset?owner_id=Sundarpur&limit=10`,
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      4,
+      `${API_BASE_URL}/api/v1/platform/resident-confirmation/prob-1`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ response: 'resolved', source: 'public-board', note: 'fixed' }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      5,
+      `${API_BASE_URL}/api/v1/platform/audit-pack/prob-1`,
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
+      `${API_BASE_URL}/api/v1/platform/case-similarity/prob-1`,
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      7,
+      `${API_BASE_URL}/api/v1/platform/policy`,
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ question: 'How do we protect privacy?' }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      8,
+      `${API_BASE_URL}/api/v1/platform/export`,
+      expect.objectContaining({ cache: 'no-store' }),
+    );
+  });
 });

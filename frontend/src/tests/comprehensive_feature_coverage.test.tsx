@@ -9,6 +9,8 @@ import CoordinatorDashboard from '../pages/CoordinatorDashboard';
 import SupervisorDashboard from '../pages/SupervisorDashboard';
 import PartnerDashboard from '../pages/PartnerDashboard';
 import PublicStatusBoard from '../pages/PublicStatusBoard';
+import PlatformStudio from '../pages/PlatformStudio';
+import Navigation from '../components/Navigation';
 import { AuthProvider } from '../contexts/AuthContext';
 
 let mockedProfile: { id: string; full_name: string; role: 'villager' | 'volunteer' | 'coordinator' | 'supervisor' | 'partner' } | null = null;
@@ -40,6 +42,14 @@ const apiMocks = vi.hoisted(() => ({
   submitFollowUpFeedback: vi.fn(),
   submitProof: vi.fn(),
   requestJugaadRepair: vi.fn(),
+  getPlatformOverview: vi.fn(),
+  savePlatformRecord: vi.fn(),
+  submitResidentConfirmation: vi.fn(),
+  getAuditPack: vi.fn(),
+  autofillProblemForm: vi.fn(),
+  getCaseSimilarity: vi.fn(),
+  askPolicyQuestion: vi.fn(),
+  getPlatformExport: vi.fn(),
 }));
 
 vi.mock('../contexts/auth-shared', () => ({
@@ -297,6 +307,39 @@ function seedApiMocks() {
     broken_analysis: { top_label: 'handpump', confidence: 0.99 },
     materials_analysis: { top_label: 'wire', confidence: 0.99 },
   });
+  apiMocks.getPlatformOverview.mockResolvedValue({
+    generated_at: '2026-01-01T00:00:00',
+    window_days: 180,
+    asset_registry: { assets: [{ asset_id: 'asset-1' }] },
+    procurement_tracker: { items: [] },
+    district_hierarchy: { districts: [] },
+    work_order_templates: [],
+    proof_spoofing: [],
+    resident_confirmation: [],
+    skill_certifications: [],
+    shift_plan: [],
+    training_mode: [],
+    burnout_signals: [],
+    suggestion_box: [],
+    community_polls: [],
+    announcements: [],
+    village_champions: [],
+    impact: {},
+    ab_tests: [],
+    anomalies: [],
+    budget_forecast: {},
+    forms: [],
+    webhook_events: [],
+    conversation_memory: {},
+    record_counts: { asset: 1 },
+  });
+  apiMocks.savePlatformRecord.mockResolvedValue({ id: 'asset-1' });
+  apiMocks.submitResidentConfirmation.mockResolvedValue({ status: 'success', confirmation: { id: 'confirm-1' }, problem: { id: 'problem-1' } });
+  apiMocks.getAuditPack.mockResolvedValue({ problem: { id: 'problem-1' }, timeline: [] });
+  apiMocks.autofillProblemForm.mockResolvedValue({ title: 'Broken handpump', category: 'water-sanitation' });
+  apiMocks.getCaseSimilarity.mockResolvedValue({ matches: [{ problem_id: 'problem-1' }] });
+  apiMocks.askPolicyQuestion.mockResolvedValue({ question: 'How?', answer: 'Use the playbook.' });
+  apiMocks.getPlatformExport.mockResolvedValue({ generated_at: '2026-01-01T00:00:00', problems: [], volunteers: [], platform_records: [] });
 }
 
 describe('Comprehensive feature coverage', () => {
@@ -342,6 +385,7 @@ describe('Comprehensive feature coverage', () => {
       </BrowserRouter>
     );
     expect(screen.getByText(/Go to dashboard/i)).toBeInTheDocument();
+    expect(screen.getByText(/Platform studio/i)).toBeInTheDocument();
 
     mockedProfile = { id: 'vol-1', full_name: 'Test Volunteer', role: 'volunteer' };
     rerender(
@@ -436,5 +480,30 @@ describe('Comprehensive feature coverage', () => {
     expect(screen.getByText(/Public status board/i)).toBeInTheDocument();
     expect(screen.getByText(/^Resolved$/i, { selector: 'div' })).toBeInTheDocument();
     publicBoard.unmount();
+  });
+
+  it('renders the platform studio for operational roles', async () => {
+    mockedProfile = { id: 'coord-1', full_name: 'Test Coordinator', role: 'coordinator' };
+    render(
+      <BrowserRouter>
+        <PlatformStudio />
+      </BrowserRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: /Operations, trust, people, analytics, AI, and platform tools/i })).toBeInTheDocument();
+    expect(screen.getByText(/Platform studio/i)).toBeInTheDocument();
+    expect(screen.getByText(/Asset lifecycle registry/i)).toBeInTheDocument();
+    expect(screen.getByText(/Platform admin/i)).toBeInTheDocument();
+  });
+
+  it('shows the platform studio button in navigation for operational roles', () => {
+    mockedProfile = { id: 'coord-1', full_name: 'Test Coordinator', role: 'coordinator' };
+    render(
+      <BrowserRouter>
+        <Navigation />
+      </BrowserRouter>
+    );
+
+    expect(screen.getByText(/Platform studio/i)).toBeInTheDocument();
   });
 });

@@ -1,4 +1,4 @@
-import { ArrowRight, Zap, MessageSquare, Map, Users, Briefcase, ClipboardList, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, Zap, MessageSquare, Map, Users, Briefcase, ClipboardList, LayoutDashboard, Settings2 } from 'lucide-react';
 import { useAuth } from '../contexts/auth-shared';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -54,6 +54,14 @@ export default function Home() {
                 'bg-purple-100',
                 <Map className="text-purple-600" size={24} />
               )}
+              {dashboardCard(
+                'Platform studio',
+                'Manage asset lifecycle, procurement, trust checks, and platform exports.',
+                'Open studio',
+                () => navigate('/platform-studio'),
+                'bg-slate-100',
+                <Settings2 className="text-slate-700" size={24} />
+              )}
             </>
           );
         case 'volunteer':
@@ -96,6 +104,14 @@ export default function Home() {
                 'bg-sky-100',
                 <ClipboardList className="text-sky-600" size={24} />
               )}
+              {dashboardCard(
+                'Platform studio',
+                'Manage assets, procurement, confirmations, community signals, and exports.',
+                'Open studio',
+                () => navigate('/platform-studio'),
+                'bg-slate-100',
+                <Settings2 className="text-slate-700" size={24} />
+              )}
             </>
           );
         case 'partner':
@@ -116,6 +132,14 @@ export default function Home() {
                 () => navigate('/status'),
                 'bg-sky-100',
                 <ClipboardList className="text-sky-600" size={24} />
+              )}
+              {dashboardCard(
+                'Platform studio',
+                'Manage operational records, confirmations, analytics, and admin exports.',
+                'Open studio',
+                () => navigate('/platform-studio'),
+                'bg-slate-100',
+                <Settings2 className="text-slate-700" size={24} />
               )}
             </>
           );

@@ -19,6 +19,7 @@ const PartnerDashboard = lazy(() => import('./pages/PartnerDashboard'));
 const SupervisorLogin = lazy(() => import('./pages/SupervisorLogin'));
 const PartnerLogin = lazy(() => import('./pages/PartnerLogin'));
 const PublicStatusBoard = lazy(() => import('./pages/PublicStatusBoard'));
+const PlatformStudio = lazy(() => import('./pages/PlatformStudio'));
 
 function AppContent() {
   const { loading } = useAuth();
@@ -64,6 +65,7 @@ function AppContent() {
               <Route path="/supervisor-dashboard" element={<SupervisorDashboard />} />
               <Route path="/partner-dashboard" element={<PartnerDashboard />} />
               <Route path="/status" element={<PublicStatusBoard />} />
+              <Route path="/platform-studio" element={<PlatformStudio />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

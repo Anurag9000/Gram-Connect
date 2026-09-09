@@ -2,7 +2,7 @@
 from __future__ import annotations
 import hashlib,os,subprocess,sys,urllib.request
 from pathlib import Path
-R="Anurag9000/Gram-Connect";B="83e527a6d98a31f0c04897acbed1a552d1c5ec1c";S="72ae9bd8e9e34a09e17047e479acf029a69647a3";AC="45ba75b59bdf8aeee524236aa624eccf14958877";AS="752ed66e6e0edbd62845381ddc69a842091b1367";D=Path(__file__).resolve().parent;U=f"https://raw.githubusercontent.com/Anurag9000/RigorousRAG/{AC}/tools/repo_training_launcher_adapter.py"
+R="Anurag9000/Gram-Connect";B="83e527a6d98a31f0c04897acbed1a552d1c5ec1c";S="72ae9bd8e9e34a09e17047e479acf029a69647a3";AC="ab4ad585a3cfd0b0350a163983ead9ad7a51d559";AS="046ef85de71ac2d9852cd43d615d4db8c8ee5f1c";D=Path(__file__).resolve().parent;U=f"https://raw.githubusercontent.com/Anurag9000/RigorousRAG/{AC}/tools/repo_training_launcher_adapter.py"
 def h(x):return hashlib.sha1(f"blob {len(x)}\0".encode()+x).hexdigest()
 def main():
  p=D/".training_control"/"repo_training_launcher_adapter.py"

@@ -2,10 +2,10 @@
 """Repository-owned executable scientific DAG for Gram-Connect.
 
 The catalog exposes the retained scientific transactions independently to OPF:
-canonical data materialization, deterministic synthetic-label generation, the
-classical per-severity model/SHAP shootout, and the interruption-exact M3
-GradientBoosting recommender trainer.  The application server is not treated as a
-scheduler and no nested worker pool is introduced.
+source-authority audit, canonical data materialization, deterministic synthetic-label
+generation, the classical per-severity model/SHAP shootout, and the
+interruption-exact M3 GradientBoosting recommender trainer.  The application server
+is not treated as a scheduler and no nested worker pool is introduced.
 """
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def _restart_job(
         "checkpoint_contract": dict(RESTART_EXACT),
         "early_stopping_applicable": False,
         "early_stopping_exception_reason": (
-            "deterministic data/estimator transaction without an externally resumable optimizer loop"
+            "deterministic audit/data/estimator transaction without an externally resumable optimizer loop"
         ),
         "completion_artifacts": artifacts,
         "restart_exact_estimator_transaction": phase == "estimator_fit",
@@ -52,6 +52,14 @@ def _restart_job(
 
 
 def iter_jobs() -> Iterator[dict[str, object]]:
+    yield _restart_job(
+        "audit-gram-scientific-authority",
+        [sys.executable, "scripts/audit_gram_scientific_authority_v1.py"],
+        phase="audit",
+        family="scientific-authority",
+        depends_on=[],
+        artifacts=["artifacts/training_control/gram_scientific_authority_v1.json"],
+    )
     yield _restart_job(
         "materialize-canonical-data",
         [sys.executable, "backend/generate_canonical_dataset.py"],

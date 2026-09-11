@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """One-command exhaustive Gram-Connect scientific/training controller.
 
-The repository-owned authority now exposes every retained fit surface instead of
-relying on generic trainer filenames: deterministic canonical data materialization,
-synthetic supervision generation, the Logistic/RandomForest/XGBoost/LightGBM + SHAP
-Nexus weight shootout, and the staged M3 GradientBoosting recommender.  The M3
-transaction uses the exact central trainer with stage-exact state, semantic
-validation-AUC early stopping and OPF checkpoint request acknowledgement.
+The repository-owned authority exposes every retained fit surface instead of relying
+on generic trainer filenames: source audit, deterministic canonical data
+materialization, synthetic supervision generation, the
+Logistic/RandomForest/XGBoost/LightGBM + SHAP Nexus weight shootout, and the staged
+M3 GradientBoosting recommender. The M3 transaction uses the exact central trainer
+with stage-exact state, semantic validation-AUC early stopping and OPF checkpoint
+request acknowledgement.
 
-Classical model-shootout fits are deliberately represented as deterministic
-restart-exact estimator transactions rather than falsely claiming optimizer-step
-resume.  Resource admission, maximal safe concurrency, CPU/GPU placement,
-RAM/VRAM pressure policy, retry and process termination remain exclusively in the
-literal OPF_ADP scheduler loaded by canonical controller v37.
+Classical model-shootout fits are represented as deterministic restart-exact
+estimator transactions rather than falsely claiming optimizer-step resume.
+Resource admission, maximal safe concurrency, CPU/GPU placement, RAM/VRAM pressure
+policy, retry and process termination remain exclusively in the literal OPF_ADP
+scheduler loaded by canonical controller v37.
 """
 from __future__ import annotations
 
@@ -33,39 +34,10 @@ CONTROLLER_URL = (
     "tools/universal_training_controller_entry.py"
 )
 CATALOG_PATH = "training_control/gram_scientific_job_catalog_v1.py"
-RESTART_EXACT = {
-    "exact_resume": True,
-    "deterministic": True,
-    "idempotent": True,
-    "atomic_outputs": True,
-}
 
 PROFILE = {
     "repository": REPOSITORY,
     "scientific_authority": CATALOG_PATH,
-    "jobs": [
-        {
-            "id": "audit-gram-scientific-authority",
-            "command": [sys.executable, "scripts/audit_gram_scientific_authority_v1.py"],
-            "phase": "audit",
-            "family": "scientific-authority",
-            "device_capable": False,
-            "depends_on": [],
-            "is_training_job": False,
-            "resume_strategy": "restart_exact",
-            "deterministic": True,
-            "idempotent": True,
-            "atomic_outputs": True,
-            "checkpoint_contract": dict(RESTART_EXACT),
-            "early_stopping_applicable": False,
-            "early_stopping_exception_reason": "source/configuration authority audit",
-            "completion_artifacts": [
-                "artifacts/training_control/gram_scientific_authority_v1.json"
-            ],
-            "source_configuration_only": True,
-            "execution_claim_emitted": False,
-        }
-    ],
     "job_catalog": {"path": CATALOG_PATH, "function": "iter_jobs", "args": [], "kwargs": {}},
     "preferred_training_entrypoints": [],
     "preferred_dataset_entrypoints": [],

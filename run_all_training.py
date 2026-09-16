@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-"""One-command exhaustive Gram-Connect scientific/training controller.
+"""One-command exhaustive Gram-Connect dataset-group training controller.
 
-The repository-owned authority exposes every retained fit surface instead of relying
-on generic trainer filenames: source audit, deterministic canonical data
-materialization, synthetic supervision generation, the
-Logistic/RandomForest/XGBoost/LightGBM + SHAP Nexus weight shootout, and the staged
-M3 GradientBoosting recommender. The M3 transaction uses the exact central trainer
-with stage-exact state, semantic validation-AUC early stopping and OPF checkpoint
-request acknowledgement.
+The retained v1 catalog remains the logical scientific inventory.  Physical v2
+execution is dataset-centric:
 
-Classical model-shootout fits are represented as deterministic restart-exact
-estimator transactions rather than falsely claiming optimizer-step resume.
-Resource admission, maximal safe concurrency, CPU/GPU placement, RAM/VRAM pressure
-policy, retry and process termination remain exclusively in the literal OPF_ADP
-scheduler loaded by canonical controller v37.
+* HIGH, LOW and NORMAL Nexus supervision are three single-dataset groups.  Each
+  parent materializes its feature matrix once and runs LogisticRegression,
+  RandomForest, XGBoost and LightGBM whole-estimator transactions against it.
+* tied four-family groups are deterministically ordered by dataset key;
+* their outputs are merged back to the legacy fitted_weights_per_severity.json;
+* M3 consumes proposals/people/pairs/village sources and runs last as the overlap
+  group, preserving stage-exact GradientBoosting resume and ROC-AUC early stopping.
+
+Classical estimators are not falsely described as minibatch trainers: shared-batch
+lockstep is inapplicable to their monolithic ``fit`` calls.  The central contract
+still requires any future batch-steppable model to use the cohort runtime.  CPU-only
+and GPU-first variants share the same science; AUTO prefers a usable CUDA backend.
+SentenceTransformer and XGBoost can use CUDA, while sklearn estimators remain CPU.
+Resource admission, pressure monitoring, retry/relaunch and GPU assignment remain
+in the exact pinned OPF_ADP-derived controller v37.
 """
 from __future__ import annotations
 
@@ -33,23 +38,37 @@ CONTROLLER_URL = (
     f"https://raw.githubusercontent.com/Anurag9000/RigorousRAG/{CONTROLLER_COMMIT}/"
     "tools/universal_training_controller_entry.py"
 )
-CATALOG_PATH = "training_control/gram_scientific_job_catalog_v1.py"
+CATALOG_PATH = "training_control/gram_scientific_job_catalog_v2.py"
 
 PROFILE = {
     "repository": REPOSITORY,
     "scientific_authority": CATALOG_PATH,
+    "scientific_authority_version": 2,
+    "logical_scientific_authority": "training_control/gram_scientific_job_catalog_v1.py",
     "job_catalog": {"path": CATALOG_PATH, "function": "iter_jobs", "args": [], "kwargs": {}},
-    "preferred_training_entrypoints": [],
-    "preferred_dataset_entrypoints": [],
+    "preferred_training_entrypoints": [
+        "training_control/run_nexus_severity_group_v1.py",
+        "training_control/run_m3_overlap_group_v1.py",
+    ],
+    "preferred_dataset_entrypoints": [
+        "backend/generate_canonical_dataset.py",
+        "backend/generate_training_labels.py",
+    ],
     "dynamic_registry_covers": [
         "backend/*.py",
         "data/*.csv",
         "training_control/gram_scientific_job_catalog_v1.py",
+        "training_control/gram_scientific_job_catalog_v2.py",
+        "training_control/run_nexus_severity_group_v1.py",
+        "training_control/merge_nexus_severity_groups_v1.py",
+        "training_control/run_m3_overlap_group_v1.py",
+        "training_control/dataset_cohort_runtime_entry.py",
     ],
     "ignore_entrypoints": [
         "run_all_training.py",
         "scripts/audit_gram_scientific_authority_v1.py",
         "backend/training_control_runtime.py",
+        "training_control/merge_nexus_severity_groups_v1.py",
     ],
     "strict_coverage": True,
     "require_native_resume": True,
@@ -76,6 +95,16 @@ PROFILE = {
     "require_all_retained_trainable_source_reachability": True,
     "auto_console_training_jobs": False,
     "auto_console_subcommand_jobs": False,
+    "require_dataset_cohort_execution": True,
+    "require_cpu_gpu_backend_variants": True,
+    "require_shared_batch_views": True,
+    "require_uniform_cohort_batch_size": True,
+    "require_cohort_exact_resume": True,
+    "require_lossless_sample_stream_compatibility": True,
+    "require_pressure_residency_windows_when_source_safe": True,
+    "classical_batch_lockstep_applicable": False,
+    "classical_shared_dataset_materialization": True,
+    "overlap_group_required_last": True,
 }
 
 
@@ -93,21 +122,16 @@ def _atomic(path: Path, data: bytes) -> None:
 def main() -> int:
     catalog = ROOT / CATALOG_PATH
     if not catalog.is_file():
-        raise RuntimeError(f"Gram scientific authority is missing: {catalog}")
+        raise RuntimeError(f"Gram physical scientific authority is missing: {catalog}")
     cache = ROOT / ".training_control" / "universal_training_controller_entry.py"
     if not cache.is_file() or _blob(cache.read_bytes()) != CONTROLLER_BLOB:
         payload = urllib.request.urlopen(CONTROLLER_URL, timeout=60).read()
         actual = _blob(payload)
         if actual != CONTROLLER_BLOB:
-            raise RuntimeError(
-                f"Pinned controller checksum mismatch: {actual} != {CONTROLLER_BLOB}"
-            )
+            raise RuntimeError(f"Pinned controller checksum mismatch: {actual} != {CONTROLLER_BLOB}")
         _atomic(cache, payload)
-    profile_path = ROOT / ".training_control" / "gram_scientific_v1_v37.json"
-    _atomic(
-        profile_path,
-        (json.dumps(PROFILE, indent=2, sort_keys=True) + "\n").encode("utf-8"),
-    )
+    profile_path = ROOT / ".training_control" / "gram_scientific_v2_cohort_v37.json"
+    _atomic(profile_path, (json.dumps(PROFILE, indent=2, sort_keys=True) + "\n").encode("utf-8"))
     env = os.environ.copy()
     env.pop("TRAINING_CONTROL_PROFILE", None)
     env["TRAINING_CONTROL_PROFILE_FILE"] = str(profile_path)

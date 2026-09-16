@@ -2,14 +2,14 @@
 """Run one Nexus severity dataset group with one shared in-memory X/y matrix.
 
 The four retained estimators are classical whole-estimator transactions, so this
-worker does not falsely claim minibatch lockstep.  It does implement the useful
-part of the dataset-cohort contract for classical science: one CSV read, one
-competitive-zone filter/log transform, one shared NumPy feature matrix, then all
-model-family fits/CV/SHAP extraction before the dataset is released.
+worker does not falsely claim minibatch lockstep. It implements the useful part of
+the dataset-cohort contract for classical science: one CSV read, one competitive-
+zone filter/log transform, one shared NumPy feature matrix, then all model-family
+fits/CV/SHAP extraction before the dataset is released.
 
-AUTO is GPU-first for accelerator-capable XGBoost.  LightGBM GPU is opt-in only when
+AUTO is GPU-first for accelerator-capable XGBoost. LightGBM GPU is opt-in only when
 the installed LightGBM build explicitly supports it (GRAM_LIGHTGBM_GPU=1); sklearn
-LogReg/RandomForest remain CPU estimators by design.  CPU mode is strict.
+LogReg/RandomForest remain CPU estimators by design. CPU mode is strict.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 import sys
 import tempfile
-from typing import Any
+from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
@@ -51,13 +51,11 @@ def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _factory(*, use_gpu: bool):
-    models = nexus._make_models()
+def _configured_factory(original: Callable[[], dict[str, Any]], *, use_gpu: bool):
+    models = original()
     if use_gpu:
         xgb = models.get("XGBoost")
         if xgb is not None:
-            # XGBoost >=2 uses device='cuda'.  Preserve tree_method defaults so the
-            # backend, not the model family/hyperparameters, is the only variant.
             xgb.set_params(device="cuda")
         if _truthy(os.environ.get("GRAM_LIGHTGBM_GPU")):
             lgb = models.get("LightGBM")
@@ -81,10 +79,9 @@ def main() -> int:
     if not source.is_file():
         raise SystemExit(f"missing severity training dataset: {source}")
 
-    # One physical dataset load/transform shared by every classical model family.
     rows = nexus.read_csv(str(source))
     original = nexus._make_models
-    nexus._make_models = lambda: _factory(use_gpu=use_gpu)
+    nexus._make_models = lambda: _configured_factory(original, use_gpu=use_gpu)
     try:
         result = nexus.fit_severity(sev_int, rows)
     finally:

@@ -1,0 +1,104 @@
+name: Dataset Cohort Source Audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "run_all_training.py"
+      - "backend/embeddings.py"
+      - "backend/m3_exact_trainer.py"
+      - "backend/fit_nexus_weights.py"
+      - "training_control/dataset_cohort_runtime_entry.py"
+      - "training_control/gram_scientific_job_catalog_v2.py"
+      - "training_control/run_nexus_severity_group_v1.py"
+      - "training_control/merge_nexus_severity_groups_v1.py"
+      - "training_control/run_m3_overlap_group_v1.py"
+      - ".github/workflows/dataset-cohort-source-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile physical training surfaces
+        run: |
+          python -m py_compile \
+            run_all_training.py \
+            backend/embeddings.py \
+            backend/m3_exact_trainer.py \
+            training_control/dataset_cohort_runtime_entry.py \
+            training_control/gram_scientific_job_catalog_v2.py \
+            training_control/run_nexus_severity_group_v1.py \
+            training_control/merge_nexus_severity_groups_v1.py \
+            training_control/run_m3_overlap_group_v1.py
+      - name: Exercise physical catalog invariants
+        run: |
+          PYTHONPATH=training_control python - <<'PY'
+          import gram_scientific_job_catalog_v2 as catalog
+          rows = list(catalog.iter_jobs())
+          groups = sorted(
+              [row for row in rows if row.get("dataset_group_index") is not None],
+              key=lambda row: row["dataset_group_index"],
+          )
+          assert [row["dataset_group_index"] for row in groups] == [1, 2, 3, 4]
+          assert [row["model_family_count"] for row in groups[:3]] == [4, 4, 4]
+          assert [row["dataset_parent"] for row in groups[:3]] == [
+              "data/training_labels_high.csv",
+              "data/training_labels_low.csv",
+              "data/training_labels_normal.csv",
+          ]
+          assert groups[-1]["dataset_parent"] == "__overlap__"
+          assert groups[-1]["overlap"] is True
+          assert groups[-1]["depends_on"] == ["materialize-canonical-data", "merge-nexus-severity-groups"]
+          metadata = catalog.catalog_metadata()
+          assert metadata["overlap_group_last"]
+          assert metadata["single_group_family_counts_nonincreasing"]
+          assert metadata["classical_shared_batch_claim"] is False
+          assert metadata["classical_shared_dataset_materialization"] is True
+          print(metadata)
+          PY
+      - name: Audit root and backend invariants
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path("run_all_training.py").read_text(encoding="utf-8")
+          for marker in (
+              '"scientific_authority": CATALOG_PATH',
+              '"scientific_authority_version": 2',
+              '"require_dataset_cohort_execution": True',
+              '"require_cpu_gpu_backend_variants": True',
+              '"require_shared_batch_views": True',
+              '"require_uniform_cohort_batch_size": True',
+              '"require_cohort_exact_resume": True',
+              '"classical_batch_lockstep_applicable": False',
+              '"overlap_group_required_last": True',
+          ):
+              if marker not in root:
+                  raise SystemExit(f"missing Gram root cohort invariant: {marker}")
+
+          loader = Path("training_control/dataset_cohort_runtime_entry.py").read_text(encoding="utf-8")
+          assert "0124a824d4fff32f4b427812a27cf7937d7c0891" in loader
+          assert "9364847538404151966b3719b10a1a9dc5f0f400" in loader
+
+          embeddings = Path("backend/embeddings.py").read_text(encoding="utf-8")
+          for marker in ("TRAINING_CONTROL_CPU_ONLY", "TRAINING_CONTROL_BACKEND", "cuda:", "device=device"):
+              if marker not in embeddings:
+                  raise SystemExit(f"missing Gram embedding backend invariant: {marker}")
+
+          nexus = Path("training_control/run_nexus_severity_group_v1.py").read_text(encoding="utf-8")
+          assert 'xgb.set_params(device="cuda")' in nexus
+          assert "shared_dataset_materialization" in nexus
+          m3 = Path("training_control/run_m3_overlap_group_v1.py").read_text(encoding="utf-8")
+          for marker in ("--backend", "subprocess_environment", "overlap_group"):
+              if marker not in m3:
+                  raise SystemExit(f"missing Gram M3 backend invariant: {marker}")
+          print("Gram physical dataset-group source contract: PASS")
+          PY

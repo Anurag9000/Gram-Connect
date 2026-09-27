@@ -66,6 +66,42 @@ def _configured_factory(original: Callable[[], dict[str, Any]], *, use_gpu: bool
     return models
 
 
+def inspect_fitted_estimator(name: str, estimator: Any, *, gpu_requested: bool) -> dict[str, Any]:
+    """Record fitted-estimator evidence without conflating it with CV execution.
+
+    XGBoost exposes the *effective* device in the fitted Booster configuration.
+    cuML's import hook can fall back per operation; a successful install does
+    not establish where an sklearn fit ran. LightGBM's booster params record
+    configuration, not a measured GPU operation.
+    """
+    if name == "XGBoost":
+        config = json.loads(estimator.get_booster().save_config())
+        effective = str(config.get("learner", {}).get("generic_param", {}).get("device", "unavailable"))
+        on_cuda = effective.startswith("cuda") or effective.startswith("gpu")
+        if gpu_requested and not on_cuda:
+            raise RuntimeError(
+                f"XGBoost requested CUDA but fitted Booster reports device={effective!r}"
+            )
+        return {
+            "fitted_device": effective, "fit_device_evidence": "fitted_xgboost_booster_config",
+            "gpu_fit_verified": on_cuda,
+        }
+    if name == "LightGBM":
+        booster = getattr(estimator, "booster_", None)
+        params = getattr(booster, "params", {}) if booster is not None else {}
+        setting = str(params.get("device_type", params.get("device", "unavailable")))
+        return {
+            "fitted_device": setting, "fit_device_evidence": "fitted_lightgbm_booster_parameters",
+            "gpu_fit_verified": False,
+            "note": "configured GPU backend, not a measured GPU kernel",
+        }
+    return {
+        "fitted_device": "unverified",
+        "fit_device_evidence": "cuml_accel may dispatch or fall back per operation",
+        "gpu_fit_verified": False,
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--severity", choices=tuple(SEVERITY), required=True)
@@ -86,7 +122,12 @@ def main() -> int:
     original = nexus._make_models
     nexus._make_models = lambda: _configured_factory(original, use_gpu=use_gpu)
     try:
-        result = nexus.fit_severity(sev_int, rows)
+        result = nexus.fit_severity(
+            sev_int, rows,
+            inspect_fit=lambda name, estimator: inspect_fitted_estimator(
+                name, estimator, gpu_requested=use_gpu,
+            ),
+        )
     finally:
         nexus._make_models = original
 
@@ -104,11 +145,17 @@ def main() -> int:
         "classical_transaction_semantics": "whole-estimator fit/CV; no false minibatch lockstep",
         "sklearn_acceleration": sklearn_acceleration,
         "model_backends": {
-            "LogReg": "cuml-when-supported-otherwise-cpu" if sklearn_acceleration["enabled"] else "cpu",
-            "RandomForest": "cuml-when-supported-otherwise-cpu" if sklearn_acceleration["enabled"] else "cpu",
-            "XGBoost": "gpu" if use_gpu else "cpu",
-            "LightGBM": "gpu" if use_gpu and _truthy(os.environ.get("GRAM_LIGHTGBM_GPU")) else "cpu",
+            name: evidence["fitted_device"] if evidence["fit_status"] == "completed" else "failed"
+            for name, evidence in result["model_execution"].items()
         },
+        "model_execution_evidence": result["model_execution"],
+        "failed_models": result["failed_models"],
+        "all_candidate_fits_succeeded": result["all_candidate_fits_succeeded"],
+        "backend_claim_boundary": (
+            "XGBoost fitted Booster config verifies its effective device. "
+            "LightGBM reports fitted configuration only. cuML hook installation does not "
+            "prove GPU execution for individual sklearn fits or CV refits."
+        ),
         "result": result,
         "model_training_executed": True,
     }

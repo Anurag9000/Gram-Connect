@@ -135,7 +135,7 @@ def _normalise(raw: dict, floor=0.05) -> dict:
 
 # ── Main fitter ───────────────────────────────────────────────────────────────
 
-def fit_severity(sev_int: int, rows: list) -> dict:
+def fit_severity(sev_int: int, rows: list, inspect_fit=None) -> dict:
     import numpy as np
     sev = SEV_LABEL[sev_int]
 
@@ -146,9 +146,11 @@ def fit_severity(sev_int: int, rows: list) -> dict:
     print(f"  Class balance: pos {pos:,} ({pos/len(ya):.1%})  neg {len(ya)-pos:,}")
 
     models   = _make_models()
-    results  = {}
-    best_auc = 0.0
-    best_name = "LogReg"
+    results = {}
+    failed_models = {}
+    model_execution = {}
+    best_auc = float("-inf")
+    best_name = None
 
     print(f"\n  {'Model':<15} {'ROC-AUC':>10} {'±':>8}")
     print(f"  {'-'*35}")
@@ -156,16 +158,38 @@ def fit_severity(sev_int: int, rows: list) -> dict:
     for name, clf in models.items():
         try:
             clf.fit(Xa, ya)
+            evidence = inspect_fit(name, clf) if inspect_fit is not None else {
+                "fitted_device": "unverified", "fit_device_evidence": "not_instrumented",
+                "gpu_fit_verified": False,
+            }
             roc = _cv_auc(clf, Xa, ya)
-            mean_auc = roc.mean()
+            mean_auc = float(roc.mean())
+            if not math.isfinite(mean_auc):
+                raise ValueError("non-finite cross-validation AUC")
             print(f"  {name:<15} {mean_auc:>10.4f} {roc.std():>8.4f}")
             results[name] = {"clf": clf, "auc": mean_auc}
+            model_execution[name] = {
+                **evidence, "fit_status": "completed",
+                "cross_validation_gpu_verified": False,
+                "cross_validation_evidence": "sklearn cross_val_score refits not instrumented",
+            }
             if mean_auc > best_auc:
                 best_auc  = mean_auc
                 best_name = name
         except Exception as e:
+            failed_models[name] = f"{type(e).__name__}: {e}"
+            model_execution[name] = {
+                "fit_status": "failed", "gpu_fit_verified": False,
+                "cross_validation_gpu_verified": False,
+                "error": failed_models[name],
+            }
             print(f"  {name:<15} FAILED: {e}")
 
+    if best_name is None:
+        raise RuntimeError(
+            f"all Nexus severity candidates failed for {sev}: "
+            + "; ".join(f"{name}: {reason}" for name, reason in failed_models.items())
+        )
     print(f"\n  Best model: {best_name} (AUC={best_auc:.4f})")
 
     # Extract weights from best model via SHAP (preferred) → coef → importance
@@ -201,6 +225,9 @@ def fit_severity(sev_int: int, rows: list) -> dict:
         "best_model": best_name,
         "best_auc": round(best_auc, 4),
         "all_aucs": {n: round(r["auc"], 4) for n, r in results.items() if "auc" in r},
+        "model_execution": model_execution,
+        "failed_models": failed_models,
+        "all_candidate_fits_succeeded": not failed_models,
     }
 
 

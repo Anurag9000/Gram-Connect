@@ -12,7 +12,7 @@ NEW = ROOT / "training_control" / "dataset_cohort_runtime_entry_v3.py"
 
 def test_canonical_v3_pin_without_mutating_v2():
     data = OLD.read_bytes()
-    assert hashlib.sha1(f"blob {len(data)}\\0".encode("ascii") + data).hexdigest() == "62312e09bfcbc724cf56eaa4bd235969ad8851aa"
+    assert hashlib.sha1(f"blob {len(data)}\0".encode("ascii") + data).hexdigest() == "62312e09bfcbc724cf56eaa4bd235969ad8851aa"
     source = NEW.read_text(encoding="utf-8")
     ast.parse(source)
     for marker in (

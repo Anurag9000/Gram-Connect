@@ -8,8 +8,9 @@ zone filter/log transform, one shared NumPy feature matrix, then all model-famil
 fits/CV/SHAP extraction before the dataset is released.
 
 AUTO is GPU-first for accelerator-capable XGBoost. LightGBM GPU is opt-in only when
-the installed LightGBM build explicitly supports it (GRAM_LIGHTGBM_GPU=1); sklearn
-LogReg/RandomForest remain CPU estimators by design. CPU mode is strict.
+the installed LightGBM build explicitly supports it (GRAM_LIGHTGBM_GPU=1).
+cuML's accelerator is installed before importing sklearn where supported; unsupported
+estimators and APIs retain sklearn CPU behavior. CPU mode is strict.
 """
 from __future__ import annotations
 
@@ -29,6 +30,7 @@ for value in (BACKEND, CONTROL):
         sys.path.insert(0, str(value))
 
 from dataset_cohort_runtime_entry import load_runtime  # noqa: E402
+from gpu_optional_backends import activate_cuml_accel  # noqa: E402
 import fit_nexus_weights as nexus  # noqa: E402
 
 SCHEMA = "gram-nexus-severity-group/v1"
@@ -74,6 +76,7 @@ def main() -> int:
     runtime = load_runtime(ROOT)
     probe = runtime.detect_backend(args.backend)
     use_gpu = str(probe.selected_device).startswith("cuda")
+    sklearn_acceleration = activate_cuml_accel(use_gpu)
     sev_int = SEVERITY[args.severity]
     source = ROOT / "data" / f"training_labels_{args.severity}.csv"
     if not source.is_file():
@@ -99,9 +102,10 @@ def main() -> int:
         "selected_backend": probe.selected_device,
         "shared_dataset_materialization": True,
         "classical_transaction_semantics": "whole-estimator fit/CV; no false minibatch lockstep",
+        "sklearn_acceleration": sklearn_acceleration,
         "model_backends": {
-            "LogReg": "cpu",
-            "RandomForest": "cpu",
+            "LogReg": "cuml-when-supported-otherwise-cpu" if sklearn_acceleration["enabled"] else "cpu",
+            "RandomForest": "cuml-when-supported-otherwise-cpu" if sklearn_acceleration["enabled"] else "cpu",
             "XGBoost": "gpu" if use_gpu else "cpu",
             "LightGBM": "gpu" if use_gpu and _truthy(os.environ.get("GRAM_LIGHTGBM_GPU")) else "cpu",
         },

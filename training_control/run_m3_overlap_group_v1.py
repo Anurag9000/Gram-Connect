@@ -14,7 +14,7 @@ CONTROL = ROOT / "training_control"
 if str(CONTROL) not in sys.path:
     sys.path.insert(0, str(CONTROL))
 
-from dataset_cohort_runtime_entry import load_runtime  # noqa: E402
+from dataset_cohort_runtime_entry_v3 import load_runtime  # noqa: E402
 
 SCHEMA = "gram-m3-overlap-group/v1"
 

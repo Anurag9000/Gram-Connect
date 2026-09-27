@@ -29,7 +29,7 @@ for value in (BACKEND, CONTROL):
     if str(value) not in sys.path:
         sys.path.insert(0, str(value))
 
-from dataset_cohort_runtime_entry import load_runtime  # noqa: E402
+from dataset_cohort_runtime_entry_v3 import load_runtime  # noqa: E402
 from gpu_optional_backends import activate_cuml_accel  # noqa: E402
 import fit_nexus_weights as nexus  # noqa: E402
 
